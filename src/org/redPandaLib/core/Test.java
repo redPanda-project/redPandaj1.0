@@ -30,7 +30,7 @@ import org.redPandaLib.database.MessageStore;
 import org.redPandaLib.services.ClusterBuilder;
 import org.redPandaLib.services.MessageDownloader;
 import org.redPandaLib.services.MessageVerifierHsqlDb;
-import org.redPandaLib.upnp.Portforward;
+//import org.redPandaLib.upnp.Portforward;
 
 /**
  *
@@ -867,12 +867,12 @@ public class Test {
 //                }
 
 
-                if (PORTFORWARD) {
-                    String localHost = InetAddress.getLocalHost().getHostName();
-                    InetAddress[] allByName = InetAddress.getAllByName(localHost);
-                    Portforward.start(MY_PORT, allByName[0].getHostAddress());
-                    System.out.println("Started UPNP portforward for port " + MY_PORT);
-                }
+//                if (PORTFORWARD) {
+//                    String localHost = InetAddress.getLocalHost().getHostName();
+//                    InetAddress[] allByName = InetAddress.getAllByName(localHost);
+//                    Portforward.start(MY_PORT, allByName[0].getHostAddress());
+//                    System.out.println("Started UPNP portforward for port " + MY_PORT);
+//                }
 
 
                 localSettings = saver.loadLocalSettings();
