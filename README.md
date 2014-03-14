@@ -1,19 +1,18 @@
 redPandaj
 =========
 
-redPanda - secure peer to peer chat
+redPanda - secure peer-to-peer chat
 
 
-Welcome to redPanda. We aim to develop a secure peer to peer chat with the same comfort as comparable messengers like whatsapp, facebook messenger and co. but give a decentral, secure infrastructure to deliver messages.
+Welcome to redPanda, the secure peer-to-peer chat. Our aim is to develop a messenger with the same comfort as commercial centralized messengers (cf. WhatsApp, Facebook Messenger, etc) but with a secure decentralized infrastructure.
 
 Status
 =========
-There is currently a version for android and a desktop client for windows and linux base on java. We are focusing just on the backend, speak the cummunication between the nodes and the delivery of messages.
-The android version is working at the moment and is nearly stable. So chatting should work.
+There is currently a version for android and a desktop client for windows and linux based on java. The android version is functional at the moment and close to stable - so chatting should work.
 
-We are currently going von closed alpha to public alpha state and are looking for some people who are interessted in this project and want to set up a solid network for the peer to peer comunication.
+At the moment we are just focusing on the back-end, i.e. the cummunication between the nodes and the delivery of messages. Right now we are going from closed alpha to public alpha state, meaning we are looking for people who are interessted in this project and want to set up a solid network for the peer-to-peer comunication.
 
-Currently the system is not scaleable. So at like 200 user the peers will need much traffic and at 2000 users the supernodes are not able to serve any messages at all.
+As of now the system is not scaleable. So, at 200 user the peers will generate a lot of traffic and at 2000 users the supernodes will not be able to serve any messages at all.
 
 
 The System
