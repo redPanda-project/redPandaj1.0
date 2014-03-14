@@ -21,7 +21,7 @@ As of now the system is not scaleable. So, at 200 user the peers will generate a
 
 How can you help us?
 =========
-We need to test the network. So, you can help us by setting up a node (which will update automatically).
+We need to test the network. So, you can help us by setting up a node (which will update automatically) and set up a portforward if possible. RedPanda already supports ipv6 addresses. The default port is 59558 currently just over TCP.
 
 The System
 =========
