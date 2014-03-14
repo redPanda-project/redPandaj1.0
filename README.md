@@ -11,7 +11,7 @@ Status
 
 There is currently a version for android and a desktop client for windows and linux based on java. The android version is functional at the moment and close to stable - so chatting should work. All of them have an update system included.
 
-Android : http://xana.hopto.org/redPanda/redPanda.apk
+Android : http://xana.hopto.org/redPanda/redPanda.apk (Hint: Long press on name to change it. Names after '-' indicate delivered messages)
 
 Desktop/Console (Linux, Windows): http://redPanda.hopto.org
 
@@ -30,3 +30,9 @@ Addresses look like: pr7768EZp1Y8PwQhozCfacTNjL4iRxgJqcm8NDVuyvhfYJDwkzJFTtCZ6
 You just need such a Key to write messages to a given channel. A channel can be just one person or a group of people.
 
 There are no real identities, you can just fake one if you want. The whole system is based on trust with respect to your chat partners. Also, the delivery of messages will utilize your network of (trusted) nodes.
+
+
+Attention
+=========
+Currently all clients send crashing and debugging information over the redPanda-network to the so called 'Main Channel'. We need them to fix bugs fast at this stage of development.
+We only garantee that the latest version is able to reciev messages. 
