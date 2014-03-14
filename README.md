@@ -13,7 +13,7 @@ There is currently a version for android and a desktop client for windows and li
 
 Android : http://xana.hopto.org/redPanda/redPanda.apk
 
-Desktop/Console (Linux, Windows): http://redpanda.hopto.org
+Desktop/Console (Linux, Windows): http://redPanda.hopto.org
 
 At the moment we are just focusing on the back-end, i.e. the cummunication between the nodes and the delivery of messages. Right now we are going from closed alpha to public alpha state, meaning we are looking for people who are interessted in this project and want to set up a solid network for the peer-to-peer comunication.
 
