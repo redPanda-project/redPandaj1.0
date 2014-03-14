@@ -4,7 +4,7 @@ redPandaj
 redPanda - secure peer to peer chat
 
 
-Welcome to redPanda. We aim to develop a secure peer to peer chat with the same comfort as comparable messengers like whatsapp, facebook messenger and co. but give a decentral, secure inferstructure to deliver messages.
+Welcome to redPanda. We aim to develop a secure peer to peer chat with the same comfort as comparable messengers like whatsapp, facebook messenger and co. but give a decentral, secure infrastructure to deliver messages.
 
 Status
 =========
@@ -19,6 +19,3 @@ Currently the system is not scaleable. So at like 200 user the peers will need m
 The System
 =========
 Addresses look like: pr7768EZp1Y8PwQhozCfacTNjL4iRxgJqcm8NDVuyvhfYJDwkzJFTtCZ6
-
-
-test
