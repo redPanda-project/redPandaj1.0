@@ -35,4 +35,5 @@ There are no real identities, you can just fake one if you want. The whole syste
 Attention
 =========
 Currently all clients send crashing and debugging information over the redPanda-network to the so called 'Main Channel'. We need them to fix bugs fast at this stage of development.
-We only garantee that the latest version is able to reciev messages. 
+We only garantee that the latest version is able to reciev messages.
+Noting is fixed at this moment, all can change.
