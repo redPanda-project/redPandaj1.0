@@ -1,0 +1,28 @@
+Install
+=========
+
+You need Java 1.6 or 1.7. For the qt GUI you need the 32bit-version for windows.
+Attention, redPanda uses AES256 so you need the cryptographical extention files installed.
+
+
+Run
+=========
+Just set up the java HOME directory in bin/settings, just ONE line. Like "C:\Program Files (x86)\Java\jre7\bin\"
+or "/home/user/java/jdk1.7.0_15/bin/" pointing to the binarys folder.
+
+Start redPanda directly from the redPanda folder not in the bin folder.
+Then type
+./bin/redPanda-console.sh
+for the console or
+./bin/redPanda-qt.sh
+for the qt GUI currently not working very good.
+
+Console Commands
+=========
+Hit enter for stats.
+s - send Message and get keys
+M - add Main Channel, currenlty used for debug messages
+i - import Channel
+e - exit
+
+much more...
