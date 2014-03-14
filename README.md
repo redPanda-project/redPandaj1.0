@@ -10,6 +10,7 @@ Status
 =========
 
 Desktop/Console (Linux, Windows): redpanda.hopto.org
+
 Android : xana.hopto.org/redPanda/redPanda.apk
 
 They have both an update system included.
