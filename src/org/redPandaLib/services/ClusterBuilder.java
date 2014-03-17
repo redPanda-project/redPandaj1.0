@@ -43,7 +43,7 @@ public class ClusterBuilder {
 
                 Test.localSettings.lastSendAllMyChannels = System.currentTimeMillis();
 
-                //send all my channels to channels xD
+                //send all my ch<annels to channels xD
                 for (Channel c1 : Main.getChannels()) {
                     for (Channel c2 : Main.getChannels()) {
                         if (SpecialChannels.isSpecial(c1) != null || SpecialChannels.isSpecial(c2) != null || c1.equals(c2)) {

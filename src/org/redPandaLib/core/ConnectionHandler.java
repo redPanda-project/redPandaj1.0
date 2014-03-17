@@ -1479,10 +1479,12 @@ public class ConnectionHandler extends Thread {
 //                            if (Settings.SUPERNODE) {
 //                                time = 0;
 //                            }
-                    //System.out.println("full sync... from: " + time);
+                    System.out.println("full sync... from: " + time);
                     ResultSet executeQuery = MessageHolder.getAllMessages(time, Long.MAX_VALUE);
+                    System.out.println("query okay...");
                     //                        for (RawMsg m : MessageHolder.getAllMessages(time, System.currentTimeMillis())) {
                     while (executeQuery.next()) {
+                        System.out.println("sending message...");
                         int message_id = executeQuery.getInt("message_id");
                         int pubkey_id = executeQuery.getInt("pubkey_id");
                         byte[] bytes = executeQuery.getBytes("pubkey");
@@ -1543,12 +1545,15 @@ public class ConnectionHandler extends Thread {
 
                         }
                         peer.writeMessage(m);
+                        System.out.println("send");
 
 
                     }
                 } catch (SQLException ex) {
                     Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
                 }
+                System.out.println("finish");
+                
             }
         ;
     }

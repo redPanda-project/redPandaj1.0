@@ -40,28 +40,26 @@ public class Main {
 
         Test.main(listenConsole, saver);
         Thread thread = new Thread() {
+            @Override
+            public void run() {
+                while (Test.STARTED_UP_SUCCESSFUL == false) {
+                    try {
+                        sleep(50);
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
+        };
 
-                            @Override
-                            public void run() {
-                                while (Test.STARTED_UP_SUCCESSFUL == false) {
-                                    try {
-                                        sleep(50);
-                                    } catch (InterruptedException ex) {
-                                        Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
-                                    }
-                                }
-                            }
-                            
-                        };
-        
         thread.start();
-        
+
         try {
             thread.join();
         } catch (InterruptedException ex) {
             Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
         }
-        
+
 
     }
 
@@ -155,6 +153,7 @@ public class Main {
 
         if (shutdown) {
             System.out.println("already shutted down");
+            System.exit(0);
             return;
         }
 
@@ -172,6 +171,11 @@ public class Main {
         Test.savePeers();
         System.out.println("save trustdata...");
         Test.saveTrustData();
+
+        System.out.println("finished shutdown sequenze...");        
+        System.exit(0);
+        System.out.println("System exited...");
+
     }
 
     /**

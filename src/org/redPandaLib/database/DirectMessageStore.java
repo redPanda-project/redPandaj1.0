@@ -383,6 +383,8 @@ public class DirectMessageStore implements MessageStore {
     public void quit() {
         try {
             connection.commit();
+            PreparedStatement prepareStatement = connection.prepareStatement("SHUTDOWN");
+            prepareStatement.execute();
             connection.close();
         } catch (SQLException ex) {
             Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
@@ -513,7 +515,7 @@ public class DirectMessageStore implements MessageStore {
         try {
             //get Key Id
             String query = "SELECT message_id,message_type,decryptedContent,timestamp,identity,fromMe,nonce from channelmessage LEFT JOIN message on (channelmessage.message_id = message.message_id) WHERE pubkey_id =? AND timestamp < ? AND timestamp > ? "
-             + "UNION (SELECT message_id,message_type,decryptedContent,timestamp,identity,fromMe,nonce from channelmessage LEFT JOIN message on (channelmessage.message_id = message.message_id) WHERE pubkey_id =? AND timestamp < ? ORDER BY message_type, timestamp LIMIT 200)";
+                    + "UNION (SELECT message_id,message_type,decryptedContent,timestamp,identity,fromMe,nonce from channelmessage LEFT JOIN message on (channelmessage.message_id = message.message_id) WHERE pubkey_id =? AND timestamp < ? ORDER BY message_type, timestamp LIMIT 200)";
 
             System.out.println("QUERY: " + query);
 

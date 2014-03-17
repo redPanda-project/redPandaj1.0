@@ -261,15 +261,16 @@ public class Test {
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
+                System.out.println("started shutdownhook...");
                 Main.shutdown();
-                System.out.println("saved peers and msg before shutdown...");
+                System.out.println("shutdownhook done");
             }
         });
 
         System.out.println("shutdownhook added...");
 
         if (listenConsole) {
-            while (true) {
+            while (!Main.shutdown) {
                 String readLine = bufferedReader.readLine();
 
                 if (peerList == null) {

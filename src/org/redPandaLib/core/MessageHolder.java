@@ -27,6 +27,11 @@ public class MessageHolder {
      * @return
      */
     public static ResultSet getAllMessages(long from, long to) {
+
+        if (from < Settings.till) {
+            from = Settings.till;
+        }
+
         //return (ArrayList<RawMsg>) msgs.clone();
         ResultSet allMessagesForSync = Test.messageStore.getAllMessagesForSync(from, to);
 
