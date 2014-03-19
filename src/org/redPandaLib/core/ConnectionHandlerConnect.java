@@ -32,6 +32,10 @@ public class ConnectionHandlerConnect extends Thread {
     @Override
     public void run() {
         while (!Main.shutdown) {
+            
+                        final String orgName = Thread.currentThread().getName();
+            Thread.currentThread().setName(orgName + " - ConnectionHandlerConnect");
+            
             try {
                 int readyChannels = selector.select();
 

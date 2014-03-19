@@ -8,6 +8,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.Map.Entry;
 import java.util.logging.Level;
@@ -51,6 +52,8 @@ public class MessageVerifierHsqlDb {
 
 //            threadPool = Executors.newFixedThreadPool(4);
 
+            final String orgName = Thread.currentThread().getName();
+            Thread.currentThread().setName(orgName + " - MessageVerifier");
 
             while (!Main.shutdown) {
 
@@ -132,6 +135,8 @@ public class MessageVerifierHsqlDb {
                                     new Thread() {
                                         @Override
                                         public void run() {
+                                            final String orgName = Thread.currentThread().getName();
+                                            Thread.currentThread().setName(orgName + " - broadCastMsg");
                                             Test.broadcastMsg(message);
                                         }
                                     }.start();
@@ -192,7 +197,9 @@ public class MessageVerifierHsqlDb {
                                 if (peer.getPeerTrustData() == null || peer.getLoadedMsgs() == null) {
                                     continue;
                                 }
-                                for (int i : peer.getLoadedMsgs()) {
+                                ArrayList<Integer> loadedMsgs = (ArrayList<Integer>) peer.getLoadedMsgs().clone();
+
+                                for (int i : loadedMsgs) {
                                     if (i == message_id) {
                                         loadedFrom = peer;
                                         System.out.println("loaded from peer: " + peer.getIp() + ":" + peer.getPort());
@@ -237,8 +244,9 @@ public class MessageVerifierHsqlDb {
                     } catch (InterruptedException ex) {
                     }
 
-                } catch (SQLException ex) {
+                } catch (Exception ex) {
                     Logger.getLogger(MessageVerifierHsqlDb.class.getName()).log(Level.SEVERE, null, ex);
+                    Test.sendStacktrace(ex);
                 }
 
             }

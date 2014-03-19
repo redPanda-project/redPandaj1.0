@@ -12,6 +12,7 @@ import java.util.Map.Entry;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.redPandaLib.Main;
 import org.redPandaLib.core.*;
 import org.redPandaLib.core.messages.RawMsg;
 
@@ -55,10 +56,13 @@ public class MessageDownloader {
 
 
         new Thread() {
-
             @Override
             public void run() {
-                while (true) {
+
+                final String orgName = Thread.currentThread().getName();
+                Thread.currentThread().setName(orgName + " - MessageDownloader - decrese pubmsg");
+
+                while (!Main.shutdown) {
                     try {
                         sleep(1000 * 10);
                     } catch (InterruptedException ex) {
@@ -110,8 +114,9 @@ public class MessageDownloader {
 //            } catch (InterruptedException ex) {
 //            }
 
-
-            while (true) {
+            final String orgName = Thread.currentThread().getName();
+            Thread.currentThread().setName(orgName + " - MessageDownloader");
+            while (!Main.shutdown) {
 
                 //System.out.println("new round");
 
@@ -339,11 +344,8 @@ public class MessageDownloader {
                         } else if (m.public_type == 15) {
                             //remove all msgs from that chan that are older then this message with
                             // public type 20 or greater 50
-                            
                             //removeMessagesFromChannel
-                            
                             //TODO WRONG PLACE HERE! implement in ConnectionHandler!
-                            
                         } else {
                             System.out.println("Message type not defined.... " + m.public_type);
                         }

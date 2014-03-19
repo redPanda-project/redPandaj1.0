@@ -115,6 +115,8 @@ public class ConnectionHandler extends Thread {
     @Override
     public void run() {
 
+        final String orgName = Thread.currentThread().getName();
+        Thread.currentThread().setName(orgName + " - IncomingHandler - Main");
 
         while (!Main.shutdown) {
 
@@ -288,10 +290,10 @@ public class ConnectionHandler extends Thread {
                         if (read > 0) {
                             Test.inBytes += read;
                             //succesfully read some bytes...
+                            PeerTrustData peerTrustData = peer.getPeerTrustData();
 
-
-                            if (peer.getPeerTrustData() != null && !peer.getPeerTrustData().sendMessages.isEmpty()) {
-                                peer.getPeerTrustData().lastSuccessfulySendMessageHeader = peer.getPeerTrustData().sendMessages.get(peer.getPeerTrustData().sendMessages.size() - 1);
+                            if (peerTrustData != null && !peerTrustData.sendMessages.isEmpty()) {
+                                peerTrustData.lastSuccessfulySendMessageHeader = peerTrustData.sendMessages.get(peerTrustData.sendMessages.size() - 1);
                             }
                         }
 
@@ -935,10 +937,13 @@ public class ConnectionHandler extends Thread {
                 @Override
                 public void run() {
 
+                    final String orgName = Thread.currentThread().getName();
+                    Thread.currentThread().setName(orgName + " - send Message Thread");
+
                     RawMsg rawMsg = null;
                     rawMsg = MessageHolder.getRawMsg(id);
                     if (rawMsg == null) {
-                        System.out.println("HM diese Nachricht habe ich nicht, id: " + id);
+                        System.out.println("HM diese Nachricht habe ich nicht, id: " + id + " ip: " + peer.getIp());
                         return;
                     }
                     //ToDo: msg might have been deleted due to false signature...
@@ -1019,6 +1024,8 @@ public class ConnectionHandler extends Thread {
                     new Runnable() {
                 @Override
                 public void run() {
+                                final String orgName = Thread.currentThread().getName();
+            Thread.currentThread().setName(orgName + " - addMessage + ev. broadcast");
                     RawMsg addMessage = MessageHolder.addMessage(get);
 
                     System.out.println("DWGDYWGDYW " + addMessage.key.database_id);
@@ -1474,6 +1481,9 @@ public class ConnectionHandler extends Thread {
         new Thread() {
             @Override
             public void run() {
+                            final String orgName = Thread.currentThread().getName();
+            Thread.currentThread().setName(orgName + " - syncMessages");
+                
                 try {
 
 //                            if (Settings.SUPERNODE) {
@@ -1484,7 +1494,7 @@ public class ConnectionHandler extends Thread {
                     System.out.println("query okay...");
                     //                        for (RawMsg m : MessageHolder.getAllMessages(time, System.currentTimeMillis())) {
                     while (executeQuery.next()) {
-                        System.out.println("sending message...");
+//                        System.out.println("sending message...");
                         int message_id = executeQuery.getInt("message_id");
                         int pubkey_id = executeQuery.getInt("pubkey_id");
                         byte[] bytes = executeQuery.getBytes("pubkey");
@@ -1545,7 +1555,7 @@ public class ConnectionHandler extends Thread {
 
                         }
                         peer.writeMessage(m);
-                        System.out.println("send");
+//                        System.out.println("send");
 
 
                     }
@@ -1553,7 +1563,7 @@ public class ConnectionHandler extends Thread {
                     Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
                 }
                 System.out.println("finish");
-                
+
             }
         ;
     }

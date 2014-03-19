@@ -93,8 +93,8 @@ public class Test {
         connectionHandler = new ConnectionHandler();
         connectionHandler.start();
 
-        connectionHandlerConnect = new ConnectionHandlerConnect();
-        connectionHandlerConnect.start();
+//        connectionHandlerConnect = new ConnectionHandlerConnect();
+//        connectionHandlerConnect.start();
 
         //threadPool.submit(new InboundThread());
         new InboundThread().start();
@@ -106,9 +106,12 @@ public class Test {
             @Override
             public void run() {
 
+                final String orgName = Thread.currentThread().getName();
+                Thread.currentThread().setName(orgName + " - ChronJobs for peer comunication");
+
                 long lastSaved = System.currentTimeMillis();
 
-                while (true) {
+                while (!Main.shutdown) {
 
 
                     if (System.currentTimeMillis() - lastSaved > 120 * 1000) {
@@ -261,6 +264,8 @@ public class Test {
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
+                final String orgName = Thread.currentThread().getName();
+                Thread.currentThread().setName(orgName + " - shutdownhook");
                 System.out.println("started shutdownhook...");
                 Main.shutdown();
                 System.out.println("shutdownhook done");
@@ -798,7 +803,8 @@ public class Test {
         @Override
         public void run() {
 
-
+            final String orgName = Thread.currentThread().getName();
+            Thread.currentThread().setName(orgName + " - InboundThread");
 
             if (DEBUG) {
                 System.out.println("inbound thrad started...");
@@ -899,6 +905,8 @@ public class Test {
         @Override
         public void run() {
 
+            final String orgName = Thread.currentThread().getName();
+            Thread.currentThread().setName(orgName + " - OutboundThread");
 
             Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
                 @Override
@@ -911,7 +919,7 @@ public class Test {
 
             long loopCount = 0;
 
-            while (true) {
+            while (!Main.shutdown) {
 
 
 
@@ -1216,6 +1224,9 @@ public class Test {
             @Override
             public void run() {
 
+
+                final String orgName = Thread.currentThread().getName();
+                Thread.currentThread().setName(orgName + " - Conntect to Node");
 
                 try {
                     //Socket socket = new Socket(peer.ip, peer.port);

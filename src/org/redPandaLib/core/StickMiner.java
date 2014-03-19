@@ -35,6 +35,9 @@ public class StickMiner {
                 @Override
                 public void run() {
 
+                                final String orgName = Thread.currentThread().getName();
+            Thread.currentThread().setName(orgName + " - stickminer");
+                    
                     //setPriority(MIN_PRIORITY);
 
                     System.out.println("started...");

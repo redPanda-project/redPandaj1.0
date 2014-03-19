@@ -165,16 +165,16 @@ public class Main {
                 p.disconnect();
             }
         }
-        System.out.println("shuting down database...");
+        System.out.println("shutting down database...");
         Test.messageStore.quit();
         System.out.println("Save peers...");
         Test.savePeers();
+        System.out.println("done");
         System.out.println("save trustdata...");
         Test.saveTrustData();
+        System.out.println("done");
 
-        System.out.println("finished shutdown sequenze...");        
-        System.exit(0);
-        System.out.println("System exited...");
+        System.out.println("finished shutdown sequenze...");
 
     }
 

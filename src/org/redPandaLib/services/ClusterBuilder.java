@@ -38,6 +38,8 @@ public class ClusterBuilder {
         @Override
         public void run() {
 
+            final String orgName = Thread.currentThread().getName();
+            Thread.currentThread().setName(orgName + " - ClusterBuilder");
 
             if (System.currentTimeMillis() - Test.localSettings.lastSendAllMyChannels > 1000 * 60 * 60 * 24 * 7) {
 
