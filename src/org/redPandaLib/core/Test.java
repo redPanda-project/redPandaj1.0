@@ -41,7 +41,7 @@ public class Test {
     static boolean DEBUG = true;
     static int DEBUG_LEVEL = 100;
     static boolean PORTFORWARD = false;
-    static final int VERSION = 17;
+    static final int VERSION = 19;
     static int MY_PORT;
     static String MAGIC = "k3gV";
     public static ArrayList<Peer> peerList = null;

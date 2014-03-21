@@ -8,6 +8,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Map.Entry;
@@ -245,8 +246,24 @@ public class MessageVerifierHsqlDb {
                     }
 
                 } catch (Exception ex) {
+
                     Logger.getLogger(MessageVerifierHsqlDb.class.getName()).log(Level.SEVERE, null, ex);
-                    Test.sendStacktrace(ex);
+
+                    if (ex instanceof SQLIntegrityConstraintViolationException) {
+                        System.out.println("#############################Please remove database files!!!!#######################");
+                        System.out.println("Please remove database files!!!!");
+                        System.out.println("Please remove database files!!!!");
+                        System.out.println("Please remove database files!!!!");
+                        System.out.println("SYSTEM EXIT");
+                        System.exit(0);
+                    } else {
+                        Test.sendStacktrace(ex);
+                    }
+
+
+
+
+
                 }
 
             }

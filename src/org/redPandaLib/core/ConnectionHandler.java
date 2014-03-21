@@ -10,6 +10,7 @@ import org.redPandaLib.services.MessageVerifierHsqlDb;
 import org.redPandaLib.services.MessageDownloader;
 import crypt.Utils;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
@@ -670,6 +671,19 @@ public class ConnectionHandler extends Thread {
     }
 
     private int parseCommands(byte command, final Peer peer, int parsedBytes, final ByteBuffer writeBuffer, final ByteBuffer readBuffer) {
+
+        if (peer.getPeerTrustData() == null) {
+
+            if (command == (byte) 1 || command == (byte) 2 || command == (byte) 10 || command == (byte) 51 || command == (byte) 52 || command == (byte) 53 || command == (byte) 55 || command == (byte) 100 || command == (byte) 101) {
+                // erlaubte befehle welche ohne verschluesselung ausgefuehrt werden duerfen
+            } else {
+                System.out.println("PEER wanted to send a command (" + command + ") which is only allowed after auth. : " + peer.ip);
+                peer.disconnect();
+                return 0;
+            }
+
+        }
+
         //System.out.println(peer.ip + " incoming command: " + command);
         if (command == (byte) 1) {
             Log.put("Command: get PeerList", 8);
@@ -909,6 +923,7 @@ public class ConnectionHandler extends Thread {
 
 //                System.out.println("found msg i want to have...");
             peer.addPendingMessage(messageId, rawMsg);
+            peer.getPeerTrustData().addIntroducedMessage(messageId);
 
             peer.getPeerTrustData().synchronizedMessages++;
 
@@ -1024,8 +1039,8 @@ public class ConnectionHandler extends Thread {
                     new Runnable() {
                 @Override
                 public void run() {
-                                final String orgName = Thread.currentThread().getName();
-            Thread.currentThread().setName(orgName + " - addMessage + ev. broadcast");
+                    final String orgName = Thread.currentThread().getName();
+                    Thread.currentThread().setName(orgName + " - addMessage + ev. broadcast");
                     RawMsg addMessage = MessageHolder.addMessage(get);
 
                     System.out.println("DWGDYWGDYW " + addMessage.key.database_id);
@@ -1090,6 +1105,115 @@ public class ConnectionHandler extends Thread {
 
 
             return 1 + 4 + RawMsg.SIGNATURE_LENGRTH + 4 + contentLength;
+
+        } else if (command == (byte) 8) {
+            //            Log.put("Command: control data request...", 8);
+            PeerTrustData peerTrustData = peer.getPeerTrustData();
+
+            writeBuffer.put((byte) 9);
+            writeBuffer.putInt(peerTrustData.introducedMessages.size());
+            writeBuffer.putInt(peerTrustData.keyToIdHis.size());
+            writeBuffer.putInt(peerTrustData.keyToIdMine.size());
+            writeBuffer.putInt(peerTrustData.sendMessages.size());
+
+            String toHashkeyToIdHis = "";
+            for (Entry<Integer, ECKey> entry : peerTrustData.keyToIdHis.entrySet()) {
+                int key = entry.getKey();
+
+                toHashkeyToIdHis += "" + key;
+
+            }
+
+            String toHashkeyToIdMine = "";
+            for (int key : peerTrustData.keyToIdMine) {
+                toHashkeyToIdMine += "" + key;
+            }
+
+            try {
+
+                writeBuffer.putInt(Sha256Hash.create(toHashkeyToIdMine.getBytes("UTF-8")).hashCode());
+                writeBuffer.putInt(Sha256Hash.create(toHashkeyToIdHis.getBytes("UTF-8")).hashCode());
+
+            } catch (UnsupportedEncodingException ex) {
+                Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+
+
+            return 1;
+
+        } else if (command == (byte) 9) {
+
+            if (1 + 4 + 4 + 4 + 4 + 4 + 4 > readBuffer.remaining()) {
+                return 0;
+            }
+
+            PeerTrustData peerTrustData = peer.getPeerTrustData();
+
+            int introducedMessages = readBuffer.getInt();
+            int keyToIdHis = readBuffer.getInt();
+            int keyToIdMine = readBuffer.getInt();
+            int sendMessages = readBuffer.getInt();
+
+            int hashkeyToIdMine = readBuffer.getInt();
+            int hashkeyToIdHis = readBuffer.getInt();
+
+            //mine = his
+            System.out.println("introducedMessages: " + peerTrustData.introducedMessages.size() + " - " + sendMessages);
+            System.out.println("keyToIdHis: " + peerTrustData.keyToIdHis.size() + " - " + keyToIdMine);
+            System.out.println("keyToIdMine: " + peerTrustData.keyToIdMine.size() + " - " + keyToIdHis);
+            System.out.println("sendMessages: " + peerTrustData.sendMessages.size() + " - " + introducedMessages);
+
+            String toHashkeyToIdHis = "";
+            for (Entry<Integer, ECKey> entry : peerTrustData.keyToIdHis.entrySet()) {
+                int key = entry.getKey();
+
+                toHashkeyToIdHis += "" + key;
+
+            }
+
+            String toHashkeyToIdMine = "";
+            for (int key : peerTrustData.keyToIdMine) {
+                toHashkeyToIdMine += "" + key;
+            }
+
+            try {
+                int myHashkeyToIdMine = Sha256Hash.create(toHashkeyToIdMine.getBytes("UTF-8")).hashCode();
+                int myHashkeyToIdHis = Sha256Hash.create(toHashkeyToIdHis.getBytes("UTF-8")).hashCode();
+
+                System.out.println("Hash keyToIdMine: " + myHashkeyToIdHis + " - " + hashkeyToIdMine);
+
+                if (peerTrustData.keyToIdHis.size() != keyToIdMine || myHashkeyToIdHis != hashkeyToIdMine) {
+                    System.out.println("keyToIdHis wrong, clearing....");
+                    System.out.println("list: " + toHashkeyToIdHis);
+                    peerTrustData.keyToIdHis.clear();
+                }
+
+
+                System.out.println("Hash keyToIdMine: " + myHashkeyToIdMine + " - " + hashkeyToIdHis);
+
+                if (peerTrustData.keyToIdMine.size() != keyToIdHis || myHashkeyToIdMine != hashkeyToIdHis) {
+                    System.out.println("keyToIdMine wrong, clearing....");
+                    System.out.println("list: " + toHashkeyToIdMine);
+                    peerTrustData.keyToIdMine.clear();
+                }
+            } catch (UnsupportedEncodingException ex) {
+                Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+            while (peerTrustData.sendMessages.size() > introducedMessages) {
+                peerTrustData.sendMessages.remove(peerTrustData.sendMessages.size() - 1);
+                System.out.println("triming sendMessages...");
+            }
+
+            while (peerTrustData.introducedMessages.size() > sendMessages) {
+                peerTrustData.introducedMessages.remove(peerTrustData.introducedMessages.size() - 1);
+                System.out.println("triming introducedMessages...");
+            }
+
+
+
+            return 1 + 4 + 4 + 4 + 4 + 4 + 4;
 
         } else if (command == (byte) 10) {
 
@@ -1345,7 +1469,7 @@ public class ConnectionHandler extends Thread {
                     //FULL CONNECTED TO NODE!
                     //NUN darf die Verbindung genutzt werden zum syncen usw...
 
-
+                    writeBuffer.put((byte) 8);
 
                     //init sync
                     writeBuffer.put((byte) 3);
@@ -1481,9 +1605,9 @@ public class ConnectionHandler extends Thread {
         new Thread() {
             @Override
             public void run() {
-                            final String orgName = Thread.currentThread().getName();
-            Thread.currentThread().setName(orgName + " - syncMessages");
-                
+                final String orgName = Thread.currentThread().getName();
+                Thread.currentThread().setName(orgName + " - syncMessages");
+
                 try {
 
 //                            if (Settings.SUPERNODE) {

@@ -27,7 +27,7 @@ public class HsqlConnection {
         con = null;
 
         con = DriverManager.getConnection(
-                "jdbc:hsqldb:file:" + db_file + "; shutdown=true", "root", "");
+                "jdbc:hsqldb:file:" + db_file + ";shutdown=true", "root", "");
         Statement stmt = con.createStatement();
 
 
@@ -35,6 +35,9 @@ public class HsqlConnection {
         stmt.executeUpdate("SET FILES CACHE ROWS 5000");//rows
         stmt.executeUpdate("SET FILES CACHE SIZE 5000");//kb
         stmt.executeUpdate("SET AUTOCOMMIT TRUE");
+
+        //con.createStatement().executeUpdate("SET DATABASE TRANSACTION CONTROL MVLOCKS");
+        //con.commit();
 
 //            PubKey
 //id INTEGER

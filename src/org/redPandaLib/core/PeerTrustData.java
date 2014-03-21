@@ -27,12 +27,14 @@ public class PeerTrustData implements Serializable {
     int port;
     public HashMap<Integer, ECKey> keyToIdHis = new HashMap<Integer, ECKey>();
     public ArrayList<Integer> sendMessages = new ArrayList<Integer>();
+    public ArrayList<Integer> introducedMessages = new ArrayList<Integer>();
     public HashMap<Integer, RawMsg> pendingMessagesPublic = new HashMap<Integer, RawMsg>();
     public ArrayList<Integer> loadedMsgs = new ArrayList<Integer>();
     public ArrayList<Integer> keyToIdMine = new ArrayList<Integer>();
     public HashMap<Integer, RawMsg> pendingMessages = new HashMap<Integer, RawMsg>();
     public int synchronizedMessages = 0;
     public int lastSuccessfulySendMessageHeader = 0;
+    private ArrayList<Integer> filterAdresses;
 
     public PeerTrustData() {
         authKey = new byte[32];
@@ -62,7 +64,7 @@ public class PeerTrustData implements Serializable {
 
     public ECKey id2KeyHis(int id) {
         return keyToIdHis.get(id);
-        
+
     }
 
     public int key2IdHis(ECKey k) {
@@ -89,5 +91,32 @@ public class PeerTrustData implements Serializable {
     //    }
     public HashMap<Integer, RawMsg> getPendingMessages() {
         return pendingMessages;
+    }
+
+    public void addIntroducedMessage(int messageId) {
+        introducedMessages.add(messageId);
+    }
+
+    public ArrayList<Integer> getFilterAdresses() {
+        return filterAdresses;
+    }
+
+    public synchronized void addFilterAdresse(int newAddress) {
+
+        if (filterAdresses == null) {
+            filterAdresses = new ArrayList<Integer>();
+        }
+
+        if (filterAdresses.contains(newAddress)) {
+            return;
+        }
+        filterAdresses.add(newAddress);
+    }
+
+    public boolean isPermittedAddress(int address) {
+        if (filterAdresses == null) {
+            return true;
+        }
+        return filterAdresses.contains(address);
     }
 }

@@ -185,29 +185,6 @@ public class Peer implements Comparable<Peer> {
         return super.equals(p);
     }
 
-    public ArrayList<String> getFilterAdresses() {
-        return filterAdresses;
-    }
-
-    public synchronized void addFilterAdresse(String newAddress) {
-
-        if (filterAdresses == null) {
-            filterAdresses = new ArrayList<String>();
-        }
-
-        if (filterAdresses.contains(newAddress)) {
-            return;
-        }
-        filterAdresses.add(newAddress);
-    }
-
-    public boolean isPermittedAddress(String newAddress) {
-        if (filterAdresses == null) {
-            return true;
-        }
-        return filterAdresses.contains(newAddress);
-    }
-
     public SocketChannel getSocketChannel() {
         return socketChannel;
     }
