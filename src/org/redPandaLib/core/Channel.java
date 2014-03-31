@@ -23,11 +23,12 @@ import org.redPandaLib.crypt.Sha256Hash;
  */
 public class Channel implements Serializable, Comparable<Channel> {
 
-    int id = -1;
-    ECKey key;
-    String securityHash;
-    String name;
-    double diffuculty = 0;
+    protected int id = -1;
+    protected ECKey key;
+    protected String securityHash;
+    protected String name;
+    protected double diffuculty = 0;
+    public long displayPriority = 0;
 
     public String getName() {
         return name;
@@ -245,9 +246,9 @@ public class Channel implements Serializable, Comparable<Channel> {
 
     public static int getNextId() {
         LocalSettings localSettings = Test.getLocalSettings();
-        
+
         int out;
-        
+
         while (true) {
 
             localSettings.channelIdCounter++;

@@ -672,7 +672,7 @@ public class ConnectionHandler extends Thread {
 
     private int parseCommands(byte command, final Peer peer, int parsedBytes, final ByteBuffer writeBuffer, final ByteBuffer readBuffer) {
 
-        if (peer.getPeerTrustData() == null) {
+        if (peer.getPeerTrustData() == null || !peer.authed) {
 
             if (command == (byte) 1 || command == (byte) 2 || command == (byte) 10 || command == (byte) 51 || command == (byte) 52 || command == (byte) 53 || command == (byte) 55 || command == (byte) 100 || command == (byte) 101) {
                 // erlaubte befehle welche ohne verschluesselung ausgefuehrt werden duerfen
@@ -1116,13 +1116,22 @@ public class ConnectionHandler extends Thread {
             writeBuffer.putInt(peerTrustData.keyToIdMine.size());
             writeBuffer.putInt(peerTrustData.sendMessages.size());
 
+            ArrayList<Integer> keySet = new ArrayList<Integer>(peerTrustData.keyToIdHis.keySet());
+
+            Collections.sort(keySet);
+
+//            String toHashkeyToIdHis = "";
+//            for (Entry<Integer, ECKey> entry : peerTrustData.keyToIdHis.entrySet()) {
+//                int key = entry.getKey();
+//                toHashkeyToIdHis += "" + key;
+//            }
+
             String toHashkeyToIdHis = "";
-            for (Entry<Integer, ECKey> entry : peerTrustData.keyToIdHis.entrySet()) {
-                int key = entry.getKey();
-
+            for (Integer key : keySet) {
                 toHashkeyToIdHis += "" + key;
-
             }
+
+            Collections.sort(peerTrustData.keyToIdMine);
 
             String toHashkeyToIdMine = "";
             for (int key : peerTrustData.keyToIdMine) {
@@ -1164,13 +1173,25 @@ public class ConnectionHandler extends Thread {
             System.out.println("keyToIdMine: " + peerTrustData.keyToIdMine.size() + " - " + keyToIdHis);
             System.out.println("sendMessages: " + peerTrustData.sendMessages.size() + " - " + introducedMessages);
 
+
+            Set<Integer> keySet = peerTrustData.keyToIdHis.keySet();
+            ArrayList<Integer> arrayList = new ArrayList<Integer>(keySet);
+
+//            Comparator<Integer> comparator = new Comparator<Integer>() {
+//                public int compare(Integer o1, Integer o2) {
+//                    return 0;
+//                }
+//            };
+
+            Collections.sort(arrayList);
+
             String toHashkeyToIdHis = "";
-            for (Entry<Integer, ECKey> entry : peerTrustData.keyToIdHis.entrySet()) {
-                int key = entry.getKey();
-
+            for (int key : arrayList) {
                 toHashkeyToIdHis += "" + key;
-
             }
+
+
+            Collections.sort(peerTrustData.keyToIdMine);
 
             String toHashkeyToIdMine = "";
             for (int key : peerTrustData.keyToIdMine) {
@@ -1471,6 +1492,17 @@ public class ConnectionHandler extends Thread {
 
                     writeBuffer.put((byte) 8);
 
+                    for (Channel channel : Test.getChannels()) {
+                        byte[] pubKey = channel.getKey().getPubKey();
+
+                        System.out.println("Channel key length: " + pubKey.length);
+
+//                        writeBuffer.put((byte) 60);
+//                        writeBuffer.put();
+
+                    }
+
+
                     //init sync
                     writeBuffer.put((byte) 3);
                     //sync last two days
@@ -1546,6 +1578,12 @@ public class ConnectionHandler extends Thread {
 
             return 1;//ja das muss so!!
 
+        } else if (command == (byte) 60) {
+            System.out.println("command not supported, yet");
+            return 1 + 33;
+        } else if (command == (byte) 61) {
+            System.out.println("command not supported, yet");
+            return 1 + 4;
         } else if (command == (byte) 101) {
 
             double a = ((System.currentTimeMillis() - peer.lastPinged) / 10.);

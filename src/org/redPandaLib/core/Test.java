@@ -1112,7 +1112,7 @@ public class Test {
                     }
 
 
-                    if (peerList.size() > 20) {
+//                    if (peerList.size() > 20) {
                         //(System.currentTimeMillis() - peer.lastActionOnConnection > 1000 * 60 * 60 * 4)
                         if (peer.retries > 10) {
                             //peerList.remove(peer);
@@ -1124,7 +1124,7 @@ public class Test {
                         }
 
 
-                    }
+//                    }
 
                     if (peer.retries > 5 && actCons >= 2) {
 
