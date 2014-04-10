@@ -55,7 +55,7 @@ public class MessageHolder {
 
         int pubkey_id = Test.messageStore.getPubkeyId(m.getKey());
 
-        System.out.println("IDIDIDID: " + pubkey_id);
+        //System.out.println("IDIDIDID: " + pubkey_id);
 
 
 

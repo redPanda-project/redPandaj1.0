@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.redPandaLib.core.*;
+import org.redPandaLib.core.messages.ImageMsg;
 import org.redPandaLib.core.messages.RawMsg;
 import org.redPandaLib.core.messages.TextMessageContent;
 import org.redPandaLib.core.messages.TextMsg;
@@ -141,6 +142,31 @@ public class Main {
         for (NewMessageListener listener : Main.listeners) {
             listener.newMessage(textMessageContent);
         }
+
+
+    }
+
+    public static void sendImageToChannel(Channel channel, String pathToFile) {
+//        Test.clientVersion++;
+//        Msg msg = new Msg(System.currentTimeMillis(), 99, channel, Test.clientSeed, Test.clientVersion, "[" + Test.getNick() + "] " + text);
+//        Test.processNewMessage(msg, true);
+
+//        RawMsg rawMsg = new RawMsg(channel.getKey(), System.currentTimeMillis(), 88);
+//        rawMsg.content = text.getBytes();
+//        rawMsg.sign();
+//        MessageHolder.addMessage(rawMsg);
+//        Test.broadcastMsg(rawMsg);
+
+
+        ImageMsg build = ImageMsg.build(channel, pathToFile);
+        RawMsg addMessage = MessageHolder.addMessage(build);
+        Test.broadcastMsg(addMessage);
+        //Test.messageStore.addDecryptedContent(addMessage.getKey().database_id, (int) addMessage.database_Id, TextMsg.BYTE, "image...".getBytes(), ((TextMsg) addMessage).getIdentity(), true);
+
+//        TextMessageContent textMessageContent = TextMessageContent.fromTextMsg((TextMsg) addMessage, true);
+//        for (NewMessageListener listener : Main.listeners) {
+//            listener.newMessage(textMessageContent);
+//        }
 
 
     }

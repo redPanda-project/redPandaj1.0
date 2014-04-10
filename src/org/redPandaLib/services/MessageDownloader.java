@@ -25,7 +25,7 @@ public class MessageDownloader {
     private static ArrayList<RawMsgEntry> requestedMsgs = new ArrayList<RawMsgEntry>();
     private static boolean triggered = false;
     private static MyThread myThread = new MyThread();
-    private static int MAX_REQUEST_PER_PEER = 30;
+    private static int MAX_REQUEST_PER_PEER = 50;
     private static boolean allowInterrupt = false;
     private static final String syncInterrupt = new String();
     public static int publicMsgsLoaded = 0;
@@ -236,7 +236,9 @@ public class MessageDownloader {
                         //STICKS!!
                         if (m.public_type == 20 || m.public_type > 50) {
 
-                            if (Settings.MAXPUBLICMSGS < publicMsgsLoaded) {
+                            //normal message
+
+                            if (Settings.MAXPUBLICMSGS < publicMsgsLoaded || Settings.lightClient) {
 
                                 if (!soutedPublicMsgsMax) {
                                     System.out.println("Public msgs: " + publicMsgsLoaded + " MAX: " + Settings.MAXPUBLICMSGS);
@@ -307,8 +309,8 @@ public class MessageDownloader {
                             }
 
                             msgsRequestedThisCycle++;
-
-                            System.out.println("requested... " + p.requestedMsgs);
+                            System.out.print(" " + p.requestedMsgs + " ");
+                            //System.out.println("requested... " + p.requestedMsgs);
 //                        
 
 //                        System.out.println("Nachricht download: " + p.ip + ":" + p.port + " MsgTimestamp: " + m.timestamp + " Requested: " + p.requestedMsgs);

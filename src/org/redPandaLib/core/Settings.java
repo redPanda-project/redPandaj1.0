@@ -17,7 +17,7 @@ import java.io.InputStreamReader;
 public class Settings {
 
     public static int STD_PORT = 59558;
-    public static int MIN_CONNECTIONS = 8;
+    public static int MIN_CONNECTIONS = 12;
     public static int MAX_CONNECTIONS = 50;
     public static int pingTimeout = 180; //time in sec
     public static int pingDelay = 120; //time in sec

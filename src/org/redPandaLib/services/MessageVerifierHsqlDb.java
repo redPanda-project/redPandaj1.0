@@ -187,6 +187,8 @@ public class MessageVerifierHsqlDb {
 
 
                         } else {
+                            
+                            try {
                             System.out.println("falsche signature...");
                             System.out.println("pubkey bytes    : " + Channel.byte2String(rawMsg.key.getPubKey()));
                             System.out.println("signature bytes : " + Utils.bytesToHexString(rawMsg.signature));
@@ -204,6 +206,7 @@ public class MessageVerifierHsqlDb {
                                     if (i == message_id) {
                                         loadedFrom = peer;
                                         System.out.println("loaded from peer: " + peer.getIp() + ":" + peer.getPort());
+                                        peer.getPeerTrustData().badMessages++;
                                     }
                                 }
 
@@ -214,7 +217,11 @@ public class MessageVerifierHsqlDb {
                                     System.out.println("keyToId - id: " + a.getKey() + " key: " + Channel.byte2String(a.getValue().getPubKey()));
                                 }
                             }
-
+                            } catch (Exception e) {
+                                
+                                System.out.println("fignature wrong, data could not be displayed, exception thrown");
+                                
+                            }
 
                             PreparedStatement stmt = connection.prepareStatement("delete FROM message WHERE message_id = ?");
                             stmt.setInt(1, message_id);

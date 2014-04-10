@@ -293,9 +293,17 @@ public class ConnectionHandler extends Thread {
                             //succesfully read some bytes...
                             PeerTrustData peerTrustData = peer.getPeerTrustData();
 
-                            if (peerTrustData != null && !peerTrustData.sendMessages.isEmpty()) {
-                                peerTrustData.lastSuccessfulySendMessageHeader = peerTrustData.sendMessages.get(peerTrustData.sendMessages.size() - 1);
+                            try {
+                                if (peerTrustData != null && !peerTrustData.sendMessages.isEmpty()) {
+                                    peerTrustData.lastSuccessfulySendMessageHeader = peerTrustData.sendMessages.get(peerTrustData.sendMessages.size() - 1);
+                                }
+                            } catch (NullPointerException e) {
+                                //nullpointer might be thrown cuz of multi threading...
+                                peer.disconnect();
+                                Main.sendBroadCastMsg("prevented NullPointer pos. 2352");
+                                continue;
                             }
+
                         }
 
                         if (read == 0) {
@@ -949,6 +957,7 @@ public class ConnectionHandler extends Thread {
             final int id = readBuffer.getInt();
 
             Runnable runnable = new Runnable() {
+
                 @Override
                 public void run() {
 
@@ -963,6 +972,12 @@ public class ConnectionHandler extends Thread {
                     }
                     //ToDo: msg might have been deleted due to false signature...
 
+
+                    if (rawMsg.getContent() == null || rawMsg.getContent().length > 1024 * 200) {
+                        Main.sendBroadCastMsg("ohoh, rawMsg.getContent() is null or too long...");
+                        return;
+                    }
+
                     peer.writeBufferLock.lock();
                     writeBuffer.put((byte) 7);
                     writeBuffer.putInt(id);
@@ -976,7 +991,13 @@ public class ConnectionHandler extends Thread {
 //                            peer.writeBuffer = allocate;
 //                        }
                     //System.out.println("SIZE:" + writeBuffer.remaining() + " " + rawMsg.getContent().length);
-                    peer.writeBuffer.put(rawMsg.getContent());
+
+
+                    System.out.println("bytes: " + rawMsg.getContent().length);
+                    if (peer.writeBuffer != null) {
+                        //todo: catch via another way?
+                        peer.writeBuffer.put(rawMsg.getContent());
+                    }
                     peer.writeBufferLock.unlock();
                     peer.setWriteBufferFilled();
 
@@ -1037,24 +1058,25 @@ public class ConnectionHandler extends Thread {
 
             threadPool.execute(
                     new Runnable() {
-                @Override
-                public void run() {
-                    final String orgName = Thread.currentThread().getName();
-                    Thread.currentThread().setName(orgName + " - addMessage + ev. broadcast");
-                    RawMsg addMessage = MessageHolder.addMessage(get);
 
-                    System.out.println("DWGDYWGDYW " + addMessage.key.database_id);
+                        @Override
+                        public void run() {
+                            final String orgName = Thread.currentThread().getName();
+                            Thread.currentThread().setName(orgName + " - addMessage + ev. broadcast");
+                            RawMsg addMessage = MessageHolder.addMessage(get);
 
-                    synchronized (peer.getPendingMessages()) {
-                        peer.getPendingMessages().remove(msgId);
-                    }
+                            //System.out.println("DWGDYWGDYW " + addMessage.key.database_id);
+
+                            synchronized (peer.getPendingMessages()) {
+                                peer.getPendingMessages().remove(msgId);
+                            }
 
 
 
-                    if (addMessage.getChannel() == null) {
-                        //isPublic...
-                        MessageDownloader.publicMsgsLoaded++;
-                    }
+                            if (addMessage.getChannel() == null) {
+                                //isPublic...
+                                MessageDownloader.publicMsgsLoaded++;
+                            }
 
 
 //                    System.out.println("KEY: " + Channel.byte2String(addMessage.key.getPubKey()));
@@ -1062,23 +1084,23 @@ public class ConnectionHandler extends Thread {
 //                    System.out.println("CONTENT hash: " + Sha256Hash.create(addMessage.content));
 //                    System.out.println("signature hash: " + Sha256Hash.create(addMessage.signature));
 
-                    synchronized (peer.getLoadedMsgs()) {
-                        peer.getLoadedMsgs().add(addMessage.database_Id);
-                    }
+                            synchronized (peer.getLoadedMsgs()) {
+                                peer.getLoadedMsgs().add(addMessage.database_Id);
+                            }
 
 
 
 
 
-                    if (!Settings.BROADCAST_MSGS_AFTER_VERIFICATION) {
-                        Test.broadcastMsg(addMessage);
-                    }
+                            if (!Settings.BROADCAST_MSGS_AFTER_VERIFICATION) {
+                                Test.broadcastMsg(addMessage);
+                            }
 
-                    MessageDownloader.trigger();
-                    MessageVerifierHsqlDb.trigger();
+                            MessageDownloader.trigger();
+                            MessageVerifierHsqlDb.trigger();
 
-                }
-            });
+                        }
+                    });
 
 
 //            new Thread() {
@@ -1222,16 +1244,23 @@ public class ConnectionHandler extends Thread {
                 Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
             }
 
+            boolean trimedSendMsgs = false;
             while (peerTrustData.sendMessages.size() > introducedMessages) {
                 peerTrustData.sendMessages.remove(peerTrustData.sendMessages.size() - 1);
-                System.out.println("triming sendMessages...");
+                trimedSendMsgs = true;
+            }
+            if (trimedSendMsgs) {
+                System.out.println("trimed sendMessages...");
             }
 
+            boolean trimedIntroducedMessages = false;
             while (peerTrustData.introducedMessages.size() > sendMessages) {
                 peerTrustData.introducedMessages.remove(peerTrustData.introducedMessages.size() - 1);
-                System.out.println("triming introducedMessages...");
+                trimedIntroducedMessages = true;
             }
-
+            if (trimedIntroducedMessages) {
+                System.out.println("trimed introducedMessages...");
+            }
 
 
             return 1 + 4 + 4 + 4 + 4 + 4 + 4;
@@ -1641,6 +1670,7 @@ public class ConnectionHandler extends Thread {
 
     private void syncAllMessagesSince(final long time, final Peer peer) {
         new Thread() {
+
             @Override
             public void run() {
                 final String orgName = Thread.currentThread().getName();

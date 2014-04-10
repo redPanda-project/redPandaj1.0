@@ -284,17 +284,17 @@ public class Test {
 
                 if (readLine.equals("")) {
 
-                    String output = "";
 
-                    output += "Status listenPort: " + MY_PORT + " NONCE: " + Test.NONCE + "\n";
+
+                    System.out.println("Status listenPort: " + MY_PORT + " NONCE: " + Test.NONCE + "\n");
 
                     int actCons = 0;
 
                     ArrayList<Peer> list = (ArrayList<Peer>) peerList.clone();
                     Collections.sort(list);
 
-                    output += "IP:PORT \t\t\t\t\t\t Nonce \t\t\t Last Answer \t Alive \t retries \t LoadedMsgs \t Ping \t Authed \t PMSG\n";
-
+//                    System.out.println("IP:PORT \t\t\t\t\t\t Nonce \t\t\t Last Answer \t Alive \t retries \t LoadedMsgs \t Ping \t Authed \t PMSG\n");
+                    System.out.format("%50s %22s %12s %10s %7s %7s %10s %10s %10s %8s\n", "[IP]:PORT", "nonce", "last answer", "alive", "retries", "ping", "loaded Msg", "sent Msg", "intro. Msg", "bad Msg");
                     for (Peer peer : list) {
 
                         if (peer.isConnected()) {
@@ -303,36 +303,36 @@ public class Test {
 
 
                         //System.out.println("Peer: " + InetAddress.getByName(peer.ip) + ":" + peer.port + " Nonce: " + peer.nonce + " Last Answer: " + (System.currentTimeMillis() - peer.lastActionOnConnection) + " Alive: " + peer.isConnected() + " LastGetAllMsgs: " + peer.lastAllMsgsQuerried + " retries: " + peer.retries + " LoadedMsgs: " + peer.loadedMsgs + " ping: " + (Math.round(peer.ping * 100) / 100.));
-                        String a = "Peer:  IP: [" + peer.ip + "]:" + peer.port;
-                        while (a.length() < 45) {
-                            a += " ";
-                        }
 
-                        String b = " \t" + peer.nonce;
-                        while (b.length() < 20) {
-                            b += " ";
-                        }
                         String c;
                         if (peer.lastActionOnConnection != 0) {
-                            c = " \t" + (System.currentTimeMillis() - peer.lastActionOnConnection);
+                            c = "" + (System.currentTimeMillis() - peer.lastActionOnConnection);
                         } else {
-                            c = " \t-";
+                            c = "-";
                         }
+
+                        if (peer.getPeerTrustData() == null) {
+                            System.out.format("%50s %22d %12s %10s %7d %7s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.));
+                        } else {
+                            System.out.format("%50s %22d %12s %10s %7d %7s %10d %10d %10d %8s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.getPeerTrustData().sendMessages.size(), peer.getPeerTrustData().introducedMessages.size(), peer.getPeerTrustData().badMessages);
+                        }
+
+
 //                        while (c.length() < 15) {
 //                            c += " \t";
 //                        }
 
-                        if (peer.getPeerTrustData() == null) {
-                            output += "" + a + " \t " + b + "\t " + c + "\t " + peer.isConnected() + "\t " + peer.retries + "\t " + "--" + " \t " + (Math.round(peer.ping * 100) / 100.) + "\t " + peer.authed + "\t " + "--" + " \t" + peer.requestedMsgs + " \t" + "--" + "\n";
-                        } else {
-                            output += "" + a + " \t " + b + "\t " + c + "\t " + peer.isConnected() + "\t " + peer.retries + "\t " + peer.getLoadedMsgs().size() + " \t " + (Math.round(peer.ping * 100) / 100.) + "\t " + peer.authed + "\t " + peer.getPendingMessages().size() + " \t" + peer.requestedMsgs + " \t" + peer.getPeerTrustData().synchronizedMessages + "\n";
-                        }
+//                        if (peer.getPeerTrustData() == null) {
+//                            output += "" + a + " \t " + b + "\t " + c + "\t " +  + "\t " + peer.retries + "\t " + "--" + " \t " + (Math.round(peer.ping * 100) / 100.) + "\t " + peer.authed + "\t " + "--" + " \t" + peer.requestedMsgs + " \t" + "--" + "\n";
+//                        } else {
+//                            output += "" + a + " \t " + b + "\t " + c + "\t " + peer.isConnected() + "\t " + peer.retries + "\t " + peer.getLoadedMsgs().size() + " \t " + (Math.round(peer.ping * 100) / 100.) + "\t " + peer.authed + "\t " + peer.getPendingMessages().size() + " \t" + peer.requestedMsgs + " \t" + peer.getPeerTrustData().synchronizedMessages + "\n";
+//                        }
 
 
                     }
 
-                    output += "Connected to " + actCons + " peers. (NAT type: " + (NAT_OPEN ? "open" : "closed") + ")" + "\n";
-                    output += "Traffic: " + inBytes / 1024. + " kb / " + outBytes / 1024. + " kb." + "\n";
+                    System.out.println("Connected to " + actCons + " peers. (NAT type: " + (NAT_OPEN ? "open" : "closed") + ")");
+                    System.out.println("Traffic: " + inBytes / 1024. + " kb / " + outBytes / 1024. + " kb.");
 
                     //System.out.println("Processed messages: " + msgs.size());
 
@@ -345,9 +345,9 @@ public class Test {
 //                        unverifiedMsgs++;
 //                    }
 //
-                    output += "Processed messages: " + MessageHolder.getMessageCount();
+                    System.out.println("Processed messages: " + MessageHolder.getMessageCount());
 
-                    System.out.println(output);
+
 
                     continue;
                 }
@@ -458,6 +458,12 @@ public class Test {
                         broadcastMsg(addMessage);
                         System.out.println("send...");
                     }
+                    continue;
+                }
+
+                if (readLine.equals("I")) {
+                    System.out.println("image send file img.jpg");
+                    Main.sendImageToChannel(SpecialChannels.MAIN, "img.jpg");
                     continue;
                 }
 
@@ -671,6 +677,18 @@ public class Test {
                     System.out.println("migrating to super peer, try to connect to max 100 nodes...");
                     Settings.MIN_CONNECTIONS = 100;
                     Settings.MAX_CONNECTIONS = 120;
+                    Settings.SUPERNODE = true;
+                    Settings.lightClient = false;
+                    //threadPool = Executors.newFixedThreadPool(Settings. * 2 + 5);
+                    continue;
+                }
+
+                if (readLine.equals("lpeer")) {
+                    System.out.println("migrating to light peer...");
+                    Settings.MIN_CONNECTIONS = 4;
+                    Settings.MAX_CONNECTIONS = 10;
+                    Settings.SUPERNODE = false;
+                    Settings.lightClient = true;
                     //threadPool = Executors.newFixedThreadPool(Settings. * 2 + 5);
                     continue;
                 }
@@ -1113,15 +1131,15 @@ public class Test {
 
 
 //                    if (peerList.size() > 20) {
-                        //(System.currentTimeMillis() - peer.lastActionOnConnection > 1000 * 60 * 60 * 4)
-                        if (peer.retries > 10) {
-                            //peerList.remove(peer);
-                            removePeer(peer);
-                            if (DEBUG) {
-                                System.out.println("removed peer from peerList, too many retries: " + peer.ip + ":" + peer.port);
-                            }
-                            continue;
+                    //(System.currentTimeMillis() - peer.lastActionOnConnection > 1000 * 60 * 60 * 4)
+                    if (peer.retries > 10) {
+                        //peerList.remove(peer);
+                        removePeer(peer);
+                        if (DEBUG) {
+                            System.out.println("removed peer from peerList, too many retries: " + peer.ip + ":" + peer.port);
                         }
+                        continue;
+                    }
 
 
 //                    }
@@ -1471,6 +1489,10 @@ public class Test {
         MessageVerifierHsqlDb.start();
         addKnowNodes();
         ClusterBuilder.start();
+        if (Settings.SUPERNODE) {
+            Settings.MIN_CONNECTIONS = 30;
+            Settings.MAX_CONNECTIONS = 300;
+        }
     }
 
     public static void savePeers() {

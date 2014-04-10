@@ -35,6 +35,7 @@ public class PeerTrustData implements Serializable {
     public int synchronizedMessages = 0;
     public int lastSuccessfulySendMessageHeader = 0;
     private ArrayList<Integer> filterAdresses;
+    public int badMessages = 0;
 
     public PeerTrustData() {
         authKey = new byte[32];
