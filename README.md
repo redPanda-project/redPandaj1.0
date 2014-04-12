@@ -11,7 +11,7 @@ Status
 
 There is currently a version for android and a desktop client for windows and linux based on java. The android version is functional at the moment and close to stable - so chatting should work. All of them have an update system included.
 
-Android : http://xana.hopto.org/redPanda/redPanda.apk 
+Android : http://redpanda.hopto.org/android/redPanda.apk 
 Hint: Long press on name to change it. Names after '-' indicate delivered messages
 This app is signed with a debug key. So you need to remove and reinstall the app at a later point.
 
