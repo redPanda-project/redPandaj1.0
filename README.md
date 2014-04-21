@@ -34,6 +34,11 @@ You just need such a Key to write messages to a given channel. A channel can be 
 There are no real identities, you can just fake one if you want. The whole system is based on trust with respect to your chat partners. Also, the delivery of messages will utilize your network of (trusted) nodes.
 This system focuses on chatting between known people, whom you can trust. If you want to send emails over a secure peer-to-peer system you should have a look at bitmessage (https://bitmessage.org/).
 
+Security
+==
+
+RedPanda uses currently elliptic curve, AES256 and the broken and risky ARC4. Elliptic curve is used for signing messages. The AES256 for crypt and decrypt the messages. ARC4 is only used for peer to peer communications, so no messages can be read because of the broken ARC4.
+
 
 Attention
 =========
