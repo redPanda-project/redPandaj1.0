@@ -35,11 +35,14 @@ Software licensed under APACHE 2.0 with the copyright owner "Google Inc." is:
 
     bitcoinj (http://code.google.com/p/bitcoinj/)
     android support libriaries
+    android-quick-response-code (https://code.google.com/p/android-quick-response-code/)
+    ZXing (https://github.com/zxing/zxing)
 
     guava-libraries (http://code.google.com/p/guava-libraries/)
 
 Source code from the bitcoinj software were modified, especially the ECKey-Class was modified for our needs
 
+redPanda uses emojicon from "rockerhieu" licensed under the APACHE 2.0 license the link is https://github.com/rockerhieu/emojicon.
 
 The copyrigh owner of Qt is "Digia plc". Read more at https://qt-project.org/products/licensing.
  
