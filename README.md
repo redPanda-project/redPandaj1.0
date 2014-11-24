@@ -43,5 +43,5 @@ RedPanda uses currently elliptic curve, AES256 and the broken and risky ARC4. El
 Attention
 =========
 Currently all clients send crashing and debugging information over the redPanda-network to the so called 'Main Channel'. We need them to fix bugs fast at this stage of development.
-We only garantee that the latest version is able to reciev messages.
-Noting is fixed at this moment, all can change.
+We only guarantee that the latest version is able to reciev messages.
+Nothing is fixed at this moment, everything can change.
