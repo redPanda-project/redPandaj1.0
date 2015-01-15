@@ -1,6 +1,8 @@
 Install
 =========
 
+You can download redPanda at http://files.redpanda.im/redpanda.tar.gz.
+
 You need Java 1.6 or higher. For the qt GUI you need the 32bit-version of java for windows,
 because qt only supports 64bit for linux.
 Attention, redPanda uses AES256 so you need the cryptographical extention files installed for
