@@ -13,8 +13,10 @@ Status
 
 There is currently a version for android and a desktop client for windows and linux based on java. The android version is functional at the moment and close to stable - so chatting should work. All of them have an update system included.
 
-Android : https://play.google.com/store/apps/details?id=org.redPanda or http://files.redpanda.im/android/redPanda-release.apk
-Hint: Long press on name to change it. Small names in a new line indicate delivered messages
+Android: https://play.google.com/store/apps/details?id=org.redPanda
+or http://files.redpanda.im/android/redPanda-release.apk.
+
+Hint: Long press on name to change it. Small names in a new line indicate delivered messages.
 
 
 Desktop/Console (Linux, Windows): http://files.redPanda.im
