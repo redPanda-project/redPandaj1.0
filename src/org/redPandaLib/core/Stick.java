@@ -18,7 +18,7 @@ import org.redPandaLib.crypt.Sha256Hash;
  */
 public class Stick {
 
-    public static final double DIFFICULTY = 2.4;
+    public static final double DIFFICULTY = 4;
     byte[] pubkey;
     long timestamp;
     int nonce;
@@ -31,7 +31,8 @@ public class Stick {
     }
 
     public static void main(String[] args) throws Exception {
-        generate(SpecialChannels.MAIN.key.getPubKey(), 0);
+        Stick generate = generate(new byte[64], 0);
+        System.out.println("" + generate.getDifficulty());
     }
 
     public static Stick generate(byte[] pubkeyBytes, int startNonce) {

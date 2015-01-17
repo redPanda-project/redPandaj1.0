@@ -4,12 +4,17 @@
  */
 package org.redPandaLib;
 
+import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.crypto.Cipher;
+import javax.imageio.ImageIO;
 import org.redPandaLib.core.*;
 import org.redPandaLib.core.messages.ImageMsg;
 import org.redPandaLib.core.messages.RawMsg;
@@ -18,7 +23,7 @@ import org.redPandaLib.core.messages.TextMsg;
 import org.redPandaLib.crypt.AddressFormatException;
 import org.redPandaLib.database.DirectMessageStore;
 import org.redPandaLib.database.HsqlConnection;
-import org.redPandaLib.database.MessageStore;
+import org.redPandaLib.database.MysqlConnection;
 
 /**
  *
@@ -39,8 +44,20 @@ public class Main {
      */
     public static void startUp(boolean listenConsole, SaverInterface saver) throws IOException {
 
+        try {
+            //check for AES 256...
+            if (Cipher.getMaxAllowedKeyLength("AES") < 256) {
+                System.out.println("You haven't installed java cryptography extension correctly!!");
+                System.exit(1313);
+            }
+        } catch (NoSuchAlgorithmException ex) {
+            System.out.println("AES is not available on your jvm?!");
+            System.exit(1314);
+        }
+
         Test.main(listenConsole, saver);
         Thread thread = new Thread() {
+
             @Override
             public void run() {
                 while (Test.STARTED_UP_SUCCESSFUL == false) {
@@ -61,12 +78,14 @@ public class Main {
             Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
         }
 
-
     }
 
     public static void useHsqlDatabase() {
+
         try {
-            Test.messageStore = new DirectMessageStore(new HsqlConnection().getConnection());
+            HsqlConnection hsqlConnection = new HsqlConnection();
+            Test.hsqlConnection = hsqlConnection;
+            Test.messageStore = new DirectMessageStore(hsqlConnection.getConnection());
         } catch (SQLException e) {
             e.printStackTrace();
             System.out.println("Datenbank konnte nicht initialsiert werden. Abbruch...");
@@ -74,8 +93,30 @@ public class Main {
         }
     }
 
-    public static void setMessageStore(Connection connection) throws SQLException {
-        Test.messageStore = new DirectMessageStore(connection);
+    public static void useMysqlDatabase() {
+
+        try {
+            MysqlConnection mysqlConnection = new MysqlConnection();
+//            Test.hsqlConnection = mysqlConnection;
+            Test.messageStore = new DirectMessageStore(mysqlConnection.getConnection());
+        } catch (SQLException e) {
+            e.printStackTrace();
+            System.out.println("Datenbank konnte nicht initialsiert werden. Abbruch...");
+            System.exit(-2);
+        }
+    }
+
+    public static void setMessageStore(HsqlConnection hsqlConnection) throws SQLException {
+        Test.hsqlConnection = hsqlConnection;
+        Test.messageStore = new DirectMessageStore(hsqlConnection.getConnection());
+    }
+
+    public static void setImageStoreFolder(String path) {
+        Test.imageStoreFolder = path;
+    }
+
+    public static void setImageInfos(ImageInfos i) {
+        Test.imageInfos = i;
     }
 
     /**
@@ -98,15 +139,11 @@ public class Main {
         RawMsg addMessage = MessageHolder.addMessage(build);
         Test.broadcastMsg(addMessage);
 
-
 //        try {
 //            Test.messageStore.addDecryptedContent(addMessage.getKey().database_id, (int) addMessage.database_Id, TextMsg.BYTE, ((TextMsg) addMessage).getText().getBytes("UTF-8"));
 //        } catch (UnsupportedEncodingException ex) {
 //            Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
 //        }
-
-
-
     }
 
     public static ArrayList<Channel> getChannels() {
@@ -128,46 +165,57 @@ public class Main {
 //        rawMsg.sign();
 //        MessageHolder.addMessage(rawMsg);
 //        Test.broadcastMsg(rawMsg);
-
-        if (text.length() < 7) {
-            text += "       ";
-        }
-
         TextMsg build = TextMsg.build(channel, text);
         RawMsg addMessage = MessageHolder.addMessage(build);
         Test.broadcastMsg(addMessage);
-        Test.messageStore.addDecryptedContent(addMessage.getKey().database_id, (int) addMessage.database_Id, TextMsg.BYTE, ((TextMsg) addMessage).getText(), ((TextMsg) addMessage).getIdentity(), true);
-
+        Test.messageStore.addDecryptedContent(addMessage.getKey().database_id, (int) addMessage.database_Id, TextMsg.BYTE, addMessage.timestamp, ((TextMsg) addMessage).getText(), ((TextMsg) addMessage).getIdentity(), true);
         TextMessageContent textMessageContent = TextMessageContent.fromTextMsg((TextMsg) addMessage, true);
         for (NewMessageListener listener : Main.listeners) {
             listener.newMessage(textMessageContent);
         }
-
-
     }
 
     public static void sendImageToChannel(Channel channel, String pathToFile) {
-//        Test.clientVersion++;
-//        Msg msg = new Msg(System.currentTimeMillis(), 99, channel, Test.clientSeed, Test.clientVersion, "[" + Test.getNick() + "] " + text);
-//        Test.processNewMessage(msg, true);
+        //        Test.clientVersion++;
+        //        Msg msg = new Msg(System.currentTimeMillis(), 99, channel, Test.clientSeed, Test.clientVersion, "[" + Test.getNick() + "] " + text);
+        //        Test.processNewMessage(msg, true);
+        //        RawMsg rawMsg = new RawMsg(channel.getKey(), System.currentTimeMillis(), 88);
+        //        rawMsg.content = text.getBytes();
+        //        rawMsg.sign();
+        //        MessageHolder.addMessage(rawMsg);
+        //        Test.broadcastMsg(rawMsg);
+        ArrayList<ImageMsg> build = ImageMsg.build(channel, pathToFile);
 
-//        RawMsg rawMsg = new RawMsg(channel.getKey(), System.currentTimeMillis(), 88);
-//        rawMsg.content = text.getBytes();
-//        rawMsg.sign();
-//        MessageHolder.addMessage(rawMsg);
-//        Test.broadcastMsg(rawMsg);
+        if (build == null) {
+            return;//todo throw exception
+        }
 
+        RawMsg addMessage = null;
 
-        ImageMsg build = ImageMsg.build(channel, pathToFile);
-        RawMsg addMessage = MessageHolder.addMessage(build);
-        Test.broadcastMsg(addMessage);
+        for (ImageMsg m : build) {
+            addMessage = MessageHolder.addMessage(m);
+            Test.broadcastMsg(addMessage);
+        }
         //Test.messageStore.addDecryptedContent(addMessage.getKey().database_id, (int) addMessage.database_Id, TextMsg.BYTE, "image...".getBytes(), ((TextMsg) addMessage).getIdentity(), true);
+        //        TextMessageContent textMessageContent = TextMessageContent.fromTextMsg((TextMsg) addMessage, true);
+        //        for (NewMessageListener listener : Main.listeners) {
+        //            listener.newMessage(textMessageContent);
+        //        }
 
-//        TextMessageContent textMessageContent = TextMessageContent.fromTextMsg((TextMsg) addMessage, true);
-//        for (NewMessageListener listener : Main.listeners) {
-//            listener.newMessage(textMessageContent);
-//        }
+        String imageInfos = pathToFile;
+        try {
+            ImageInfos.Infos infos = Test.imageInfos.getInfos(pathToFile);
+            imageInfos = pathToFile + "\n" + infos.width + "\n" + infos.heigth;
+        } catch (IOException ex) {
+            Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+        }
 
+        Test.messageStore.addDecryptedContent(addMessage.getKey().database_id, (int) addMessage.database_Id, ImageMsg.BYTE, addMessage.timestamp, imageInfos.getBytes(), ((ImageMsg) addMessage).getIdentity(), true);
+
+        TextMessageContent textMessageContent = TextMessageContent.fromImageMsg((ImageMsg) addMessage, true, imageInfos);
+        for (NewMessageListener listener : Main.listeners) {
+            listener.newMessage(textMessageContent);
+        }
 
     }
 
@@ -188,11 +236,13 @@ public class Main {
         System.out.println("disconnecting from peers...");
         if (Test.peerList != null) {
             for (Peer p : Test.peerList) {
-                p.disconnect();
+                p.disconnect("shutdown");
             }
         }
         System.out.println("shutting down database...");
-        Test.messageStore.quit();
+        if (Test.messageStore != null) {
+            Test.messageStore.quit();
+        }
         System.out.println("Save peers...");
         Test.savePeers();
         System.out.println("done");
@@ -261,5 +311,47 @@ public class Main {
             channels.add(c);
         }
         Test.saver.saveIdentities(channels);
+    }
+
+    public static void addSpamChannel() {
+        ArrayList<Channel> channels = Test.getChannels();
+
+        if (!channels.contains(SpecialChannels.SPAM)) {
+            Channel c = SpecialChannels.SPAM;
+            channels.add(c);
+        }
+        Test.saver.saveIdentities(channels);
+    }
+
+    public static void removeOldMessages() {
+        Test.messageStore.removeOldMessages(System.currentTimeMillis() - 1000 * 60 * 60 * 24 * 7);
+    }
+
+    public static void removeAllOldMessages() {
+        Test.messageStore.removeOldMessages(Long.MAX_VALUE);
+    }
+
+    public static void removeOldMessagesDecryptedContent() {
+        Test.messageStore.removeOldMessagesDecryptedContent(System.currentTimeMillis() - 1000 * 60 * 60 * 24 * 7);
+    }
+
+    public static boolean backup(String path, String pw) {
+        try {
+            ExportImport.writeXML(path, Test.localSettings.identity, Test.channels, Test.localSettings.identity2Name, pw);
+        } catch (Exception e) {
+            return false;
+        }
+        return true;
+    }
+
+    public static boolean restoreBackup(String path, String pw) {
+        try {
+            ExportImport.readXML(path, pw);
+            Test.localSettings.save();
+            Test.saver.saveIdentities(Test.channels);
+        } catch (Exception e) {
+            return false;
+        }
+        return true;
     }
 }

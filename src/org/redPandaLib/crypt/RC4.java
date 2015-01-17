@@ -18,8 +18,7 @@ public class RC4 {
     private int j = 0;
 
     public static void main(String[] args) {
-        
-        
+
         RC4 rce = new RC4(Utils.parseAsHexOrBase58("a0a0a0a0a0"));
         byte[] result = rce.encrypt("hello there".getBytes());
         //System.out.println("encrypted string:\n" + Utils.bytesToHexString(result));
@@ -32,17 +31,10 @@ public class RC4 {
 //        RC4 rc2 = new RC4("testkey".getBytes());
 //        byte[] result2 = rc2.encrypt("hello therehello there".getBytes());
 //        System.out.println("encrypted string:\n" + Utils.bytesToHexString(result2));
-
-
         RC4 rcd = new RC4(Utils.parseAsHexOrBase58("a0a0a0a0a0"));
 
         System.out.println("decrypted string:\n"
                 + new String(rcd.decrypt(result)));
-
-
-
-
-
 
     }
 
@@ -64,7 +56,6 @@ public class RC4 {
     }
 
     public byte[] encrypt(final byte[] msg) {
-
         byte[] code = new byte[msg.length];
         for (int n = 0; n < msg.length; n++) {
             i = (i + 1) % SBOX_LENGTH;
@@ -74,7 +65,7 @@ public class RC4 {
             code[n] = (byte) (rand ^ (int) msg[n]);
             //code[n] = (byte) ((rand ^ (int) msg[n]) +SBOX_LENGTH % SBOX_LENGTH);
             //System.out.println("Byte: " + msg[n] + " " + code[n]);
-            
+
         }
         return code;
     }

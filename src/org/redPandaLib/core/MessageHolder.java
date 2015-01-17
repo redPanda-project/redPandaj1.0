@@ -26,20 +26,27 @@ public class MessageHolder {
      *
      * @return
      */
-    public static ResultSet getAllMessages(long from, long to) {
+    public static ResultSet getAllMessages(long from, long to, int peer_id) {
+
+        from = Math.max(from, Settings.till);
 
 //        if (from < Settings.till) {
 //            from = Settings.till;
 //        }
 
         //return (ArrayList<RawMsg>) msgs.clone();
-        ResultSet allMessagesForSync = Test.messageStore.getAllMessagesForSync(from, to);
+        ResultSet allMessagesForSync = Test.messageStore.getAllMessagesForSync(from, to, peer_id);
 
         //System.out.println("NACHRICHTEN GEFUNDEN: " + allMessagesForSync.);
 
         return allMessagesForSync;
     }
 
+        public static ResultSet getMessagesForBackSync(long time,int cnt) {
+        ResultSet allMessagesForSync = Test.messageStore.getMessagesForBackSync(time,cnt);
+        return allMessagesForSync;
+    }
+    
     public static RawMsg addMessage(RawMsg m) {
 //        synchronized (MessageHolder.msgs) {
 //            if (!msgs.contains(m)) {
@@ -70,7 +77,7 @@ public class MessageHolder {
 
     }
 
-    public static boolean contains(RawMsg m) {
+    public static int contains(RawMsg m) {
         //return msgs.contains(m);
 
         return Test.messageStore.containsMsg(m);
@@ -102,7 +109,14 @@ public class MessageHolder {
     }
 
     public static int getMessageCount() {
+        
+        
+        
         return Test.messageStore.getMessageCount();
+    }
+
+    public static int getMessageCountToVerify() {
+        return Test.messageStore.getMessageCountToVerify();
     }
 
     public static ArrayList<TextMessageContent> getMessages(Channel channel) {

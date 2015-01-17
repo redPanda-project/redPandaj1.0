@@ -29,6 +29,8 @@ public class Saver implements SaverInterface {
     }
 
     public void saveMsgs(ArrayList<RawMsg> msgs) {
+        FileOutputStream fileOutputStream = null;
+        ObjectOutputStream objectOutputStream = null;
         try {
             File mkdirs = new File(SAVE_DIR);
             mkdirs.mkdir();
@@ -38,24 +40,42 @@ public class Saver implements SaverInterface {
 
 
             file.createNewFile();
-            FileOutputStream fileOutputStream = new FileOutputStream(file);
-            ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream);
+            fileOutputStream = new FileOutputStream(file);
+            objectOutputStream = new ObjectOutputStream(fileOutputStream);
             objectOutputStream.writeObject(msgs.clone());
             objectOutputStream.close();
             fileOutputStream.close();
 
         } catch (IOException ex) {
             Logger.getLogger(Saver.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            try {
+                if (objectOutputStream != null) {
+                    objectOutputStream.close();
+                }
+            } catch (IOException ex) {
+                Logger.getLogger(Saver.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                if (fileOutputStream != null) {
+                    try {
+                        fileOutputStream.close();
+                    } catch (IOException ex) {
+                        Logger.getLogger(Saver.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
         }
 
     }
 
     public ArrayList<RawMsg> loadMsgs() {
+        FileInputStream fileInputStream = null;
+        ObjectInputStream objectInputStream = null;
         try {
             File file = new File(SAVE_DIR + "/msgs" + getPrefix() + ".dat");
 
-            FileInputStream fileInputStream = new FileInputStream(file);
-            ObjectInputStream objectInputStream = new ObjectInputStream(fileInputStream);
+            fileInputStream = new FileInputStream(file);
+            objectInputStream = new ObjectInputStream(fileInputStream);
             Object readObject = objectInputStream.readObject();
             objectInputStream.close();
             fileInputStream.close();
@@ -66,6 +86,22 @@ public class Saver implements SaverInterface {
             ex.printStackTrace();
         } catch (IOException ex) {
             ex.printStackTrace();
+        } finally {
+            try {
+                if (objectInputStream != null) {
+                    objectInputStream.close();
+                }
+            } catch (IOException ex) {
+                Logger.getLogger(Saver.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                if (fileInputStream != null) {
+                    try {
+                        fileInputStream.close();
+                    } catch (IOException ex) {
+                        Logger.getLogger(Saver.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
         }
 
         System.out.println("could not load msgs.dat");
@@ -80,18 +116,38 @@ public class Saver implements SaverInterface {
             arrayList.add(peer.toSaveable());
         }
         //arrayList = (ArrayList<PeerSaveable>) arrayList.clone();//hack?
+
+        FileOutputStream fileOutputStream = null;
+        ObjectOutputStream objectOutputStream = null;
+
         try {
             File file = new File(SAVE_DIR + "/peers" + getPrefix() + ".dat");
 
             file.createNewFile();
-            FileOutputStream fileOutputStream = new FileOutputStream(file);
-            ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream);
+            fileOutputStream = new FileOutputStream(file);
+            objectOutputStream = new ObjectOutputStream(fileOutputStream);
             objectOutputStream.writeObject(arrayList);
             objectOutputStream.close();
             fileOutputStream.close();
 
         } catch (IOException ex) {
             Logger.getLogger(Saver.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            try {
+                if (objectOutputStream != null) {
+                    objectOutputStream.close();
+                }
+            } catch (IOException ex) {
+                Logger.getLogger(Saver.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                if (fileOutputStream != null) {
+                    try {
+                        fileOutputStream.close();
+                    } catch (IOException ex) {
+                        Logger.getLogger(Saver.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
         }
 
     }
@@ -129,18 +185,37 @@ public class Saver implements SaverInterface {
     }
 
     public void saveIdentities(ArrayList<Channel> identities) {
+
+        FileOutputStream fileOutputStream = null;
+        ObjectOutputStream objectOutputStream = null;
         try {
             File file = new File(SAVE_DIR + "/identities.dat");
 
             file.createNewFile();
-            FileOutputStream fileOutputStream = new FileOutputStream(file);
-            ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream);
+            fileOutputStream = new FileOutputStream(file);
+            objectOutputStream = new ObjectOutputStream(fileOutputStream);
             objectOutputStream.writeObject(identities);
             objectOutputStream.close();
             fileOutputStream.close();
 
         } catch (IOException ex) {
             Logger.getLogger(Saver.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            try {
+                if (objectOutputStream != null) {
+                    objectOutputStream.close();
+                }
+            } catch (IOException ex) {
+                Logger.getLogger(Saver.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                if (fileOutputStream != null) {
+                    try {
+                        fileOutputStream.close();
+                    } catch (IOException ex) {
+                        Logger.getLogger(Saver.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
         }
 
     }
@@ -169,6 +244,9 @@ public class Saver implements SaverInterface {
 
     @Override
     public void saveLocalSettings(LocalSettings localSettings) {
+        FileOutputStream fileOutputStream = null;
+        ObjectOutputStream objectOutputStream = null;
+
         try {
 
             File mkdirs = new File(SAVE_DIR);
@@ -177,14 +255,30 @@ public class Saver implements SaverInterface {
             File file = new File(SAVE_DIR + "/localSettings" + getPrefix() + ".dat");
 
             file.createNewFile();
-            FileOutputStream fileOutputStream = new FileOutputStream(file);
-            ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream);
+            fileOutputStream = new FileOutputStream(file);
+            objectOutputStream = new ObjectOutputStream(fileOutputStream);
             objectOutputStream.writeObject(localSettings);
             objectOutputStream.close();
             fileOutputStream.close();
 
         } catch (IOException ex) {
             Logger.getLogger(Saver.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            try {
+                if (objectOutputStream != null) {
+                    objectOutputStream.close();
+                }
+            } catch (IOException ex) {
+                Logger.getLogger(Saver.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                if (fileOutputStream != null) {
+                    try {
+                        fileOutputStream.close();
+                    } catch (IOException ex) {
+                        Logger.getLogger(Saver.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
         }
     }
 
@@ -213,23 +307,45 @@ public class Saver implements SaverInterface {
 
     @Override
     public void saveTrustedPeers(ArrayList<PeerTrustData> peertrusts) {
+        FileOutputStream fileOutputStream = null;
+        ObjectOutputStream objectOutputStream = null;
         try {
             File mkdirs = new File(SAVE_DIR);
             mkdirs.mkdir();
 
-            File file = new File(SAVE_DIR + "/trustData" + getPrefix() + ".dat");
+            File fileTmp = new File(SAVE_DIR + "/trustData-tmp" + getPrefix() + ".dat");
 
 
 
-            file.createNewFile();
-            FileOutputStream fileOutputStream = new FileOutputStream(file);
-            ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream);
+            fileTmp.createNewFile();
+            fileOutputStream = new FileOutputStream(fileTmp);
+            objectOutputStream = new ObjectOutputStream(fileOutputStream);
             objectOutputStream.writeObject(peertrusts.clone());
             objectOutputStream.close();
             fileOutputStream.close();
+            
+            File originFile = new File(SAVE_DIR + "/trustData" + getPrefix() + ".dat");
+            originFile.delete();
+            fileTmp.renameTo(originFile);
 
         } catch (IOException ex) {
             Logger.getLogger(Saver.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            try {
+                if (objectOutputStream != null) {
+                    objectOutputStream.close();
+                }
+            } catch (IOException ex) {
+                Logger.getLogger(Saver.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                if (fileOutputStream != null) {
+                    try {
+                        fileOutputStream.close();
+                    } catch (IOException ex) {
+                        Logger.getLogger(Saver.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
         }
     }
 

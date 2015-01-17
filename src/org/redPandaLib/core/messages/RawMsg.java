@@ -275,6 +275,10 @@ public class RawMsg implements Serializable, Comparable<RawMsg> {
         if (decryptedContent[0] == ControlMsg.BYTE) {
             ControlMsg controlMsg = new ControlMsg(key, timestamp, nonce, signature, content, decryptedContent, channel, verified, readable, database_Id);
             return controlMsg;
+        } else //Check for ImageMsg
+        if (decryptedContent[0] == ImageMsg.BYTE) {
+            ImageMsg imageMsg = new ImageMsg(key, timestamp, nonce, signature, content, decryptedContent, channel, verified, readable, database_Id);
+            return imageMsg;
         }
 
         return this;

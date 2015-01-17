@@ -15,7 +15,6 @@
  */
 package org.redPandaLib.crypt;
 
-import com.google.common.util.concurrent.CycleDetectingLockFactory;
 import org.spongycastle.crypto.digests.RIPEMD160Digest;
 import org.spongycastle.util.encoders.Hex;
 
@@ -28,8 +27,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.concurrent.locks.ReentrantLock;
-
-import static com.google.common.base.Preconditions.checkArgument;
 
 /**
  * A collection of various utility methods that are helpful for working with the
@@ -104,8 +101,9 @@ public class Utils {
      * Convert an amount expressed in the way humans are used to into
      * nanocoins.<p>
      * <p/>
-     * This takes string in a format understood by {@link BigDecimal#BigDecimal(String)},
-     * for example "0", "1", "0.10", "1.23E3", "1234.5E-5".
+     * This takes string in a format understood by
+     * {@link BigDecimal#BigDecimal(String)}, for example "0", "1", "0.10",
+     * "1.23E3", "1234.5E-5".
      *
      * @throws ArithmeticException if you try to specify fractional nanocoins
      */
@@ -333,10 +331,11 @@ public class Utils {
     }
 
     /**
-     * <p> Returns the given value as a plain string denominated in BTC. The
-     * result is unformatted with no trailing zeroes. For instance, an input
-     * value of BigInteger.valueOf(150000) nanocoin gives an output string of
-     * "0.0015" BTC </p>
+     * <p>
+     * Returns the given value as a plain string denominated in BTC. The result
+     * is unformatted with no trailing zeroes. For instance, an input value of
+     * BigInteger.valueOf(150000) nanocoin gives an output string of "0.0015"
+     * BTC </p>
      *
      * @param value The value in nanocoins to convert to a string (denominated
      * in BTC)
@@ -501,10 +500,11 @@ public class Utils {
     }
 
     /**
-     * <p>Given a textual message, returns a byte buffer formatted as
-     * follows:</p>
+     * <p>
+     * Given a textual message, returns a byte buffer formatted as follows:</p>
      *
-     * <tt><p>[24] "Bitcoin Signed Message:\n" [message.length as a varint]
+     * <tt><p>
+     * [24] "Bitcoin Signed Message:\n" [message.length as a varint]
      * message</p></tt>
      */
     public static byte[] formatMessageForSigning(String message) {
@@ -522,9 +522,9 @@ public class Utils {
 //        bytes = message.getBytes(Charset.forName("UTF-8"));
 //        System.arraycopy(bytes, 0, result, cursor, bytes.length);
 //        return result;
-        
+
         return message.getBytes();
-        
+
     }
     // 00000001, 00000010, 00000100, 00001000, ...
     private static final int bitMask[] = {0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80};
@@ -537,5 +537,11 @@ public class Utils {
     // Sets the given bit in data to one
     public static void setBitLE(byte[] data, int index) {
         data[index >>> 3] |= bitMask[7 & index];
+    }
+
+    private static void checkArgument(boolean b) {
+        if (!b) {
+            throw new IllegalArgumentException();
+        }
     }
 }

@@ -8,10 +8,15 @@ import crypt.Utils;
 import java.io.UnsupportedEncodingException;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.redPandaLib.core.Channel;
+import org.redPandaLib.core.Log;
 import org.redPandaLib.core.Test;
+import static org.redPandaLib.core.Test.messageStore;
 import org.redPandaLib.core.messages.RawMsg;
 import org.redPandaLib.core.messages.TextMessageContent;
 import org.redPandaLib.core.messages.TextMsg;
@@ -24,24 +29,28 @@ import org.redPandaLib.crypt.ECKey;
 public class DirectMessageStore implements MessageStore {
 
     public Connection connection;
+    private Integer messageCount = Integer.MIN_VALUE;
+    private boolean resetMessageCount = true;
+    private final ReentrantLock messageCountLock = new ReentrantLock();
 
     public DirectMessageStore(Connection connection) throws SQLException {
         this.connection = connection;
+        connection.setAutoCommit(true);
         //connection = new HsqlConnection().getConnection();
     }
 
-    public boolean containsMsg(RawMsg msg) {
+    public int containsMsg(RawMsg msg) {
         try {
             int pubkeyIdWithInsert = getPubkeyIdWithInsert(connection, msg.getKey().getPubKey());
             int messageId = getMessageId(connection, pubkeyIdWithInsert, msg.public_type, msg.timestamp, msg.nonce);
 
-            return (messageId != -1);
+            return messageId;
 
         } catch (SQLException ex) {
             Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
         }
 
-        return false;
+        return -1;
     }
 
     public int getPubkeyId(ECKey key) {
@@ -69,17 +78,9 @@ public class DirectMessageStore implements MessageStore {
     public void saveMsg(RawMsg msg) {
         try {
             int pubkeyIdWithInsert = getPubkeyIdWithInsert(connection, msg.getKey().getPubKey());
-
             //System.out.println("KeyId: " + pubkeyIdWithInsert);
             int messageIdWithInsert = getMessageIdWithInsert(connection, pubkeyIdWithInsert, msg.public_type, msg.timestamp, msg.nonce, msg.signature, msg.content, msg.verified);
-
-
             //System.out.println("Message ID: " + messageIdWithInsert);
-
-
-
-
-
         } catch (SQLException ex) {
             Logger.getLogger(Wrapper.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -101,8 +102,6 @@ public class DirectMessageStore implements MessageStore {
         pstmt.setBytes(1, pubkeyBytes);
         ResultSet executeQuery = pstmt.executeQuery();
 
-
-
 //        boolean found = false;
 //        while (executeQuery.next()) {
 //            found = true;
@@ -111,7 +110,6 @@ public class DirectMessageStore implements MessageStore {
 //
 //            System.out.println("ID: " + aInt + " bytes: " + Channel.byte2String(bytes));
 //        }
-
         if (!executeQuery.next()) {
             System.out.println("noch nicht in der db 2");
 
@@ -134,7 +132,6 @@ public class DirectMessageStore implements MessageStore {
             executeQuery.next();//braucht man das?
         }
 
-
         int aInt = executeQuery.getInt("pubkey_id");
 
         executeQuery.close();
@@ -142,7 +139,6 @@ public class DirectMessageStore implements MessageStore {
 
         //byte[] bytes = executeQuery.getBytes("pubkey");
         //System.out.println("ID: " + aInt + " bytes: " + Channel.byte2String(bytes));
-
         return aInt;
 
     }
@@ -156,13 +152,11 @@ public class DirectMessageStore implements MessageStore {
         pstmt.setInt(1, pubkey_id);
         ResultSet executeQuery = pstmt.executeQuery();
 
-
         if (!executeQuery.next()) {
             executeQuery.close();
             pstmt.close();
             return null;
         }
-
 
         byte[] b = executeQuery.getBytes("pubkey");
 
@@ -171,7 +165,6 @@ public class DirectMessageStore implements MessageStore {
 
         //byte[] bytes = executeQuery.getBytes("pubkey");
         //System.out.println("ID: " + aInt + " bytes: " + Channel.byte2String(bytes));
-
         return b;
 
     }
@@ -196,8 +189,6 @@ public class DirectMessageStore implements MessageStore {
         pstmt.setInt(4, nonce);
         ResultSet executeQuery = pstmt.executeQuery();
 
-
-
 //        boolean found = false;
 //        while (executeQuery.next()) {
 //            found = true;
@@ -206,7 +197,6 @@ public class DirectMessageStore implements MessageStore {
 //
 //            System.out.println("ID: " + aInt + " bytes: " + Channel.byte2String(bytes));
 //        }
-
         if (!executeQuery.next()) {
             return -1;
         }
@@ -229,9 +219,6 @@ public class DirectMessageStore implements MessageStore {
         pstmt.setLong(3, timestamp);
         pstmt.setInt(4, nonce);
         ResultSet executeQuery = pstmt.executeQuery();
-
-
-
 //        boolean found = false;
 //        while (executeQuery.next()) {
 //            found = true;
@@ -240,13 +227,10 @@ public class DirectMessageStore implements MessageStore {
 //
 //            System.out.println("ID: " + aInt + " bytes: " + Channel.byte2String(bytes));
 //        }
-
         if (!executeQuery.next()) {
             //System.out.println("noch nicht in der db");
 
             //System.out.println("id: " + pubkey_id + " timestamp: " + timestamp + " nonce: " + nonce);
-
-
             executeQuery.close();
             pstmt.close();
             //message_id INTEGER PRIMARY KEY IDENTITY, pubkey_id INTEGER, timestamp BIGINT, nonce INTEGER,  signature BINARY(72), content LONGVARBINARY, verified boolean
@@ -259,7 +243,15 @@ public class DirectMessageStore implements MessageStore {
             pstmt.setBytes(5, signature);
             pstmt.setBytes(6, content);
             pstmt.setBoolean(7, verified);
-            pstmt.execute();
+            boolean execute = pstmt.execute();
+            boolean tryLock = messageCountLock.tryLock();
+            if (!tryLock) {
+                resetMessageCount = true;
+            } else {
+                messageCount++;
+                messageCountLock.unlock();
+            }
+
             pstmt.close();
 
             //get Key Id
@@ -271,8 +263,8 @@ public class DirectMessageStore implements MessageStore {
             pstmt.setInt(4, nonce);
             executeQuery = pstmt.executeQuery();
             executeQuery.next();//braucht man das?
-        }
 
+        }
 
         int aInt = executeQuery.getInt("message_id");
 
@@ -347,14 +339,9 @@ public class DirectMessageStore implements MessageStore {
                 return null;
             }
 
-
-
-
-
             //message_id INTEGER PRIMARY KEY IDENTITY, pubkey_id INTEGER, timestamp BIGINT, nonce INTEGER,  signature BINARY(72), content LONGVARBINARY, verified boolean
             //int pubkey_id = executeQuery.getInt("pubkey_id");
             //byte[] pubkeyBytes = getPubkeyById(connection, pubkey_id);
-
             byte public_type = executeQuery.getByte("public_type");
             long timestamp = executeQuery.getLong("timestamp");
             int nonce = executeQuery.getInt("nonce");
@@ -363,10 +350,8 @@ public class DirectMessageStore implements MessageStore {
             boolean verified = executeQuery.getBoolean("verified");
             RawMsg rawMsg = new RawMsg(timestamp, nonce, signature, content, verified);
 
-
 //            System.out.println("sign: " + Utils.bytesToHexString(signature));
 //            System.out.println("content: " + Utils.bytesToHexString(content));
-
             rawMsg.public_type = public_type;
 
             executeQuery.close();
@@ -382,7 +367,6 @@ public class DirectMessageStore implements MessageStore {
     @Override
     public void quit() {
         try {
-            connection.commit();
             PreparedStatement prepareStatement = connection.prepareStatement("SHUTDOWN");
             prepareStatement.execute();
             connection.close();
@@ -393,14 +377,16 @@ public class DirectMessageStore implements MessageStore {
     }
 
     @Override
-    public ResultSet getAllMessagesForSync(long from, long to) {
+    public ResultSet getAllMessagesForSync(long from, long to, long peer_id) {
 //        ArrayList<RawMsg> list = new ArrayList<RawMsg>();
 
         try {
             //get Key Id
-            String query = "SELECT message_id,pubkey.pubkey_id, pubkey,public_type,timestamp,nonce,signature,content,verified from message left join pubkey on (pubkey.pubkey_id = message.pubkey_id) WHERE timestamp > ? order by timestamp asc";
+            //String query = "SELECT message_id,pubkey.pubkey_id, pubkey,public_type,timestamp,nonce,signature,content,verified from message left join pubkey on (pubkey.pubkey_id = message.pubkey_id) WHERE timestamp > ? order by timestamp asc";
+            String query = "SELECT message.message_id,pubkey.pubkey_id, pubkey,public_type,timestamp,nonce,signature,content,verified from haveToSendMessageToPeer left join message on (haveToSendMessageToPeer.message_id = message.message_id) left join pubkey on (message.pubkey_id = pubkey.pubkey_id) WHERE timestamp > ? AND peer_id = ? order by timestamp asc";
             PreparedStatement pstmt = connection.prepareStatement(query);
             pstmt.setLong(1, from);
+            pstmt.setLong(2, peer_id);
             ResultSet executeQuery = pstmt.executeQuery();
 
             return executeQuery;
@@ -425,22 +411,17 @@ public class DirectMessageStore implements MessageStore {
 //                rawMsg.public_type = public_type;
 //                list.add(rawMsg);
 //            }
-
-
 //            executeQuery.close();
 //            pstmt.close();
         } catch (SQLException ex) {
             Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
         }
 
-
-
         return null;
     }
 
     @Override
     public ArrayList<RawMsg> getMessagesForPubkey(byte[] pubKey, long from, int to) {
-
 
         ECKey ecKey = new ECKey(null, pubKey);
         int pubkeyId = getPubkeyId(ecKey);
@@ -471,40 +452,45 @@ public class DirectMessageStore implements MessageStore {
                 list.add(rawMsg);
             }
 
-
             executeQuery.close();
             pstmt.close();
         } catch (SQLException ex) {
             Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
         }
 
-
-
         return list;
     }
 
-    public void addDecryptedContent(int pubkey_id, int message_id, int message_type, byte[] decryptedContent, long identity, boolean fromMe) {
+    public void addDecryptedContent(int pubkey_id, int message_id, int message_type, long timestamp, byte[] decryptedContent, long identity, boolean fromMe) {
         try {
             //channelmessage (channel_id INTEGER, message_id INTEGER, message_type INTEGER, decryptedContent LONGVARBINARY);
-            String query = "INSERT into channelmessage (pubkey_id,message_id,message_type,decryptedContent,identity,fromMe) VALUES (?,?,?,?,?,?)";
+            String query = "INSERT into channelmessage (pubkey_id,message_id,message_type,timestamp,decryptedContent,identity,fromMe) VALUES (?,?,?,?,?,?,?)";
             PreparedStatement pstmt = connection.prepareStatement(query);
             pstmt.setInt(1, pubkey_id);
             pstmt.setInt(2, message_id);
             pstmt.setInt(3, message_type);
-            pstmt.setBytes(4, decryptedContent);
-            pstmt.setLong(5, identity);
-            pstmt.setBoolean(6, fromMe);
+            pstmt.setLong(4, timestamp);
+            pstmt.setBytes(5, decryptedContent);
+            pstmt.setLong(6, identity);
+            pstmt.setBoolean(7, fromMe);
             pstmt.execute();
             pstmt.close();
-        } catch (SQLException ex) {
+        } catch (Throwable ex) {
+            ex.printStackTrace();
             Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
         }
 
-
     }
 
+    /**
+     * perhaps removed from and to in query for testing...
+     *
+     * @param pubKey
+     * @param from
+     * @param to
+     * @return
+     */
     public ArrayList<TextMessageContent> getMessageContentsForPubkey(byte[] pubKey, long from, long to) {
-
 
         ECKey ecKey = new ECKey(null, pubKey);
         int pubkeyId = getPubkeyId(ecKey);
@@ -514,26 +500,29 @@ public class DirectMessageStore implements MessageStore {
 
         try {
             //get Key Id
-            String query = "SELECT message_id,message_type,decryptedContent,timestamp,identity,fromMe,nonce from channelmessage LEFT JOIN message on (channelmessage.message_id = message.message_id) WHERE pubkey_id =? AND timestamp < ? AND timestamp > ? "
-                    + "UNION (SELECT message_id,message_type,decryptedContent,timestamp,identity,fromMe,nonce from channelmessage LEFT JOIN message on (channelmessage.message_id = message.message_id) WHERE pubkey_id =? AND timestamp < ? ORDER BY message_type, timestamp LIMIT 200)";
+            //String query = "(SELECT message_id,message_type,decryptedContent,timestamp,identity,fromMe,nonce from channelmessage LEFT JOIN message on (channelmessage.message_id = message.message_id) WHERE pubkey_id =? AND timestamp < ? AND timestamp > ?) "
+            //        + "UNION (SELECT message_id,message_type,decryptedContent,timestamp,identity,fromMe,nonce from channelmessage LEFT JOIN message on (channelmessage.message_id = message.message_id) WHERE pubkey_id =? AND timestamp < ? ORDER BY message_type, timestamp LIMIT 200) ORDER BY timestamp";
 
-            System.out.println("QUERY: " + query);
+            //String query = "SELECT message_id,message_type,decryptedContent,timestamp,identity,fromMe,nonce from channelmessage LEFT JOIN message on (channelmessage.message_id = message.message_id) WHERE pubkey_id =? AND timestamp < ? AND timestamp > ? ORDER BY timestamp";
+            //String query = "SELECT message_id,message_type,decryptedContent,channelmessage.timestamp,identity,fromMe,nonce from channelmessage LEFT JOIN message on (channelmessage.message_id = message.message_id) WHERE pubkey_id =? AND timestamp > 0 ORDER BY timestamp DESC";
+//WARNING added timestamp to channelmessage - old querys have to be edited!!!!
+            String query = "SELECT message_id,message_type,timestamp,decryptedContent,identity,fromMe from channelmessage WHERE pubkey_id =? AND timestamp > 0 ORDER BY timestamp DESC";
+            //System.out.println("QUERY: " + query);
 
             PreparedStatement pstmt = connection.prepareStatement(query);
             pstmt.setInt(1, pubkeyId);
-            pstmt.setLong(2, to);
-            pstmt.setLong(3, from);
-            pstmt.setInt(4, pubkeyId);
-            pstmt.setLong(5, to);
+            //pstmt.setLong(2, to);
+            //pstmt.setLong(3, from);
 
-            System.out.println("STM: " + pstmt.toString());
+            //pstmt.setInt(4, pubkeyId);
+            //pstmt.setLong(5, to);
+            pstmt.setMaxRows(1000);
 
+            //System.out.println("STM: " + pstmt.toString());
             ResultSet executeQuery = pstmt.executeQuery();
 
             //System.out.println("kndkjwhd");
-
-            System.out.println("reading data...");
-
+            //System.out.println("reading data...");
             while (executeQuery.next()) {
                 int message_id = executeQuery.getInt("message_id");
                 int message_type = executeQuery.getInt("message_type");
@@ -541,7 +530,7 @@ public class DirectMessageStore implements MessageStore {
                 long timestamp = executeQuery.getLong("timestamp");
                 long identity = executeQuery.getLong("identity");
                 boolean fromMe = executeQuery.getBoolean("fromMe");
-                long nonce = executeQuery.getLong("nonce");
+                //long nonce = executeQuery.getLong("nonce");
                 //TextMsg textMsg = new TextMsg(ecKey, timestamp, to, null, null, decryptedContent, instanceByPublicKey, true, true, message_id);
                 //TextMessageContent textMessageContent = new TextMessageContent(message_id, pubkeyId, message_type, timestamp, decryptedContent, instanceByPublicKey , , query, fromMe)fromMe);
                 //if (decryptedContent.length < 1 + 8 + 1) {
@@ -559,14 +548,12 @@ public class DirectMessageStore implements MessageStore {
                 textMessageContent.decryptedContent = decryptedContent;
 
                 //System.out.println("MSG!! " + message_id);
-
                 list.add(textMessageContent);
-                System.out.println("added");
+                //System.out.println("added");
             }
             executeQuery.close();
 
-            System.out.println("SIZE: " + list.size());
-
+            //System.out.println("SIZE: " + list.size());
 //            long lastFrom = from;
 //
 //            while (list.size() < 45) {
@@ -622,9 +609,6 @@ public class DirectMessageStore implements MessageStore {
 //                executeQuery.close();
 //
 //            }
-
-
-
             pstmt.close();
         } catch (UnsupportedEncodingException ex) {
 
@@ -634,8 +618,7 @@ public class DirectMessageStore implements MessageStore {
             Test.sendStacktrace(ex);
         }
 
-
-
+        Collections.reverse(list);
         return list;
     }
 
@@ -663,8 +646,41 @@ public class DirectMessageStore implements MessageStore {
 
     @Override
     public int getMessageCount() {
+        messageCountLock.lock();
+        if (!resetMessageCount) {
+            int tempMessageCount = messageCount;
+            messageCountLock.unlock();
+            return tempMessageCount;
+        }
+        messageCountLock.unlock();
         try {
-            String query = "SELECT count(message_id) from message";
+            String query = "SELECT count(*) from message";
+            //stmt.executeQuery("SELECT id,key from pubkey WHERE key EQUASLS "+ msg.getKey().getPubKey())
+            Statement createStatement = connection.createStatement();
+            ResultSet executeQuery = createStatement.executeQuery(query);
+
+            executeQuery.next();
+            int aInt = executeQuery.getInt(1);
+            executeQuery.close();
+            createStatement.close();
+
+            messageCountLock.lock();
+            messageCount = aInt;
+            messageCountLock.unlock();
+            resetMessageCount = false;
+
+            return aInt;
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return -1;
+    }
+
+    @Override
+    public int getMessageCountToVerify() {
+        try {
+            String query = "SELECT count(message_id) from message WHERE verified = 0";
             //stmt.executeQuery("SELECT id,key from pubkey WHERE key EQUASLS "+ msg.getKey().getPubKey())
             Statement createStatement = connection.createStatement();
             ResultSet executeQuery = createStatement.executeQuery(query);
@@ -699,11 +715,369 @@ public class DirectMessageStore implements MessageStore {
     private void removeMessagesFromChannel(Connection connection, int pubkey_id, byte pubkey_type, long timestamp) throws SQLException {
         //get Key Id
         //String query = "SELECT message_id from message WHERE pubkey_id = ? AND public_type = ? AND timestamp = ? AND nonce = ?";
-        String query =
-                "DELETE FROM message WHERE pubkey_id = ? AND public_type = 20 AND timestamp < ?";
+        String query = "DELETE FROM message WHERE pubkey_id = ? AND public_type = 20 AND timestamp < ?";
         PreparedStatement pstmt = connection.prepareStatement(query);
         pstmt.setInt(1, pubkey_id);
         pstmt.setLong(2, timestamp);
         pstmt.execute();
+        resetMessageCounter();
+    }
+
+    public void removeOldMessages(long timestamp) {
+        try {
+            //get Key Id
+            //String query = "SELECT message_id from message WHERE pubkey_id = ? AND public_type = ? AND timestamp = ? AND nonce = ?";
+            String query = "DELETE FROM message WHERE timestamp < ?";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setLong(1, timestamp);
+            pstmt.execute();
+            resetMessageCounter();
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public void removeOldMessagesDecryptedContent(long timestamp) {
+        try {
+            //get Key Id
+            //String query = "SELECT message_id from message WHERE pubkey_id = ? AND public_type = ? AND timestamp = ? AND nonce = ?";
+            String query = "DELETE FROM channelmessage WHERE timestamp < ?";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setLong(1, timestamp);
+            pstmt.execute();
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public void checkpoint() {
+        try {
+            Statement stmt = getConnection().createStatement();
+            stmt.execute("CHECKPOINT");
+        } catch (SQLException ex) {
+            Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public void addStick(int pubkey_id, int message_id, double difficulty, long validTill) {
+        try {
+            //channelmessage (channel_id INTEGER, message_id INTEGER, message_type INTEGER, decryptedContent LONGVARBINARY);
+            String query = "INSERT into sticks (pubkey_id,message_id,difficulty,validTill) VALUES (?,?,?,?)";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setInt(1, pubkey_id);
+            pstmt.setInt(2, message_id);
+            pstmt.setDouble(3, difficulty);
+            pstmt.setLong(4, validTill);
+            pstmt.execute();
+            pstmt.close();
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+    }
+
+    private boolean msgIntroducedToMe(long peer_id, int message_id) throws SQLException {
+        //get Key Id
+        String query = "SELECT peer_id from peerMessagesIntroducedToMe WHERE peer_id = ? AND message_id = ?";
+        PreparedStatement pstmt = connection.prepareStatement(query);
+        pstmt.setLong(1, peer_id);
+        pstmt.setInt(2, message_id);
+        ResultSet executeQuery = pstmt.executeQuery();
+
+        if (!executeQuery.next()) {
+            executeQuery.close();
+            pstmt.close();
+            return false;
+        }
+        executeQuery.close();
+        pstmt.close();
+        return true;
+
+    }
+
+    public int msgCountIntroducedToHim(long peer_id) {
+        try {
+            //get Key Id
+            String query = "SELECT count(message_id) from peerMessagesIntroducedToHim WHERE peer_id = ?";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setLong(1, peer_id);
+            ResultSet executeQuery = pstmt.executeQuery();
+
+            executeQuery.next();
+            int aInt = executeQuery.getInt(1);
+            executeQuery.close();
+            pstmt.close();
+
+            return aInt;
+
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return -1;
+    }
+
+    public int msgCountIntroducedToMe(long peer_id) {
+        try {
+            //get Key Id
+            String query = "SELECT count(message_id) from peerMessagesIntroducedToMe WHERE peer_id = ?";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setLong(1, peer_id);
+            ResultSet executeQuery = pstmt.executeQuery();
+
+            executeQuery.next();
+            int aInt = executeQuery.getInt(1);
+            executeQuery.close();
+            pstmt.close();
+
+            return aInt;
+
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return -1;
+    }
+
+    public void addMsgIntroducedToMe(long peer_id, int message_id) {
+
+        try {
+            if (msgIntroducedToMe(peer_id, message_id)) {
+                return;
+            }
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        try {
+            String query = "INSERT into peerMessagesIntroducedToMe (peer_id,message_id) VALUES (?,?)";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setLong(1, peer_id);
+            pstmt.setInt(2, message_id);
+            pstmt.execute();
+            pstmt.close();
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+    }
+
+    private boolean msgIntroducedToHim(long peer_id, int message_id) throws SQLException {
+        //get Key Id
+        String query = "SELECT peer_id from peerMessagesIntroducedToHim WHERE peer_id = ? AND message_id = ?";
+        PreparedStatement pstmt = connection.prepareStatement(query);
+        pstmt.setLong(1, peer_id);
+        pstmt.setInt(2, message_id);
+        ResultSet executeQuery = pstmt.executeQuery();
+
+        if (!executeQuery.next()) {
+            executeQuery.close();
+            pstmt.close();
+            return false;
+        }
+
+        executeQuery.close();
+        pstmt.close();
+        return true;
+
+    }
+
+    public void addMsgIntroducedToHim(long peer_id, int message_id) {
+
+        try {
+            if (msgIntroducedToHim(peer_id, message_id)) {
+                return;
+            }
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        try {
+            String query = "INSERT into peerMessagesIntroducedToHim (peer_id,message_id) VALUES (?,?)";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setLong(1, peer_id);
+            pstmt.setInt(2, message_id);
+            pstmt.execute();
+            pstmt.close();
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+    }
+
+    public int msgsToUser(long peer_id, long from) {
+        try {
+            //get Key Id
+            String query = "SELECT count(message_id) from message WHERE timestamp > ? AND message_id NOT IN (SELECT message_id from peerMessagesIntroducedToHim WHERE peer_id = ?)";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setLong(1, from);
+            pstmt.setLong(2, peer_id);
+            ResultSet executeQuery = pstmt.executeQuery();
+
+            executeQuery.next();
+            int aInt = executeQuery.getInt(1);
+            executeQuery.close();
+            pstmt.close();
+
+            return aInt;
+
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return -1;
+    }
+
+    private boolean isFilteringAddress(long peer_id, int channel_id) throws SQLException {
+        //get Key Id
+        String query = "SELECT peer_id from filterChannels WHERE peer_id = ? AND channel_id = ?";
+        PreparedStatement pstmt = connection.prepareStatement(query);
+        pstmt.setLong(1, peer_id);
+        pstmt.setInt(2, channel_id);
+        ResultSet executeQuery = pstmt.executeQuery();
+
+        if (!executeQuery.next()) {
+            executeQuery.close();
+            pstmt.close();
+            return false;
+        }
+
+        executeQuery.close();
+        pstmt.close();
+        return true;
+
+    }
+
+    @Override
+    public void addFilterChannel(long peer_id, int channel_id) {
+
+        try {
+            if (isFilteringAddress(peer_id, channel_id)) {
+                //System.out.println("schon drin!");
+                return;
+            }
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+            return;
+        }
+
+        try {
+            String query = "INSERT into filterChannels (peer_id,channel_id) VALUES (?,?)";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setLong(1, peer_id);
+            pstmt.setInt(2, channel_id);
+            pstmt.execute();
+            pstmt.close();
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    @Override
+    public void delFilterChannel(long peer_id, int channel_id) {
+        try {
+            String query = "DELETE from filterChannels WHERE peer_id = ? AND channel_id = ?";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setLong(1, peer_id);
+            pstmt.setInt(2, channel_id);
+            pstmt.execute();
+            pstmt.close();
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public void addMessageToSend(int message_id, int channel_id) {
+
+        Log.put("ADDE MSG _ : " + message_id, 50);
+
+        try {
+            String query = "INSERT into haveToSendMessageToPeer (message_id,peer_id) SELECT ? as message_id,peer_id FROM filterChannels WHERE channel_id = ? OR channel_id = -1 group by peer_id";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setInt(1, message_id);
+            pstmt.setInt(2, channel_id);
+            pstmt.execute();
+            pstmt.close();
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public void addMessageToSendToSpecificPeer(int message_id, int peer_id) {
+
+        Log.put("ADDE MSG _ : " + message_id, 50);
+
+        try {
+            String query = "INSERT into haveToSendMessageToPeer (message_id,peer_id) VALUES (?,?)";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setInt(1, message_id);
+            pstmt.setInt(2, peer_id);
+            pstmt.execute();
+            pstmt.close();
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public boolean removeMessageToSend(long peer_id, int message_id) {
+        try {
+            String query = "DELETE from haveToSendMessageToPeer WHERE peer_id = ? AND message_id = ?";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setLong(1, peer_id);
+            pstmt.setInt(2, message_id);
+            pstmt.execute();
+            int updateCount = pstmt.getUpdateCount();
+            pstmt.close();
+
+            return (updateCount > 0);
+
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return false;
+    }
+
+    public boolean removeMessageToSend(long peer_id) {
+        try {
+            String query = "DELETE from haveToSendMessageToPeer WHERE peer_id = ?";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setLong(1, peer_id);
+            pstmt.execute();
+            int updateCount = pstmt.getUpdateCount();
+            pstmt.close();
+
+            return (updateCount > 0);
+
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return false;
+    }
+
+    @Override
+    public ResultSet getMessagesForBackSync(long time, int cnt) {
+//        ArrayList<RawMsg> list = new ArrayList<RawMsg>();
+
+        try {
+            //get Key Id
+            //String query = "SELECT message_id,pubkey.pubkey_id, pubkey,public_type,timestamp,nonce,signature,content,verified from message left join pubkey on (pubkey.pubkey_id = message.pubkey_id) WHERE timestamp > ? order by timestamp asc";
+            String query = "SELECT message_id,pubkey.pubkey_id, pubkey,public_type,timestamp,nonce,signature,content,verified from message left join pubkey on (message.pubkey_id = pubkey.pubkey_id) WHERE timestamp < ? order by timestamp DESC LIMIT ?";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setLong(1, time);
+            pstmt.setInt(2, cnt);
+            ResultSet executeQuery = pstmt.executeQuery();
+
+            return executeQuery;
+
+//            while (executeQuery.
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return null;
+    }
+
+    @Override
+    public void resetMessageCounter() {
+        resetMessageCount = true;
     }
 }

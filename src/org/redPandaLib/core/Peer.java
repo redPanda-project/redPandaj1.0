@@ -15,8 +15,11 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.redPandaLib.Main;
 import org.redPandaLib.crypt.ECKey;
 import org.redPandaLib.crypt.RC4;
@@ -30,11 +33,11 @@ public class Peer implements Comparable<Peer> {
     String ip;
     int port;
     public int connectAble = 0;
-    long retries = 0;
+    public long retries = 0;
     long lastRetryAfter5 = 0;
     long lastActionOnConnection = 0;
     int cnt = 0;
-    long connectedSince = 0;
+    public long connectedSince = 0;
     long lastAllMsgsQuerried = Settings.till;
     long nonce;
     private ArrayList<String> filterAdresses;
@@ -64,6 +67,8 @@ public class Peer implements Comparable<Peer> {
     public Thread connectinThread;
     public int parsedCryptedBytes = 0;
     public long syncMessagesSince = 0;
+    public ArrayList<Integer> removedSendMessages = new ArrayList<Integer>();
+    public int maxSimultaneousRequests = 1;
 
     public Peer(String ip, int port) {
         this.ip = ip;
@@ -77,7 +82,6 @@ public class Peer implements Comparable<Peer> {
             Peer n2 = (Peer) obj;
 
             return (ip.equals(n2.ip) && port == n2.port);
-
 
         } else {
             return false;
@@ -93,7 +97,6 @@ public class Peer implements Comparable<Peer> {
 
             //return (ip.equals(n2.ip) && port == n2.port && nonce == n2.nonce);
             return nonce == n2.nonce;
-
 
         } else {
             return false;
@@ -132,7 +135,6 @@ public class Peer implements Comparable<Peer> {
     @Override
     public int compareTo(Peer o) {
 
-
         return o.getPriority() - getPriority();
 
 //        int ret = (int) (retries - o.retries);
@@ -149,7 +151,6 @@ public class Peer implements Comparable<Peer> {
 //        }
 //
 //        return (int) (o.lastAllMsgsQuerried - lastAllMsgsQuerried);
-
     }
 
     public int getPriority() {
@@ -164,7 +165,6 @@ public class Peer implements Comparable<Peer> {
             a -= 1000;
         }
 
-
         if (ip.contains(":")) {
             a += 50;
         }
@@ -173,10 +173,12 @@ public class Peer implements Comparable<Peer> {
             if (peerTrustData.loadedMsgs != null) {
                 a += peerTrustData.loadedMsgs.size();
             }
+
+            a -= peerTrustData.badMessages * 100;
+
         }
 
         a += -retries * 200;
-
 
         return a;
     }
@@ -210,27 +212,27 @@ public class Peer implements Comparable<Peer> {
 //        return writeBuffers;
 //    }
 
-    public void disconnect() {
-        if (peerTrustData != null) {
-            peerTrustData.removeNotSuccesfulSendMessages();
-        }
+    public void disconnect(String reason) {
 
-        setConnected(false);
+        try {
+            writeBufferLock.tryLock(5, TimeUnit.SECONDS);
 
-        if (isConnecting && connectinThread != null) {
-            connectinThread.interrupt();
-        }
+            Log.put("DISCONNECT: " + reason, 30);
 
-        isConnecting = false;
+            setConnected(false);
 
+            removeRequestedMsgs();
 
+            if (isConnecting && connectinThread != null) {
+                connectinThread.interrupt();
+            }
 
-        System.out.println("disconnect");
+            isConnecting = false;
 
-        if (selectionKey != null) {
-            selectionKey.cancel();
-        }
-        if (socketChannel != null) {
+            if (selectionKey != null) {
+                selectionKey.cancel();
+            }
+            if (socketChannel != null) {
 //            ByteBuffer a = ByteBuffer.allocate(1);
 //            a.put((byte) 254);
 //            a.flip();
@@ -240,18 +242,38 @@ public class Peer implements Comparable<Peer> {
 //            } catch (IOException ex) {
 //            } catch (NotYetConnectedException e) {
 //            }
-            try {
-                socketChannel.close();
-            } catch (IOException ex) {
+                try {
+                    socketChannel.close();
+                } catch (IOException ex) {
+                }
             }
+
+            readBuffer = null;
+            readBufferCrypted = null;
+            writeBuffer = null;
+            writeBufferCrypted = null;
+
+            if (writeBufferLock.isHeldByCurrentThread()) {
+                writeBufferLock.unlock();
+            }
+        } catch (InterruptedException ex) {
+            Logger.getLogger(Peer.class.getName()).log(Level.SEVERE, null, ex);
         }
 
+    }
 
-        if (writeBufferLock.isHeldByCurrentThread()) {
-            writeBufferLock.unlock();
+    public void removeRequestedMsgs() {
+
+        if (peerTrustData != null) {
+            MessageDownloader.requestedMsgsLock.lock();
+            for (MessageDownloader.RawMsgEntry msg : (ArrayList<MessageDownloader.RawMsgEntry>) MessageDownloader.requestedMsgs.clone()) {
+                if (msg.requestedFromPeer == this) {
+                    MessageDownloader.requestedMsgs.remove(msg);
+                    System.out.println("REMOVED MSG FROM REQUESTED, peer disconnected!!!!");
+                }
+            }
+            MessageDownloader.requestedMsgsLock.unlock();
         }
-
-
     }
 
     public void ping() {
@@ -290,58 +312,57 @@ public class Peer implements Comparable<Peer> {
         this.selectionKey = selectionKey;
     }
 
-    public synchronized boolean setWriteBufferFilled() {
+    public boolean setWriteBufferFilled() {
 
         if (!isConnected()) {
-            System.out.println("::::");
+            //System.out.println("::::");
             //throw new RuntimeException("dafuq !!!!!!!!!");
             return false;
         }
 
-
         //System.out.println("Bytes: " + writeBuffer.position());
-
-
         boolean remainingBytes;
 
-        writeBufferLock.lock();
-
-        int writtenBytes = 0;
-        writeBuffer.flip(); //switch buffer for reading
-        try {
-            writtenBytes = writeBytesToPeer(writeBuffer);
-        } catch (IOException ex) {
-            ex.printStackTrace();
-
-
-            setConnected(false);
-            System.out.println("disconnect -.-");
-            try {
-                socketChannel.close();
-            } catch (IOException ex1) {
-            }
-
-        }
-        Test.outBytes += writtenBytes;
-
-        if (writeBufferCrypted == null) {
-            remainingBytes = writeBuffer.hasRemaining();
-        } else {
-            writeBufferCrypted.flip();
-            remainingBytes = writeBufferCrypted.hasRemaining();
-            writeBufferCrypted.compact();
+        if (writeBuffer == null) {
+            return false;
         }
 
-
-        writeBuffer.compact();
-
-        writeBufferLock.unlock();
-
-        if (!remainingBytes) {
-            return true;
-        }
-
-
+////        ByteBuffer localWriteBuffer = writeBuffer;
+////
+////        writeBufferLock.lock();
+////
+////        int writtenBytes = 0;
+////        localWriteBuffer.flip(); //switch buffer for reading
+////        try {
+////            writtenBytes = writeBytesToPeer(localWriteBuffer);
+////        } catch (IOException ex) {
+////            ex.printStackTrace();
+////
+////            setConnected(false);
+////            System.out.println("error writing bytes to peer.");
+////            try {
+////                socketChannel.close();
+////            } catch (IOException ex1) {
+////            }
+////
+////        }
+////        Test.outBytes += writtenBytes;
+////
+////        if (writeBufferCrypted == null) {
+////            remainingBytes = localWriteBuffer.hasRemaining();
+////        } else {
+////            writeBufferCrypted.flip();
+////            remainingBytes = writeBufferCrypted.hasRemaining();
+////            writeBufferCrypted.compact();
+////        }
+////
+////        localWriteBuffer.compact();
+////
+////        writeBufferLock.unlock();
+////
+////        if (!remainingBytes) {
+////            return true;
+////        }
 
 //        if (writeBuffer.remaining() < 1024 * 1024) {
 //            ByteBuffer allocate = ByteBuffer.allocate(writeBuffer.capacity() * 2);
@@ -350,16 +371,12 @@ public class Peer implements Comparable<Peer> {
 //            writeBuffer = allocate;
 ////            System.out.println("writeBuffer voll, wurde verdoppelt...");
 //        }
-
-
-
-
 //        System.out.println("Writing stucked...");
-
         try {
             getSelectionKey().selector().wakeup();
             getSelectionKey().interestOps(getSelectionKey().interestOps() | SelectionKey.OP_WRITE);
             getSelectionKey().selector().wakeup();
+             //System.out.println("added op_write...");
         } catch (CancelledKeyException e) {
             //disconnect();
             System.out.println("cancelled key exception");
@@ -392,7 +409,6 @@ public class Peer implements Comparable<Peer> {
             writeBufferCrypted.compact();
 
             //System.out.println("crypted bytes: " + Utils.bytesToHexString(buffer) + " to " + Utils.bytesToHexString(encryptedBytes));
-
         }
 
         return writtenBytes;
@@ -404,6 +420,13 @@ public class Peer implements Comparable<Peer> {
      * @param m
      */
     public synchronized void writeMessage(RawMsg m) {
+        //may be setted to null during work...
+        ByteBuffer localWriteBuffer = writeBuffer;
+
+        if (localWriteBuffer == null || readBuffer == null) {
+            System.out.println("couldnt send msg, no buffers...");
+            return;
+        }
 
         if (m.database_Id == -1 || m.key.database_id == -1) {
             //Main.sendBroadCastMsg("HOLY SHIT  - nudm3284mz28423n4znc75z34c578n3485zc3857zc8345");
@@ -415,12 +438,17 @@ public class Peer implements Comparable<Peer> {
             return;
         }
 
-        if (peerTrustData.sendMessages.contains(m.database_Id)) {
-            return;
-        }
-
-        peerTrustData.sendMessages.add(m.database_Id);
-
+//        if (peerTrustData.sendMessages.contains(m.database_Id)) {
+//            return;
+//        }
+//
+//        if (peerTrustData.isFilteringAddresses() && !peerTrustData.isPermittedAddress(m.key.database_id)) {
+//            //System.out.println("peer doesnt want messages for this channel: " + m.key.getPubKey());
+//            return;
+//        }
+        //peerTrustData.sendMessages.add(m.database_Id);
+        //Test.messageStore.addMsgIntroducedToHim(peerTrustData.internalId, m.database_Id);
+        //System.out.println("added to db: " + peerTrustData.internalId + " - " + m.database_Id);
         ECKey k = m.key;
         if (!peerTrustData.keyToIdMine.contains(k.database_id)) {
 
@@ -437,12 +465,89 @@ public class Peer implements Comparable<Peer> {
 //
 //                System.out.println("Dbdzudgn268rtgx6345g345m: " + " len: " + k.getPubKey().length);
 //            }
-
-
             writeBufferLock.lock();
+            if (writeBuffer == null) {
+                writeBufferLock.unlock();
+                return;
+            }
             peerTrustData.keyToIdMine.add(k.database_id);
             //int indexOf = keyToIdMine.indexOf(k);
             int indexOf = m.key.database_id;
+            localWriteBuffer.put((byte) 4);
+            localWriteBuffer.put(k.getPubKey());
+            localWriteBuffer.putInt(indexOf);
+            //System.out.println("Msg index: " + indexOf);
+            writeBufferLock.unlock();
+
+        }
+
+        if (m.public_type == -1) {
+            throw new RuntimeException("omg!");
+        }
+
+        writeBufferLock.lock();
+        if (writeBuffer == null) {
+            writeBufferLock.unlock();
+            return;
+        }
+        //int indexOfKey = keyToIdMine.indexOf(k);
+        int indexOfKey = k.database_id;
+
+        writeBuffer.put((byte) 5);
+        writeBuffer.putInt(indexOfKey);
+        writeBuffer.put(m.public_type);
+        writeBuffer.putLong(m.timestamp);
+        writeBuffer.putInt(m.nonce);
+        writeBuffer.putInt(m.database_Id);//TODO long zu int machen mit offset falls db zu gross!!
+        writeBufferLock.unlock();
+        //should be run later manually...
+////        boolean sureWrittenToPeer = setWriteBufferFilled();
+////
+////        //System.out.println("wrote msg to peer: " + ip + " " + m.database_Id);
+////        if (!sureWrittenToPeer) {
+////            //TODO
+////        }
+
+    }
+
+    public void sendChannelToFilter(ECKey k) {
+        int pubkeyId = Test.messageStore.getPubkeyId(k);
+        k.database_id = pubkeyId;
+
+        if (writeBuffer == null || readBuffer == null) {
+            System.out.println("couldnt send msg, no buffers...");
+            return;
+        }
+
+        if (k.database_id == -1) {
+            //Main.sendBroadCastMsg("HOLY SHIT  - nudm3284mz28423n4znc75z34c578n3485zc3857zc8345");
+            try {
+                throw new RuntimeException("HOLY SHIT  - xXnudm3284mz28423n4znc75z34c578n3485zc3857zc8345  " + k.database_id);
+            } catch (RuntimeException e) {
+                e.printStackTrace();
+            }
+            return;
+        }
+
+        if (!peerTrustData.keyToIdMine.contains(k.database_id)) {
+
+//            if (k.getPubKey().length != 33) {
+//                System.out.println("Dbdzudgn268rtgx6345g345m: " + " len: " + k.getPubKey().length);
+//                byte[] b = new byte[33];
+//                int i = 0;
+//                for (byte bb : k.getPubKey()) {
+//                    b[i] = bb;
+//                    i++;
+//                }
+//
+//                k = new ECKey(null, b);
+//
+//                System.out.println("Dbdzudgn268rtgx6345g345m: " + " len: " + k.getPubKey().length);
+//            }
+            writeBufferLock.lock();
+            peerTrustData.keyToIdMine.add(k.database_id);
+            //int indexOf = keyToIdMine.indexOf(k);
+            int indexOf = k.database_id;
             writeBuffer.put((byte) 4);
             writeBuffer.put(k.getPubKey());
             writeBuffer.putInt(indexOf);
@@ -451,28 +556,11 @@ public class Peer implements Comparable<Peer> {
 
         }
 
-
-
-        if (m.public_type == -1) {
-            throw new RuntimeException("omg!");
-        }
-
         writeBufferLock.lock();
-        //int indexOfKey = keyToIdMine.indexOf(k);
-        int indexOfKey = k.database_id;
-        writeBuffer.put((byte) 5);
-        writeBuffer.putInt(indexOfKey);
-        writeBuffer.put(m.public_type);
-        writeBuffer.putLong(m.timestamp);
-        writeBuffer.putInt(m.nonce);
-        writeBuffer.putInt(m.database_Id);//TODO long zu int machen mit offset falls db zu gross!!
+        int indexOf = k.database_id;
+        writeBuffer.put((byte) 60);
+        writeBuffer.putInt(indexOf);
         writeBufferLock.unlock();
-        boolean sureWrittenToPeer = setWriteBufferFilled();
-
-        if (!sureWrittenToPeer) {
-            //TODO
-        }
-
 
     }
 
@@ -537,15 +625,15 @@ public class Peer implements Comparable<Peer> {
         return getPeerTrustData().getPendingMessages();
     }
 
+    public HashMap<Integer, RawMsg> getPendingMessagesTimedOut() {
+        return getPeerTrustData().getPendingMessagesTimedOut();
+    }
+
     public HashMap<Integer, RawMsg> getPendingMessagesPublic() {
         return getPeerTrustData().getPendingMessagesPublic();
     }
 
     public ArrayList<Integer> getLoadedMsgs() {
         return getPeerTrustData().loadedMsgs;
-    }
-
-    public ArrayList<Integer> getSendMessages() {
-        return getPeerTrustData().sendMessages;
     }
 }

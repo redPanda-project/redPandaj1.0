@@ -8,7 +8,9 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.security.Key;
+import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.Cipher;
@@ -53,10 +55,17 @@ public class AESCrypt {
         try {
             byte[] pass = key.getPrivKeyBytes();
             //IvParameterSpec iv = new IvParameterSpec(pass, 0, 16);
-            String s = "";
-            s += timestamp;
-            s += new String(key.getPrivKeyBytes());
-            IvParameterSpec iv = new IvParameterSpec(s.getBytes(), 0, 16);
+
+
+            byte[] ivBytes = new byte[16];
+            ByteBuffer buffer = ByteBuffer.wrap(ivBytes);
+            buffer.putLong(timestamp);
+            buffer.put(key.getPrivKeyBytes(), 0, 8);
+
+
+            IvParameterSpec iv = new IvParameterSpec(ivBytes, 0, 16);
+
+            //iv = new IvParameterSpec(new byte[16]);
 
             ByteArrayOutputStream encodedBytes = new ByteArrayOutputStream();
             encode(toEncode, encodedBytes, pass, iv);
@@ -86,7 +95,7 @@ public class AESCrypt {
 
     }
 
-    static void encode(byte[] bytes, OutputStream out, byte[] pass, IvParameterSpec iv) throws Exception {
+    public static void encode(byte[] bytes, OutputStream out, byte[] pass, IvParameterSpec iv) throws Exception {
 
         Cipher c = Cipher.getInstance("AES/CBC/PKCS5Padding");
         Key k = new SecretKeySpec(pass, "AES");
@@ -107,15 +116,18 @@ public class AESCrypt {
             byte[] pass = key.getPrivKeyBytes();
             //IvParameterSpec iv = new IvParameterSpec(pass, 0, 16);
 
-            String s = "";
-            s += timestamp;
-            s += new String(key.getPrivKeyBytes());
-            IvParameterSpec iv = new IvParameterSpec(s.getBytes(), 0, 16);
+            byte[] ivBytes = new byte[16];
+            ByteBuffer buffer = ByteBuffer.wrap(ivBytes);
+            buffer.putLong(timestamp);
+            buffer.put(key.getPrivKeyBytes(), 0, 8);
+            IvParameterSpec iv = new IvParameterSpec(ivBytes, 0, 16);
+
+            //iv = new IvParameterSpec(new byte[16]);
 
             ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(toDecode);
             byte[] decode = decode(byteArrayInputStream, pass, iv);
 
-            System.out.println("dnjwadhwad " + toDecode.length + " " + decode.length);
+            //System.out.println("dnjwadhwad " + toDecode.length + " " + decode.length);
 
             return decode;
 
@@ -141,7 +153,7 @@ public class AESCrypt {
         return null;
     }
 
-    static byte[] decode(InputStream is, byte[] pass, IvParameterSpec iv) throws Exception {
+    public static byte[] decode(InputStream is, byte[] pass, IvParameterSpec iv) throws Exception {
 
         Cipher c = Cipher.getInstance("AES/CBC/PKCS5Padding");
         Key k = new SecretKeySpec(pass, "AES");

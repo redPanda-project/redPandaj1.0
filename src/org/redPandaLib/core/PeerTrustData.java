@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Set;
 import org.redPandaLib.core.messages.RawMsg;
 import org.redPandaLib.crypt.ECKey;
+import org.redPandaLib.crypt.Utils;
 import org.redPandaLib.services.MessageDownloader;
 
 /**
@@ -19,34 +20,32 @@ import org.redPandaLib.services.MessageDownloader;
  */
 public class PeerTrustData implements Serializable {
 
+    public int internalId = -1;
     long nonce;
     byte[] authKey;
     int trustLevel;
-    long lastSeen = 0;
-    ArrayList<String> ips;
+    long lastSeen = System.currentTimeMillis();
+    public ArrayList<String> ips;
     int port;
     public HashMap<Integer, ECKey> keyToIdHis = new HashMap<Integer, ECKey>();
-    public ArrayList<Integer> sendMessages = new ArrayList<Integer>();
-    public ArrayList<Integer> introducedMessages = new ArrayList<Integer>();
     public HashMap<Integer, RawMsg> pendingMessagesPublic = new HashMap<Integer, RawMsg>();
     public ArrayList<Integer> loadedMsgs = new ArrayList<Integer>();
     public ArrayList<Integer> keyToIdMine = new ArrayList<Integer>();
     public HashMap<Integer, RawMsg> pendingMessages = new HashMap<Integer, RawMsg>();
+    public HashMap<Integer, RawMsg> pendingMessagesTimedOut = new HashMap<Integer, RawMsg>();
+
+    public HashMap<Integer, RawMsg> getPendingMessagesTimedOut() {
+        return pendingMessagesTimedOut;
+    }
     public int synchronizedMessages = 0;
-    public int lastSuccessfulySendMessageHeader = 0;
-    private ArrayList<Integer> filterAdresses;
     public int badMessages = 0;
+    public ArrayList<Integer> sendChannelsToFilter = new ArrayList<Integer>();
+    public long backSyncedTill = Long.MAX_VALUE;
+    public int peerMode = -1; //supernode, lightclient, normal? -1 = unset
 
     public PeerTrustData() {
         authKey = new byte[32];
         ips = new ArrayList<String>();
-    }
-
-    public void removeNotSuccesfulSendMessages() {
-        int lastIndexOf = sendMessages.lastIndexOf(lastSuccessfulySendMessageHeader);
-        for (int i = lastIndexOf + 1; i < sendMessages.size(); i++) {
-            sendMessages.remove(i);
-        }
     }
 
     //    public void removePendingMessage(RawMsg m ) {
@@ -94,30 +93,57 @@ public class PeerTrustData implements Serializable {
         return pendingMessages;
     }
 
-    public void addIntroducedMessage(int messageId) {
-        introducedMessages.add(messageId);
+    @Override
+    protected PeerTrustData clone() throws CloneNotSupportedException {
+
+        PeerTrustData cloned = (PeerTrustData) super.clone();
+
+        cloned.keyToIdHis = (HashMap<Integer, ECKey>) keyToIdHis.clone();
+
+        cloned.pendingMessagesPublic = (HashMap<Integer, RawMsg>) pendingMessagesPublic.clone();
+
+        cloned.loadedMsgs = (ArrayList<Integer>) loadedMsgs.clone();
+
+        cloned.keyToIdMine = (ArrayList<Integer>) keyToIdMine.clone();
+
+        cloned.pendingMessages = (HashMap<Integer, RawMsg>) pendingMessages.clone();
+
+        cloned.sendChannelsToFilter = (ArrayList<Integer>) sendChannelsToFilter.clone();
+
+        System.out.println("CLONED: " + Utils.bytesToHexString(cloned.authKey));
+
+        return cloned;
     }
 
-    public ArrayList<Integer> getFilterAdresses() {
-        return filterAdresses;
-    }
+    public void initInternalId() {
+        synchronized (Test.peerTrusts) {
 
-    public synchronized void addFilterAdresse(int newAddress) {
+            internalId = 0;
+            while (true) {
+                internalId++;
 
-        if (filterAdresses == null) {
-            filterAdresses = new ArrayList<Integer>();
+                boolean inUse = false;
+                for (PeerTrustData ptd : Test.peerTrusts) {
+
+                    if (ptd == this) {
+                        continue;
+                    }
+
+                    if (ptd.internalId == internalId) {
+                        inUse = true;
+                        break;
+                    }
+                }
+
+                if (!inUse) {
+                    break;
+                }
+
+            }
+
+            Test.messageStore.removeMessageToSend(internalId);
+            
+            System.out.println("GOT ID: " + internalId);
         }
-
-        if (filterAdresses.contains(newAddress)) {
-            return;
-        }
-        filterAdresses.add(newAddress);
-    }
-
-    public boolean isPermittedAddress(int address) {
-        if (filterAdresses == null) {
-            return true;
-        }
-        return filterAdresses.contains(address);
     }
 }

@@ -22,14 +22,14 @@ public class Settings {
     public static int pingTimeout = 180; //time in sec
     public static int pingDelay = 120; //time in sec
     public static int peerListRequestDelay = 60 * 60;//time in sec
-    public static long till = 1370803752399L;
+    public static long till = 0;//1397836192756L;
     public static boolean lightClient = false;
     public static long connectToNewClientsTill = Long.MAX_VALUE;
     public static boolean initFullNetworkSync = false; //can cause huge traffic!
-    public static boolean SEND_DELIVERED_MSG = true; //only for non special channels
+    public static boolean SEND_DELIVERED_MSG = false; //only for non special channels
     public static boolean IPV6_ONLY = false;
     public static boolean IPV4_ONLY = false;
-    public static String[] knownNodes = {"redpanda.ignorelist.com", "redpanda.ip-v6.eu", "redpanda-ipv6only.allowed.org", "xana.hopto.org", "5.35.243.99", "fabulous.h4ck.me", "2a01:488:66:1000:523:f363:0:1"};
+    public static String[] knownNodes = {"redPanda.im", "91.250.113.186", "redpanda.ignorelist.com", "redpanda.ip-v6.eu", "redpanda-ipv6only.allowed.org", "xana.hopto.org", "fabulous.h4ck.me", "geeq.de"};
     //public static String[] knownNodes = {"2a01:488:66:1000:523:f363:0:1", "2a02:908:d51a:1880:3d54:128f:a4ea:f765"};
     //"2a01:0488:0066:1000:0523:f363:0000:0001"
     //public static String[] knownNodes = {"5.35.243.99", "fabulous.h4ck.me"};
@@ -37,7 +37,8 @@ public class Settings {
     public static int MAXPUBLICMSGS = 15000;//default value if not overwritten by general.dat
     public static boolean TESTNET = false;
     public static boolean SUPERNODE = false;
-    public static boolean BROADCAST_MSGS_AFTER_VERIFICATION = false;
+    public static boolean BROADCAST_MSGS_AFTER_VERIFICATION = true;
+    public static boolean REMOVE_OLD_MESSAGES = false;
 
     private static void readGeneralDotDat() {
         try {
@@ -45,7 +46,6 @@ public class Settings {
             FileInputStream fileInputStream = new FileInputStream(file);
 
             BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(fileInputStream));
-
 
             String readLine = bufferedReader.readLine();
             if (readLine != null) {
@@ -77,9 +77,33 @@ public class Settings {
                 }
             }
 
+            readLine = bufferedReader.readLine();
+            if (readLine != null) {
+                if (readLine.equals("lightClient=true")) {
+                    lightClient = true;
+                    System.out.println("I am a light client!");
+                }
+            }
+
+            readLine = bufferedReader.readLine();
+            if (readLine != null) {
+                if (readLine.equals("removeOldMessages=true")) {
+                    REMOVE_OLD_MESSAGES = true;
+                    System.out.println("removing old messages automatically.");
+                }
+            }
 
             bufferedReader.close();
             fileInputStream.close();
+            
+            //current example cfg:
+            
+//59558
+//1000
+//testnet=false
+//supernode=true
+//lightClient=false
+//removeOldMessages=true
 
         } catch (IOException ex) {
         } catch (NumberFormatException e) {

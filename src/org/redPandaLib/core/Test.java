@@ -8,10 +8,17 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.Thread.UncaughtExceptionHandler;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
+import java.lang.management.ThreadMXBean;
 import java.net.*;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.security.Security;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map.Entry;
@@ -20,16 +27,21 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.redPandaLib.Main;
 import org.redPandaLib.SpecialChannels;
+import org.redPandaLib.core.messages.ImageMsg;
 import org.redPandaLib.core.messages.RawMsg;
 import org.redPandaLib.core.messages.TextMessageContent;
 import org.redPandaLib.core.messages.TextMsg;
 import org.redPandaLib.crypt.AddressFormatException;
 import org.redPandaLib.crypt.Base58;
 import org.redPandaLib.crypt.ECKey;
+import org.redPandaLib.database.DirectMessageStore;
+import org.redPandaLib.database.HsqlConnection;
 import org.redPandaLib.database.MessageStore;
 import org.redPandaLib.services.ClusterBuilder;
+import org.redPandaLib.services.LoadHistory;
 import org.redPandaLib.services.MessageDownloader;
 import org.redPandaLib.services.MessageVerifierHsqlDb;
+import org.redPandaLib.services.SearchLan;
 //import org.redPandaLib.upnp.Portforward;
 
 /**
@@ -41,7 +53,7 @@ public class Test {
     static boolean DEBUG = true;
     static int DEBUG_LEVEL = 100;
     static boolean PORTFORWARD = false;
-    static final int VERSION = 19;
+    static final int VERSION = 20;
     static int MY_PORT;
     static String MAGIC = "k3gV";
     public static ArrayList<Peer> peerList = null;
@@ -66,36 +78,83 @@ public class Test {
     public static boolean NAT_OPEN = false;
     public static ArrayList<PeerTrustData> peerTrusts = new ArrayList<PeerTrustData>();
     public static MessageStore messageStore;
+    public static String imageStoreFolder = "";
+    public static String stackTraceString = "";
+    public static long lastSentStackTrace = 0;
+    public static ImageInfos imageInfos = new ImageInfosImageIO();
 
     static {
         Security.insertProviderAt(new org.spongycastle.jce.provider.BouncyCastleProvider(), 1);
         //Security.insertProviderAt(new org.bouncycastle.jce.provider.BouncyCastleProvider(), 2);
     }
     public static boolean STARTED_UP_SUCCESSFUL = false;
+    private static long lastAddedKnownNodes;
+    public static HsqlConnection hsqlConnection;
 
     /**
      * @param args the command line arguments
      */
     public static void main(boolean listenConsole, SaverInterface saver) throws IOException {
         // TODO code application logic here
+        new Thread() {
+
+            @Override
+            public void run() {
+
+                //ToDo: remove later...
+                while (true) {
+                    try {
+                        sleep(2000);
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+
+                    try {
+                        Class.forName("java.lang.management.ManagementFactory");
+                    } catch (ClassNotFoundException e) {
+                        return;
+                    }
+
+                    ThreadMXBean tmb = ManagementFactory.getThreadMXBean();
+                    long[] ids = tmb.findDeadlockedThreads();
+                    if (ids == null) {
+                        continue;
+                    }
+                    System.out.println("first id:" + ids[0]);
+
+                    ThreadInfo[] infos = tmb.getThreadInfo(ids);
+
+                    for (ThreadInfo info : infos) {
+                        System.out.println("Name: " + info.getThreadName());
+                    }
+
+                }
+
+            }
+
+        }.start();
 
         Test.saver = saver;
 
-
         //loadChannels();
-
-
         byte[] bytes = new byte[10];
         random.nextBytes(bytes);
         clientSeed = bytes.toString();
 
+        localSettings = saver.loadLocalSettings();
+        NONCE = localSettings.nonce;
+        localSettings.save();
+        loadChannels();
+
+        if (DEBUG) {
+            System.out.println("Channels loaded...");
+        }
 
         connectionHandler = new ConnectionHandler();
         connectionHandler.start();
 
 //        connectionHandlerConnect = new ConnectionHandlerConnect();
 //        connectionHandlerConnect.start();
-
         //threadPool.submit(new InboundThread());
         new InboundThread().start();
         //new Outboundthread().start();
@@ -103,6 +162,7 @@ public class Test {
         BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
         //cleanup
         Thread thread = new Thread() {
+
             @Override
             public void run() {
 
@@ -113,8 +173,22 @@ public class Test {
 
                 while (!Main.shutdown) {
 
-
                     if (System.currentTimeMillis() - lastSaved > 120 * 1000) {
+
+                        if (ConnectionHandler.allSockets.size() > 10) {
+                            ConnectionHandler.removeUnusedSockets();
+                        }
+
+                        long ctime = System.currentTimeMillis();
+                        //clean up trust data:
+                        for (PeerTrustData ptd : (ArrayList<PeerTrustData>) peerTrusts.clone()) {
+                            if (ctime - ptd.lastSeen > 1000 * 60 * 60 * 24 * 7) {
+                                peerTrusts.remove(ptd);
+                                messageStore.removeMessageToSend(ptd.internalId);
+                                System.out.println("remove peer trust, last seen over one week....");
+                            }
+                        }
+
                         try {
                             savePeers();
                             saveTrustData();
@@ -123,11 +197,8 @@ public class Test {
                         } catch (Exception e) {
                             System.out.println("oh oh, konnte peers nicht speichern... ");
                             e.printStackTrace();
-
                         }
                     }
-
-
 
                     try {
                         sleep(Settings.pingDelay * 1000 + random.nextInt(200));
@@ -147,15 +218,18 @@ public class Test {
                             removePeer(p);
                         }
 
-
-                        if (p.getLastAnswered() > Settings.pingTimeout * 1000 || (p.isConnecting && p.getLastAnswered() > 5000)) {
-
+                        if (p.getLastAnswered() > Settings.pingTimeout * 1000 || (p.isConnecting && p.getLastAnswered() > 10000)) {
 
                             if (p.isConnected() || p.isConnecting) {
                                 if (DEBUG) {
-                                    System.out.println(Settings.pingTimeout + " sec timeout reached! " + p.ip);
+                                    Log.put(Settings.pingTimeout + " sec timeout reached! " + p.ip, 10);
                                 }
-                                p.disconnect();
+                                p.disconnect("timeout");
+                            } else if (p.getLastAnswered() > Settings.pingTimeout * 1000 * 2) {
+                                p.writeBuffer = null;
+                                p.readBuffer = null;
+                                p.readBufferCrypted = null;
+                                p.writeBufferCrypted = null;
                             }
 
                         } else {
@@ -163,7 +237,6 @@ public class Test {
                             if (p.isConnected()) {
 
                                 //                                System.out.println("Pinging: " + p.nonce);
-
                                 //p.ping();
                                 p.cnt++;
                                 if (p.cnt > Settings.peerListRequestDelay * 1000 / (Settings.pingDelay * 1000)) {
@@ -175,7 +248,9 @@ public class Test {
                                             if (p.writeBuffer.remaining() == 0) {
                                                 System.out.println("Konnte peers nicht abfragen, buffer voll.");
                                             } else {
+                                                p.writeBufferLock.lock();
                                                 p.writeBuffer.put((byte) 1);
+                                                p.writeBufferLock.unlock();
                                             }
                                         }
                                     }
@@ -208,7 +283,6 @@ public class Test {
                                 }
                             }
 
-
                         }
 
                         //                        }
@@ -218,9 +292,10 @@ public class Test {
         };
 
         thread.setUncaughtExceptionHandler(new UncaughtExceptionHandler() {
+
             @Override
             public void uncaughtException(Thread t, Throwable e) {
-                Main.sendBroadCastMsg(stacktrace2String(e));
+                sendStacktrace(e);
 
                 throw new RuntimeException("PING thread died....");
             }
@@ -260,17 +335,21 @@ public class Test {
 //
 //                    }
 //                });
+        try {
+            Runtime.getRuntime().addShutdownHook(new Thread() {
 
-        Runtime.getRuntime().addShutdownHook(new Thread() {
-            @Override
-            public void run() {
-                final String orgName = Thread.currentThread().getName();
-                Thread.currentThread().setName(orgName + " - shutdownhook");
-                System.out.println("started shutdownhook...");
-                Main.shutdown();
-                System.out.println("shutdownhook done");
-            }
-        });
+                @Override
+                public void run() {
+                    final String orgName = Thread.currentThread().getName();
+                    Thread.currentThread().setName(orgName + " - shutdownhook");
+                    System.out.println("started shutdownhook...");
+                    Main.shutdown();
+                    System.out.println("shutdownhook done");
+                }
+            });
+        } catch (IllegalStateException e) {
+            //could not set shutdownhook, sailfish OS: VM already shutting down?
+        }
 
         System.out.println("shutdownhook added...");
 
@@ -284,8 +363,6 @@ public class Test {
 
                 if (readLine.equals("")) {
 
-
-
                     System.out.println("Status listenPort: " + MY_PORT + " NONCE: " + Test.NONCE + "\n");
 
                     int actCons = 0;
@@ -294,16 +371,14 @@ public class Test {
                     Collections.sort(list);
 
 //                    System.out.println("IP:PORT \t\t\t\t\t\t Nonce \t\t\t Last Answer \t Alive \t retries \t LoadedMsgs \t Ping \t Authed \t PMSG\n");
-                    System.out.format("%50s %22s %12s %10s %7s %7s %10s %10s %10s %8s\n", "[IP]:PORT", "nonce", "last answer", "alive", "retries", "ping", "loaded Msg", "sent Msg", "intro. Msg", "bad Msg");
+                    System.out.format("%50s %22s %12s %10s %7s %8s %10s %10s %10s %8s\n", "[IP]:PORT", "nonce", "last answer", "alive", "retries", "ping", "loaded Msg", "sent Msg", "intro. Msg", "bad Msg");
                     for (Peer peer : list) {
 
                         if (peer.isConnected()) {
                             actCons++;
                         }
 
-
                         //System.out.println("Peer: " + InetAddress.getByName(peer.ip) + ":" + peer.port + " Nonce: " + peer.nonce + " Last Answer: " + (System.currentTimeMillis() - peer.lastActionOnConnection) + " Alive: " + peer.isConnected() + " LastGetAllMsgs: " + peer.lastAllMsgsQuerried + " retries: " + peer.retries + " LoadedMsgs: " + peer.loadedMsgs + " ping: " + (Math.round(peer.ping * 100) / 100.));
-
                         String c;
                         if (peer.lastActionOnConnection != 0) {
                             c = "" + (System.currentTimeMillis() - peer.lastActionOnConnection);
@@ -312,30 +387,25 @@ public class Test {
                         }
 
                         if (peer.getPeerTrustData() == null) {
-                            System.out.format("%50s %22d %12s %10s %7d %7s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.));
+                            System.out.format("%50s %22d %12s %10s %7d %8s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.));
                         } else {
-                            System.out.format("%50s %22d %12s %10s %7d %7s %10d %10d %10d %8s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.getPeerTrustData().sendMessages.size(), peer.getPeerTrustData().introducedMessages.size(), peer.getPeerTrustData().badMessages);
+                            System.out.format("%50s %22d %12s %10s %7d %8s %10d %10d %10d %8s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), -1, -1, peer.getPeerTrustData().badMessages);
                         }
-
 
 //                        while (c.length() < 15) {
 //                            c += " \t";
 //                        }
-
 //                        if (peer.getPeerTrustData() == null) {
 //                            output += "" + a + " \t " + b + "\t " + c + "\t " +  + "\t " + peer.retries + "\t " + "--" + " \t " + (Math.round(peer.ping * 100) / 100.) + "\t " + peer.authed + "\t " + "--" + " \t" + peer.requestedMsgs + " \t" + "--" + "\n";
 //                        } else {
 //                            output += "" + a + " \t " + b + "\t " + c + "\t " + peer.isConnected() + "\t " + peer.retries + "\t " + peer.getLoadedMsgs().size() + " \t " + (Math.round(peer.ping * 100) / 100.) + "\t " + peer.authed + "\t " + peer.getPendingMessages().size() + " \t" + peer.requestedMsgs + " \t" + peer.getPeerTrustData().synchronizedMessages + "\n";
 //                        }
-
-
                     }
 
                     System.out.println("Connected to " + actCons + " peers. (NAT type: " + (NAT_OPEN ? "open" : "closed") + ")");
                     System.out.println("Traffic: " + inBytes / 1024. + " kb / " + outBytes / 1024. + " kb.");
 
                     //System.out.println("Processed messages: " + msgs.size());
-
 //                    int unverifiedMsgs = 0;
 //
 //                    for (RawMsg m : MessageHolder.getAllNotVerifiedMessages()) {
@@ -345,13 +415,32 @@ public class Test {
 //                        unverifiedMsgs++;
 //                    }
 //
-                    System.out.println("Processed messages: " + MessageHolder.getMessageCount());
+                    System.out.println("Saved Sockets: " + ConnectionHandler.allSockets.size());
 
+                    new Thread() {
 
+                        @Override
+                        public void run() {
+//                            try {
+//                                Test.messageStore.getConnection().close();
+//                            } catch (SQLException ex) {
+//                                Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+//                            }
+//                            Main.useHsqlDatabase();
+                            System.out.println("Processed messages: " + MessageHolder.getMessageCount() + " - Queue to verify: " + MessageHolder.getMessageCountToVerify());
 
+                            //MessageVerifierHsqlDb.sem.release();
+                        }
+                    }.start();
+
+//                    System.out.println("reconnect!!");
+//                    hsqlConnection.reconnect();
                     continue;
                 }
 
+                if (readLine.equals("v0")) {
+                    MessageDownloader.publicMsgsLoaded = 0;
+                }
 
                 if (readLine.equals("T")) {
                     for (PeerTrustData ptd : Test.peerTrusts) {
@@ -360,6 +449,18 @@ public class Test {
                             System.out.println("        IP: " + ip);
                         }
 
+                    }
+
+                    continue;
+                }
+
+                if (readLine.equals("T1")) {
+                    ThreadMXBean tmb = ManagementFactory.getThreadMXBean();
+                    long[] ids = tmb.findDeadlockedThreads();
+                    ThreadInfo[] infos = tmb.getThreadInfo(ids);
+
+                    for (ThreadInfo info : infos) {
+                        System.out.println("Name: " + info.getThreadName());
                     }
 
                     continue;
@@ -396,6 +497,11 @@ public class Test {
                     continue;
                 }
 
+                if (readLine.equals("rM")) {
+                    channels.remove(SpecialChannels.MAIN);
+                    continue;
+                }
+
                 if (readLine.equals("tt")) {
                     messageStore.quit();
                     continue;
@@ -416,7 +522,6 @@ public class Test {
                         System.out.println("update error...");
                     }
 
-
                     continue;
                 }
 
@@ -424,14 +529,9 @@ public class Test {
 //                    writeAll(readLine + "\n");
 //                    continue;
 //                }
-
                 if (readLine.equals("!")) {
 
 //                    if (readLine.charAt(1) == 'i' && readLine.charAt(2) == ':') {
-
-
-
-
 //
 //                    System.out.println("trying to add priv key...");
 //
@@ -442,8 +542,6 @@ public class Test {
 //
 //                    System.out.println("Identities: " + identities.size());
 //                    }
-
-
                     Channel channel = SpecialChannels.SPAM;
                     for (int i = 0; i < 100; i++) {
 
@@ -462,8 +560,12 @@ public class Test {
                 }
 
                 if (readLine.equals("I")) {
+
+                    Main.addSpamChannel();
+
                     System.out.println("image send file img.jpg");
-                    Main.sendImageToChannel(SpecialChannels.MAIN, "img.jpg");
+                    Main.sendImageToChannel(SpecialChannels.SPAM, "img.jpg");
+
                     continue;
                 }
 
@@ -484,8 +586,6 @@ public class Test {
                     } catch (AddressFormatException e) {
                         System.out.println("Key falsch.");
                     }
-
-
 
 //                    try {
 //                        Channel channel = Channel.importFromHuman(chanKey, chanName);
@@ -520,8 +620,6 @@ public class Test {
                         continue;
                     }
 
-
-
                     Channel channel = Channel.getChannelById(channelNumber);
 
                     if (channel == null) {
@@ -534,10 +632,7 @@ public class Test {
                         System.out.println("from me: " + msg.isFromMe() + " content: " + msg.getText());
                     }
 
-
                     System.out.println("Ok, writing to channel: " + channel.getName() + " EXPORT: " + channel.exportForHumans() + "\nContent:");
-
-
 
                     readLine = bufferedReader.readLine();
                     Main.sendMessageToChannel(channel, readLine);
@@ -548,7 +643,6 @@ public class Test {
                     System.out.println("send...");
 
                     //Channel instaceByPrivateKey = Channel.getInstaceByPrivateKey(readLine, "unknown", Channel.getNextId());
-
 //                    if (instaceByPrivateKey == null) {
 //                        System.out.println("Channelkey looks wrong...");
 //                        continue;
@@ -568,21 +662,92 @@ public class Test {
 //                    MessageHolder.addMessage(rawMsg);
 //
 //                    broadcastMsg(rawMsg);
-
                     //Msg msg = new Msg(System.currentTimeMillis(), 88, instaceByPrivateKey, clientSeed, clientVersion, "[" + getNick() + "] " + readLine);
                     //processNewMessage(msg, true);
                     continue;
                 }
 
+                if (readLine.equals("L")) {
+                    SearchLan.searchLan();
+                    continue;
+                }
+
+                if (readLine.equals("B")) {
+
+                    System.out.println("found peers:");
+
+                    for (Peer p : (ArrayList<Peer>) peerList.clone()) {
+                        if (p.isAuthed() && p.isConnected() && p.syncMessagesSince == 0) {
+                            System.out.println("IP: " + p.ip + " nonce: " + p.nonce);
+                        }
+                    }
+
+                    LoadHistory.sw();
+
+                    System.out.println("switched...");
+
+                    continue;
+                }
+
+                if (readLine.equals("check2")) {
+                    try {
+                        Statement stmt = messageStore.getConnection().createStatement();
+                        ResultSet rs = stmt.executeQuery("SELECT* FROM INFORMATION_SCHEMA.SYSTEM_SESSIONS");
+
+                        int columnCount = rs.getMetaData().getColumnCount();
+
+                        while (rs.next()) {
+                            //String[] row = new String[columnCount];
+                            for (int i = 0; i < columnCount; i++) {
+                                //row[i] = rs.getString(i + 1);
+                                System.out.println(rs.getMetaData().getColumnName(i + 1) + " - " + rs.getString(i + 1));
+                            }
+                            //result.add(row);
+                        }
+
+                    } catch (SQLException ex) {
+                        Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                    continue;
+                }
+
+                if (readLine.equals("check")) {
+                    try {
+                        Statement stmt = messageStore.getConnection().createStatement();
+                        stmt.execute("CHECKPOINT");
+                    } catch (SQLException ex) {
+                        Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                    continue;
+                }
 
                 if (readLine.equals("S")) {
                     System.out.println("started mining...");
                     StickMiner.start();
+                    continue;
+                }
 
+                if (readLine.equals("xs")) {
+                    System.out.println("save xml, use password:");
+                    readLine = bufferedReader.readLine();
+                    boolean backup = Main.backup("backup.xml", readLine);
+                    if (backup) {
+                        System.out.println("succesful");
+                    } else {
+                        System.out.println("failed");
+                    }
+                    continue;
+                }
 
-
-
-
+                if (readLine.equals("xl")) {
+                    System.out.println("load xml, use password:");
+                    readLine = bufferedReader.readLine();
+                    boolean backup = Main.restoreBackup("backup.xml", readLine);
+                    if (backup) {
+                        System.out.println("succesful");
+                    } else {
+                        System.out.println("failed");
+                    }
                     continue;
                 }
 
@@ -597,6 +762,15 @@ public class Test {
                     continue;
                 }
 
+                if (readLine.equals("R")) {
+                    System.out.println("removing all old data....");
+                    Main.removeOldMessages();
+                    System.out.println("crypted done, next decrypted...");
+                    Main.removeOldMessagesDecryptedContent();
+                    System.out.println("REMOVED ALL OLD DATA.");
+                    continue;
+                }
+
                 if (readLine.equals("r")) {
                     System.out.println("removing all peers + trust data...");
                     synchronized (peerList) {
@@ -604,9 +778,45 @@ public class Test {
                         peerList = new ArrayList<Peer>();
                         peerTrusts = new ArrayList<PeerTrustData>();
                         for (Peer peer : peers) {
-                            peer.disconnect();
+                            peer.disconnect("r");
                         }
                     }
+                    continue;
+                }
+
+                if (readLine.equals("sticks")) {
+
+                    try {
+                        //get Key Id
+                        String query = "SELECT pubkey_id,message_id,difficulty,validTill from sticks";
+
+                        System.out.println("QUERY: " + query);
+
+                        PreparedStatement pstmt = messageStore.getConnection().prepareStatement(query);
+                        System.out.println("STM: " + pstmt.toString());
+                        ResultSet executeQuery = pstmt.executeQuery();
+
+                        //System.out.println("kndkjwhd");
+                        System.out.println("reading data...");
+
+                        while (executeQuery.next()) {
+                            int message_id = executeQuery.getInt("message_id");
+                            int pubkey_id = executeQuery.getInt("pubkey_id");
+                            double difficulty = executeQuery.getDouble("difficulty");
+                            long validTill = executeQuery.getLong("validTill");
+
+                            System.out.println("STICK -  pubkey_id: " + pubkey_id + " diff: " + difficulty);
+
+                        }
+                        executeQuery.close();
+
+                        System.out.println("done");
+
+                        pstmt.close();
+                    } catch (SQLException ex) {
+                        Test.sendStacktrace(ex);
+                    }
+
                     continue;
                 }
 
@@ -672,7 +882,6 @@ public class Test {
 //
 //                    continue;
 //                }
-
                 if (readLine.equals("speer")) {
                     System.out.println("migrating to super peer, try to connect to max 100 nodes...");
                     Settings.MIN_CONNECTIONS = 100;
@@ -696,7 +905,7 @@ public class Test {
                 if (readLine.equals("c")) {
                     System.out.println("closing all connections....");
                     for (Peer peer : (ArrayList<Peer>) peerList.clone()) {
-                        peer.disconnect();
+                        peer.disconnect("c");
                     }
                     continue;
                 }
@@ -712,9 +921,138 @@ public class Test {
                     for (PeerTrustData ptd : peerTrusts) {
                         System.out.println("nonce: " + ptd.nonce + " lastSeen: " + ptd.lastSeen + " trustlvl: " + ptd.trustLevel);
                     }
+
+                    long asdfbytes = 0;
+
+                    int chanId = 0;
+                    ECKey ecKey = null;
+
+                    for (Channel c : channels) {
+                        int pubkeyId = Test.messageStore.getPubkeyId(c.getKey());
+                        if (chanId == pubkeyId) {
+                            System.out.println("Chan: " + c.getName() + " id: " + pubkeyId);
+                            ecKey = c.getKey();
+                        }
+                    }
+
+                    try {
+                        //get Key Id
+                        String query = "SELECT pubkey_id,message_id,content,public_type,timestamp,nonce from message WHERE verified = true AND pubkey_id = ?";
+                        PreparedStatement pstmt = Test.messageStore.getConnection().prepareStatement(query);
+                        pstmt.setInt(1, chanId);
+                        ResultSet executeQuery = pstmt.executeQuery();
+
+                        System.out.println("dwzdzwd " + executeQuery.next());
+
+                        while (executeQuery.next()) {
+                            int message_id = executeQuery.getInt("message_id");
+                            int pubkey_id = executeQuery.getInt("pubkey_id");
+                            //byte[] pubkeyBytes = executeQuery.getBytes("pubkey");
+                            //ECKey ecKey = new ECKey(null, pubkeyBytes);
+//                            ecKey.database_id = pubkey_id;
+//
+                            byte public_type = executeQuery.getByte("public_type");
+                            long timestamp = executeQuery.getLong("timestamp");
+                            int nonce = executeQuery.getInt("nonce");
+//                            byte[] signature = executeQuery.getBytes("signature");
+                            byte[] content = executeQuery.getBytes("content");
+//                            boolean verified = executeQuery.getBoolean("verified");
+                            RawMsg rawMsg = new RawMsg(timestamp, nonce, null, content, true);
+                            rawMsg.database_Id = message_id;
+                            rawMsg.key = ecKey;
+                            rawMsg.public_type = public_type;
+
+                            rawMsg = rawMsg.toSpecificMsgType();
+
+                            if (rawMsg instanceof TextMsg || rawMsg instanceof ImageMsg) {
+                                System.out.println("asd: " + pubkey_id + " . " + message_id + "             - " + asdfbytes / 1024.);
+
+                                asdfbytes += 8 + content.length;
+                            } else {
+                                System.out.println("nope");
+                            }
+
+                        }
+                        executeQuery.close();
+                        pstmt.close();
+                    } catch (SQLException ex) {
+                        Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+
                     continue;
                 }
 
+                if (readLine.equals("d2")) {
+
+                    for (Peer p : peerList) {
+
+                        if (p.writeBuffer != null && p.writeBufferCrypted != null) {
+
+                            System.out.println("PEER: " + p.writeBuffer.position() + " " + p.writeBufferCrypted.position() + " " + p.readBuffer.position() + " " + p.readBufferCrypted.position());
+
+                        }
+
+                    }
+
+                    continue;
+                }
+
+                if (readLine.equals("d3")) {
+
+                    System.out.println("dhadghawdgfawzhjudgfawhudf ");
+
+                    try {
+                        //get Key Id
+                        String query = "SELECT peer_id,message_id from haveToSendMessageToPeer";
+                        PreparedStatement pstmt = Test.messageStore.getConnection().prepareStatement(query);
+                        ResultSet executeQuery = pstmt.executeQuery();
+
+                        //System.out.println("dwzdzwd " + executeQuery.next());
+                        while (executeQuery.next()) {
+                            long peer_id = executeQuery.getLong("peer_id");
+                            int message_id = executeQuery.getInt("message_id");
+
+                            System.out.println("haveTosendmsg: " + peer_id + " - " + message_id);
+
+                        }
+                        executeQuery.close();
+                        pstmt.close();
+                    } catch (SQLException ex) {
+                        Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                    continue;
+                }
+
+                if (readLine.equals("d4")) {
+                    MessageDownloader.requestedMsgsLock.lock();
+                    for (MessageDownloader.RawMsgEntry msg : MessageDownloader.requestedMsgs) {
+
+                        System.out.println("msg time: " + msg.requestedWhen);
+
+                    }
+                    MessageDownloader.requestedMsgsLock.unlock();
+                    continue;
+                }
+
+                if (readLine.equals("d5")) {
+                    ConnectionHandler.removeUnusedSockets();
+                    continue;
+                }
+
+                if (readLine.equals("D")) {
+                    System.out.println("debug info: ");
+                    for (PeerTrustData ptd : peerTrusts) {
+                        System.out.println("nonce: " + ptd.nonce + " ID: " + ptd.internalId + " intToHim: " + messageStore.msgCountIntroducedToHim(ptd.internalId) + "  msgsIntroducedToMe: " + messageStore.msgCountIntroducedToMe(ptd.internalId) + " msgsToSyncToPeer: " + Test.messageStore.msgsToUser(ptd.internalId, System.currentTimeMillis() - 1000 * 60 * 60 * 24 * 7));
+                    }
+                    continue;
+                }
+
+                if (readLine.equals("a")) {
+                    System.out.println("addPeerIp");
+                    readLine = bufferedReader.readLine();
+                    findPeer(new Peer(readLine, Settings.STD_PORT));
+                    continue;
+                }
 
                 if (readLine.equals("f")) {
                     System.out.println("Init fullsync...");
@@ -736,15 +1074,12 @@ public class Test {
                     continue;
                 }
 
-
                 //clientVersion++;
                 //Msg msg = new Msg(System.currentTimeMillis(), 55, SpecialChannels.MAIN, clientSeed, clientVersion, "[" + getNick() + "] " + readLine);
                 //processNewMessage(msg, true);
 //                TextMsg build = TextMsg.build(Channel.getChannelById(-2), readLine);
 //                MessageHolder.addMessage(build);
 //                broadcastMsg(build);
-
-
                 //Main.sendMessageToChannel(Channel.getChannelById(-2), readLine);
                 Main.sendBroadCastMsg(readLine);
                 System.out.println("send...");
@@ -760,13 +1095,7 @@ public class Test {
                 //                        peer.connectionThread.writeBytes(toBytes);
                 //                    }
                 //                }
-
-
-
-
-
             }
-
 
         }
     }
@@ -788,29 +1117,38 @@ public class Test {
                 System.out.println("Generated new Master Key!");
             }
 
-
-            if (channels.size() < 2) {
-                channels.add(Channel.generateNew("Mine 1"));
-                channels.add(Channel.generateNew("Mine 2"));
-                System.out.println("generated new channels!");
-            } else {
-                for (Channel c : channels) {
-                    System.out.println("Channel privkeys to write to: " + c.getPrivateKey() + " Pub: " + Base58.encode(c.getKey().getPubKey()));
-                }
-            }
+//            if (channels.size() < 2) {
+//                channels.add(Channel.generateNew("Mine 1"));
+//                channels.add(Channel.generateNew("Mine 2"));
+//                System.out.println("generated new channels!");
+//            } else {
+//                for (Channel c : channels) {
+//                    System.out.println("Channel privkeys to write to: " + c.getPrivateKey() + " Pub: " + Base58.encode(c.getKey().getPubKey()));
+//                }
+//            }
             saver.saveIdentities(channels);
         }
     }
 
     public static void broadcastMsg(RawMsg rawMsg) {
+
+        if (rawMsg.timestamp < Settings.till) {
+            return;
+        }
+
+        //ToDo: remove later
+        int containsMsg = messageStore.containsMsg(rawMsg);
+        if (containsMsg != rawMsg.database_Id) {
+            throw new RuntimeException("!!!! kek");
+        }
+
+        Test.messageStore.addMessageToSend(rawMsg.database_Id, rawMsg.key.database_id);
+
+        //System.out.println("channel_id: " + rawMsg.key.database_id);
         for (Peer p : getClonedPeerList()) {
             if (p.isConnected() && p.isAuthed() && p.syncMessagesSince <= rawMsg.timestamp) {
                 p.writeMessage(rawMsg);
                 p.setWriteBufferFilled();
-
-
-
-
             }
         }
 
@@ -825,9 +1163,8 @@ public class Test {
             Thread.currentThread().setName(orgName + " - InboundThread");
 
             if (DEBUG) {
-                System.out.println("inbound thrad started...");
+                System.out.println("inbound thread started...");
             }
-
 
             try {
                 ServerSocketChannel serverSocketChannel;
@@ -854,15 +1191,11 @@ public class Test {
                             System.out.println("could not bound to port: " + MY_PORT);
                         }
 
-
                         //e.printStackTrace();
-
                         bound = false;
                         //MY_PORT = Settings.STD_PORT + random.nextInt(30);
                         MY_PORT += 1;
                     }
-
-
 
                 }
 
@@ -873,8 +1206,6 @@ public class Test {
                 //port festgelegt...
                 peerList = Test.saver.loadPeers();
                 peerTrusts = Test.saver.loadTrustedPeers();
-
-
 
                 if (DEBUG) {
                     System.out.println("loaded peerlist...");
@@ -891,29 +1222,17 @@ public class Test {
 //                    System.out.println("Warning old messages not loaded....");
 //                }
 
-
 //                if (PORTFORWARD) {
 //                    String localHost = InetAddress.getLocalHost().getHostName();
 //                    InetAddress[] allByName = InetAddress.getAllByName(localHost);
 //                    Portforward.start(MY_PORT, allByName[0].getHostAddress());
 //                    System.out.println("Started UPNP portforward for port " + MY_PORT);
 //                }
-
-
-                localSettings = saver.loadLocalSettings();
-                loadChannels();
-
-
-                NONCE = localSettings.nonce;
-
-
                 connectionHandler.addServerSocketChannel(serverSocketChannel);
                 startedUpSuccessful();
             } catch (IOException ex) {
                 Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
             }
-
-
 
         }
     }
@@ -927,19 +1246,17 @@ public class Test {
             Thread.currentThread().setName(orgName + " - OutboundThread");
 
             Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
+
                 @Override
                 public void uncaughtException(Thread t, Throwable e) {
                     e.printStackTrace();
-                    Main.sendBroadCastMsg(stacktrace2String(e));
+                    sendStacktrace(e);
                 }
             });
-
 
             long loopCount = 0;
 
             while (!Main.shutdown) {
-
-
 
                 loopCount++;
 
@@ -952,20 +1269,25 @@ public class Test {
                     continue;
                 }
 
-
                 if (Settings.initFullNetworkSync) {
+
                     //just a one time action
                     Settings.initFullNetworkSync = false;
                     System.out.println("init full sync, closing all connections");
                     ArrayList<Peer> clone = (ArrayList<Peer>) peerList.clone();
                     peerList = new ArrayList<Peer>();
                     for (Peer peer : clone) {
-                        peer.disconnect();
+                        peer.disconnect("full sync");
                     }
 
+                    for (PeerTrustData ptd : (ArrayList<PeerTrustData>) peerTrusts.clone()) {
+                        ptd.ips.clear();
+                        ptd.keyToIdHis.clear();
+                        ptd.keyToIdMine.clear();
+                        ptd.loadedMsgs.clear();
+                    }
 
                 }
-
 
                 if (peerList == null || NONCE == 0) {
                     try {
@@ -976,23 +1298,26 @@ public class Test {
                     continue;
                 }
 
-
                 if (peerList.size() == 0) {
                     addKnowNodes();
                 }
 
                 ArrayList<Peer> clonedPeerList = (ArrayList<Peer>) peerList.clone();
 
-
                 //Collections.shuffle(peerList);
-
                 Collections.sort(clonedPeerList);
 
                 int actCons = 0;
                 int connectingCons = 0;
                 for (Peer peer : clonedPeerList) {
                     if (peer.getLastAnswered() < Settings.pingTimeout * 1000 && peer.isConnected()) {
-                        actCons++;
+
+                        String[] split = peer.ip.split("\\.");
+                        if (split.length == 4 && split[0].equals("192")) {
+                            //hack: is lan ip...
+                        } else {
+                            actCons++;
+                        }
                     }
                     if (peer.isConnecting) {
                         connectingCons++;
@@ -1002,16 +1327,14 @@ public class Test {
                 if (connectingCons == clonedPeerList.size()) {
                     //hack!
                     for (Peer peer : clonedPeerList) {
-                        peer.disconnect();
+                        peer.disconnect("con neu");
                     }
                     continue;
                 }
 
-
 //                if (DEBUG) {
 //                    System.out.println("search new peers....");
 //                }
-
                 int cnt = 0;
                 for (Peer peer : clonedPeerList) {
 
@@ -1028,7 +1351,7 @@ public class Test {
                         if (cnt == 1 && actCons >= Settings.MAX_CONNECTIONS) {
                             for (Peer p1 : clonedPeerList) {
                                 if (p1.isConnected()) {
-                                    p1.disconnect();
+                                    p1.disconnect("max cons");
                                     if (DEBUG) {
                                         System.out.println("closed one connection...");
                                     }
@@ -1050,7 +1373,6 @@ public class Test {
                         continue;
                     }
 
-
                     boolean alreadyConnectedToSameIpandPort = false;
                     for (Peer p2 : clonedPeerList) {
                         if (peer.equalsIpAndPort(p2) && (peer.isConnected() || peer.isConnecting)) {
@@ -1065,9 +1387,6 @@ public class Test {
 //                        }
                         continue;
                     }
-
-
-
 
                     if (peer.ip.length() <= 15 && Settings.IPV6_ONLY) {
                         peerList.remove(peer);
@@ -1129,32 +1448,24 @@ public class Test {
 //                        }
                     }
 
-
 //                    if (peerList.size() > 20) {
                     //(System.currentTimeMillis() - peer.lastActionOnConnection > 1000 * 60 * 60 * 4)
                     if (peer.retries > 10) {
                         //peerList.remove(peer);
                         removePeer(peer);
                         if (DEBUG) {
-                            System.out.println("removed peer from peerList, too many retries: " + peer.ip + ":" + peer.port);
+                            Log.put("removed peer from peerList, too many retries: " + peer.ip + ":" + peer.port, 20);
                         }
                         continue;
                     }
 
-
 //                    }
-
                     if (peer.retries > 5 && actCons >= 2) {
 
-
-
 //                        System.out.println("retry: " + loopCount + " % " + peer.retries + " = " + loopCount % peer.retries);
-
                         long lastRetryFor = System.currentTimeMillis() - peer.lastRetryAfter5;
 
-
                         //System.out.println("last retry for millis: " + lastRetryFor);
-
                         if (lastRetryFor < 1000 * 60 * 5) {
                             if (DEBUG) {
 //                                 System.out.println("Skipp connecting, throttling retries...");
@@ -1166,10 +1477,9 @@ public class Test {
 
                     }
 
-
                     if (peer.connectAble != -1) {
                         if (DEBUG) {
-                            System.out.println("try to connect to new node: " + peer.ip + ":" + peer.port);
+                            Log.put("try to connect to new node: " + peer.ip + ":" + peer.port, 5);
                         }
                         connectTo(peer);
                         actCons++;
@@ -1192,15 +1502,18 @@ public class Test {
                     Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
-
             }
-
-
 
         }
     }
 
     private static void addKnowNodes() {
+
+        if (System.currentTimeMillis() - lastAddedKnownNodes < 1000 * 60 * 10) {
+            return;
+        }
+
+        lastAddedKnownNodes = System.currentTimeMillis();
 
         for (String host : Settings.knownNodes) {
             try {
@@ -1221,27 +1534,26 @@ public class Test {
 //            removePeer(peer);
 //            return;
 //        }
-
 //        if (peer.connectionThread != null && peer.connectionThread.alive) {
 //            return;
 //        }
-
 //        threadPool2.submit(
         peer.connectinThread = new Thread() {
+
             @Override
             public UncaughtExceptionHandler getUncaughtExceptionHandler() {
                 return new UncaughtExceptionHandler() {
+
                     @Override
                     public void uncaughtException(Thread t, Throwable e) {
-                        Main.sendBroadCastMsg(stacktrace2String(e));
-                        peer.disconnect();
+                        sendStacktrace(e);
+                        peer.disconnect("exception 87842");
                     }
                 };
             }
 
             @Override
             public void run() {
-
 
                 final String orgName = Thread.currentThread().getName();
                 Thread.currentThread().setName(orgName + " - Conntect to Node");
@@ -1265,13 +1577,14 @@ public class Test {
                     }
                     //connectionHandlerConnection.addConnection(peer);
 
-
-
                 } catch (UnknownHostException ex) {
                     if (DEBUG) {
                         System.out.println("outgoing con failed, unknown host...");
                     }
-                } catch (IOException ex) {
+                } catch (Exception ex) {
+                    System.out.println("catched: ");
+                    ex.printStackTrace();
+
                     if (DEBUG) {
                         System.out.println("outgoing con failed...");
                     }
@@ -1280,13 +1593,8 @@ public class Test {
             }
         };
 
-
         peer.connectinThread.start();
 //                        );
-
-
-
-
 
     }
 
@@ -1484,6 +1792,13 @@ public class Test {
 
     private static void startedUpSuccessful() {
         STARTED_UP_SUCCESSFUL = true;
+
+        //just a workaround, ToDo: bewerte Ips von einem Node
+        for (PeerTrustData ptd : peerTrusts) {
+            ptd.ips.clear();
+        }
+        saveTrustData();
+
         new Outboundthread().start();
         MessageDownloader.start();
         MessageVerifierHsqlDb.start();
@@ -1543,7 +1858,22 @@ public class Test {
     }
 
     public static void sendStacktrace(Throwable thrwbl) {
+
+        thrwbl.printStackTrace();
+
+//        if (System.currentTimeMillis() - lastSentStackTrace < 1000*60*10) {
+//            
+//        }
         String out = "Stacktrace: \n";
+        out += stacktrace2String(thrwbl);
+
+//        stackTraceString += out + "\n#######################\n\n\n";
+        Main.sendBroadCastMsg(out);
+    }
+
+    public static void sendStacktrace(String msg, Throwable thrwbl) {
+        thrwbl.printStackTrace();
+        String out = msg;
         out += stacktrace2String(thrwbl);
         Main.sendBroadCastMsg(out);
     }

@@ -25,13 +25,13 @@ public interface MessageStore {
 
     public void showTableMessage();
 
-    public boolean containsMsg(RawMsg m);
+    public int containsMsg(RawMsg m);
 
     public int getMsgId(RawMsg m);
 
     public RawMsg getMessageById(int message_id);
 
-    public ResultSet getAllMessagesForSync(long from, long to);
+    public ResultSet getAllMessagesForSync(long from, long to, long peer_id);
 
     public int getPubkeyId(ECKey key);
 
@@ -41,11 +41,47 @@ public interface MessageStore {
 
     public ArrayList<RawMsg> getMessagesForPubkey(byte[] pubKey, long from, int to);
 
-    public void addDecryptedContent(int pubkey_id, int message_id, int message_type, byte[] decryptedContent, long identity, boolean fromMe);
+    public void addDecryptedContent(int pubkey_id, int message_id, int message_type, long timestamp, byte[] decryptedContent, long identity, boolean fromMe);
+
+    public void addStick(int pubkey_id, int message_id, double difficulty, long validTill);
 
     public void showTableMessageContent();
 
     public int getMessageCount();
-    
+
+    public int getMessageCountToVerify();
+
     public void commitDatabase();
+
+    public void removeOldMessages(long timestamp);
+
+    public void removeOldMessagesDecryptedContent(long timestamp);
+
+    public void addMsgIntroducedToMe(long peer_id, int message_id);
+
+    public void addMsgIntroducedToHim(long peer_id, int message_id);
+
+    public int msgCountIntroducedToMe(long peer_id);
+
+    public int msgCountIntroducedToHim(long peer_id);
+
+    public int msgsToUser(long peer_id, long from);
+
+    public void addFilterChannel(long peer_id, int channel_id);
+
+    public void delFilterChannel(long peer_id, int channel_id);
+
+    public void addMessageToSend(int message_id, int channel_id);
+
+    public void addMessageToSendToSpecificPeer(int message_id, int peer_id);
+
+    public boolean removeMessageToSend(long peer_id, int message_id);
+
+    public boolean removeMessageToSend(long peer_id);
+
+    public ResultSet getMessagesForBackSync(long time, int cnt);
+
+    public void resetMessageCounter();
+    
+    public void checkpoint();
 }

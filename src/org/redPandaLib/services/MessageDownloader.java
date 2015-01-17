@@ -10,6 +10,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.Random;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.redPandaLib.Main;
@@ -22,21 +23,25 @@ import org.redPandaLib.core.messages.RawMsg;
  */
 public class MessageDownloader {
 
-    private static ArrayList<RawMsgEntry> requestedMsgs = new ArrayList<RawMsgEntry>();
+    public static ArrayList<RawMsgEntry> requestedMsgs = new ArrayList<RawMsgEntry>();
+    public static final ReentrantLock requestedMsgsLock = new ReentrantLock();
     private static boolean triggered = false;
     private static MyThread myThread = new MyThread();
-    private static int MAX_REQUEST_PER_PEER = 50;
+    public static int MAX_REQUEST_PER_PEER = 500;
     private static boolean allowInterrupt = false;
-    private static final String syncInterrupt = new String();
+    private static final ReentrantLock syncInterrupt = new ReentrantLock();
     public static int publicMsgsLoaded = 0;
+    public static ReentrantLock publicMsgsLoadedLock = new ReentrantLock();
+    public static int messagesToVerify = 0;
+    private static Random random = new Random();
 
     public static void trigger() {
         triggered = true;
-        synchronized (syncInterrupt) {
-            if (allowInterrupt) {
-                myThread.interrupt();
-            }
+        syncInterrupt.lock();
+        if (allowInterrupt) {
+            myThread.interrupt();
         }
+        syncInterrupt.unlock();
     }
 
     public static boolean isActive() {
@@ -54,13 +59,13 @@ public class MessageDownloader {
     public static void start() {
         myThread.start();
 
-
         new Thread() {
+
             @Override
             public void run() {
 
                 final String orgName = Thread.currentThread().getName();
-                Thread.currentThread().setName(orgName + " - MessageDownloader - decrese pubmsg");
+                Thread.currentThread().setName(orgName + " - MessageDownloader - decrease pubmsg");
 
                 while (!Main.shutdown) {
                     try {
@@ -68,6 +73,12 @@ public class MessageDownloader {
                     } catch (InterruptedException ex) {
                         Logger.getLogger(MessageDownloader.class.getName()).log(Level.SEVERE, null, ex);
                     }
+
+                    if (MessageDownloader.publicMsgsLoaded > 50) {
+                        Log.put("not decreasing pubmsgs, msgs to verify: " + MessageDownloader.publicMsgsLoaded, 100);
+                        continue;
+                    }
+
                     publicMsgsLoaded -= Math.ceil(Settings.MAXPUBLICMSGS / 60) + 1;
                     if (publicMsgsLoaded < 0) {
                         publicMsgsLoaded = 0;
@@ -83,11 +94,11 @@ public class MessageDownloader {
 
     }
 
-    static class RawMsgEntry {
+    public static class RawMsgEntry {
 
-        RawMsg m;
-        long requestedWhen = 0;
-        Peer requestedFromPeer;
+        public RawMsg m;
+        public long requestedWhen = 0;
+        public Peer requestedFromPeer;
 
         public RawMsgEntry(RawMsg m) {
             this.m = m;
@@ -113,99 +124,86 @@ public class MessageDownloader {
 //                sleep(2000);
 //            } catch (InterruptedException ex) {
 //            }
-
             final String orgName = Thread.currentThread().getName();
             Thread.currentThread().setName(orgName + " - MessageDownloader");
             while (!Main.shutdown) {
 
-                //System.out.println("new round");
+                try {
 
-                boolean shortWait = false;
+                    //System.out.println("new round");
+                    boolean shortWait = false;
 
-                if (!isActive()) {
-                    try {
-                        sleep(5000);
-                    } catch (InterruptedException ex) {
-                    }
-                    continue;
-                }
-
-
-                boolean requestedOne = false;
-
-                boolean soutedPublicMsgsMax = false;
-                triggered = false;
-                //                System.out.println("Scanning msgs i want to have...");
-                ArrayList<Peer> clonedPeerList = Test.getClonedPeerList();
-
-                Collections.shuffle(clonedPeerList, new Random());
-
-                for (Peer p : clonedPeerList) {
-
-                    //if (!p.isConnected() || System.currentTimeMillis() - p.connectedSince < 500) {
-                    if (!p.isConnected() || !p.isAuthed()) {
+                    if (!isActive()) {
+                        try {
+                            sleep(5000);
+                        } catch (InterruptedException ex) {
+                        }
                         continue;
                     }
 
+                    boolean requestedOne = false;
 
+                    boolean soutedPublicMsgsMax = false;
+                    triggered = false;
+                    //                System.out.println("Scanning msgs i want to have...");
+                    ArrayList<Peer> clonedPeerList = Test.getClonedPeerList();
 
+                    Collections.shuffle(clonedPeerList, random);
 
-                    if (p.requestedMsgs > MAX_REQUEST_PER_PEER) {
-                        continue;
-                    }
+                    for (Peer p : clonedPeerList) {
+
+                        //if (!p.isConnected() || System.currentTimeMillis() - p.connectedSince < 500) {
+                        if (!p.isConnected() || !p.isAuthed()) {
+                            continue;
+                        }
+
+                        if (p.requestedMsgs > MAX_REQUEST_PER_PEER || p.requestedMsgs > p.maxSimultaneousRequests || System.currentTimeMillis() - p.connectedSince < 1000 * 10) {
+                            continue;
+                        }
 
 //                    //Damit der download erstmal nur sehr langsam pro peer laeuft...
 //                    if (System.currentTimeMillis() - p.lastActionOnConnection < 350) {
 //                        shortWait = true;
 //                        continue;
 //                    }
+                        //System.out.println("asdzadgg " + Settings.MAXPUBLICMSGS + " > " + publicMsgsLoaded);
+                        if (Settings.MAXPUBLICMSGS > publicMsgsLoaded) {
+                            int maxLoadPub = Settings.MAXPUBLICMSGS - publicMsgsLoaded;
 
-                    //System.out.println("asdzadgg " + Settings.MAXPUBLICMSGS + " > " + publicMsgsLoaded);
+                            synchronized (p.getPendingMessages()) {
+                                int i = 0;
 
-                    if (Settings.MAXPUBLICMSGS > publicMsgsLoaded) {
-                        int maxLoadPub = Settings.MAXPUBLICMSGS - publicMsgsLoaded;
+                                HashMap<Integer, RawMsg> asdf = (HashMap<Integer, RawMsg>) p.getPendingMessagesPublic().clone();
 
-                        synchronized (p.getPendingMessages()) {
-                            int i = 0;
-
-                            HashMap<Integer, RawMsg> asdf = (HashMap<Integer, RawMsg>) p.getPendingMessagesPublic().clone();
-
-                            //System.out.println("asdbashd " + asdf.size());
-
-                            for (Entry<Integer, RawMsg> entry : asdf.entrySet()) {
-                                i++;
-                                if (i >= maxLoadPub) {
-                                    break;
+                                //System.out.println("asdbashd " + asdf.size());
+                                for (Entry<Integer, RawMsg> entry : asdf.entrySet()) {
+                                    i++;
+                                    if (i >= maxLoadPub) {
+                                        break;
+                                    }
+                                    //System.out.println("MOVED");
+                                    p.getPendingMessages().put(entry.getKey(), entry.getValue());
+                                    p.getPendingMessagesPublic().remove(entry.getKey());
                                 }
-                                //System.out.println("MOVED");
-                                p.getPendingMessages().put(entry.getKey(), entry.getValue());
-                                p.getPendingMessagesPublic().remove(entry.getKey());
                             }
+
                         }
 
-                    }
-
-
-                    HashMap<Integer, RawMsg> hm;
-                    synchronized (p.getPendingMessages()) {
-                        hm = ((HashMap<Integer, RawMsg>) p.getPendingMessages().clone());
-                    }
-
-
-
+                        HashMap<Integer, RawMsg> hm;
+                        synchronized (p.getPendingMessages()) {
+                            hm = ((HashMap<Integer, RawMsg>) p.getPendingMessages().clone());
+                        }
 
 //                    System.out.println("MSG Downloader: " + p.ip + ":" + p.port + " PendingMsgs: " + hm.size() + " Requested: " + p.requestedMsgs);
+                        int msgsRequestedThisCycle = 0;
 
-                    int msgsRequestedThisCycle = 0;
+                        for (Entry<Integer, RawMsg> entry : hm.entrySet()) {
 
-                    for (Entry<Integer, RawMsg> entry : hm.entrySet()) {
-
-
-                        //so not all MAX_REQUEST_PER_PEER are loaded from one peer.
-                        if (msgsRequestedThisCycle > 10) {
-                            shortWait = true;
-                            break;
-                        }
+                            //so not all MAX_REQUEST_PER_PEER are loaded from one peer.
+                            if (msgsRequestedThisCycle > 10) {
+                                shortWait = true;
+                                break;
+                            }
 
 //                        int bufferWaiting = 0;
 //                        synchronized (p.writeBuffer) {
@@ -217,168 +215,199 @@ public class MessageDownloader {
 //                            shortWait = true;
 //                            break;
 //                        }
+                            RawMsg m = entry.getValue();
+                            int messageId = entry.getKey();
+                            RawMsgEntry asEntryMsg = new RawMsgEntry(m);
 
-                        RawMsg m = entry.getValue();
-                        int messageId = entry.getKey();
-                        RawMsgEntry asEntryMsg = new RawMsgEntry(m);
+//                        if (m.public_type == 1) {
+//                            //stick!!
+//
+//                            System.out.println("Stick: What to do? " + myMessageId);
+//
+//                        }
+                            int myMessageId = MessageHolder.contains(m);
 
-                        if (MessageHolder.contains(m)) {
-                            synchronized (p.getPendingMessages()) {
-                                p.getPendingMessages().remove(messageId);
-                            }
-                            System.out.print("|");
-                            continue;
-                        }
+                            if (p.getPeerTrustData() != null && myMessageId != -1) {
 
+                                RawMsg rawMsg = MessageHolder.getRawMsg(myMessageId);
 
-
-
-                        //STICKS!!
-                        if (m.public_type == 20 || m.public_type > 50) {
-
-                            //normal message
-
-                            if (Settings.MAXPUBLICMSGS < publicMsgsLoaded || Settings.lightClient) {
-
-                                if (!soutedPublicMsgsMax) {
-                                    System.out.println("Public msgs: " + publicMsgsLoaded + " MAX: " + Settings.MAXPUBLICMSGS);
-                                    soutedPublicMsgsMax = true;
-                                }
-
-
-
-                                if (m.getChannel() == null) {
-                                    //isPublic...
-                                    if (Settings.SUPERNODE) {
-                                        p.getPendingMessagesPublic().put(messageId, m);
-                                    }
-                                    synchronized (p.getPendingMessages()) {
-                                        p.getPendingMessages().remove(messageId);
-                                    }
+                                if (rawMsg == null) {
+                                    System.out.println("contains message but no content? likely message was removed because of wrong signature.");
                                     continue;
                                 }
+
+                                if (!rawMsg.verified) {
+                                    continue;
+                                }
+
+                                boolean removed = Test.messageStore.removeMessageToSend(p.getPeerTrustData().internalId, myMessageId);
+                                Log.put("removed msg: " + p.getPeerTrustData().internalId + " - " + myMessageId + " -- " + m.public_type + " - " + removed, 80);
+
+                                if (!removed && !p.removedSendMessages.contains(myMessageId)) {
+                                    Log.put("not removed.... sending to other node", 80);
+                                    m.database_Id = myMessageId;
+                                    m.key.database_id = Test.messageStore.getPubkeyId(m.key);
+                                    p.writeMessage(m);
+                                    p.removedSendMessages.add(myMessageId);
+                                }
+
                             }
 
+                            if (myMessageId != -1) {
+                                synchronized (p.getPendingMessages()) {
+                                    p.getPendingMessages().remove(messageId);
+                                }
+                                //System.out.print("|");
+                                continue;
+                            }
 
-                            //Checke ob schon geladen wird und ueberpruefe timeout, falls peer zu langsam, disconnected...
-                            if (requestedMsgs.contains(asEntryMsg)) {
-                                RawMsgEntry get = requestedMsgs.get(requestedMsgs.indexOf(asEntryMsg));
-                                long delay = System.currentTimeMillis() - get.requestedWhen;
-                                if (delay < 6000L) {
-                                    continue;
+                            //STICKS and msgs.
+                            if (m.public_type == 20 || m.public_type > 50) {
+
+                                //normal message
+                                if (Settings.MAXPUBLICMSGS < publicMsgsLoaded || Settings.lightClient) {
+
+//                                    if (!soutedPublicMsgsMax) {
+//                                        System.out.println("Public msgs: " + publicMsgsLoaded + " MAX: " + Settings.MAXPUBLICMSGS);
+//                                        soutedPublicMsgsMax = true;
+//                                    }
+                                    if (m.getChannel() == null) {
+                                        //isPublic...
+                                        if (Settings.SUPERNODE) {
+                                            p.getPendingMessagesPublic().put(messageId, m);
+                                        }
+                                        synchronized (p.getPendingMessages()) {
+                                            p.getPendingMessages().remove(messageId);
+                                        }
+                                        continue;
+                                    }
                                 }
 
-                                if (delay > 240000L) {
-                                    System.out.println("MSG hard timeout... " + get.requestedFromPeer.getIp());
-                                    requestedMsgs.remove(get);
-                                } else {
-                                    continue;
+                                requestedMsgsLock.lock();
+                                //Checke ob schon geladen wird und ueberpruefe timeout, falls peer zu langsam, disconnected...
+                                if (requestedMsgs.contains(asEntryMsg)) {
+                                    //ToDo: lock for requestedMsgs ? not threadsafe currently, exception will be cautch = restat of loop (hack)
+                                    RawMsgEntry get = requestedMsgs.get(requestedMsgs.indexOf(asEntryMsg));
+                                    long delay = System.currentTimeMillis() - get.requestedWhen;
+                                    Log.put("delay: " + delay + " ip: " + get.requestedFromPeer.getIp(), 15);
+                                    if (delay < 6000L) {
+                                        requestedMsgsLock.unlock();
+                                        continue;
+                                    }
+
+                                    if (delay > Settings.pingTimeout * 1000L + 60000L) {
+                                        System.out.println("MSG hard timeout... " + get.requestedFromPeer.getIp());
+                                        requestedMsgs.remove(get);
+                                        get.requestedFromPeer.getPendingMessages().remove(messageId);
+                                        get.requestedFromPeer.getPendingMessagesTimedOut().put(messageId, get.m);
+                                        //ToDo: timeout for timeoutmessages
+                                    } else {
+                                        requestedMsgsLock.unlock();
+                                        continue;
 //                                    System.out.println("MSG soft timeout... just requesting at another peer");
 //                                    if (get.requestedFromPeer == p) {
 //                                        System.out.println("already requested from this peer...");
 //                                        continue;
 //                                    }
+                                    }
                                 }
-                            }
 
+//                                System.out.println("u23zu323");
+                                if (!p.isConnected() || !p.isAuthed()) {
+                                    System.out.println("break1243!!");
+                                    break;
+                                }
 
-                            if (!p.isConnected() || !p.isAuthed()) {
-                                break;
-                            }
+                                requestedOne = true;
+                                //Nachricht soll geladen werden
 
+                                requestedMsgs.add(asEntryMsg);
+                                requestedMsgsLock.unlock();
+                                asEntryMsg.requestedWhen = System.currentTimeMillis();
+                                asEntryMsg.requestedFromPeer = p;
 
-                            requestedOne = true;
-                            //Nachricht soll geladen werden
+                                ByteBuffer writeBuffer = p.writeBuffer;
+                                p.writeBufferLock.lock();
+                                p.writeBuffer.put((byte) 6);
+                                p.writeBuffer.putInt(messageId);
+                                p.writeBufferLock.unlock();
 
-                            requestedMsgs.add(asEntryMsg);
-                            asEntryMsg.requestedWhen = System.currentTimeMillis();
-                            asEntryMsg.requestedFromPeer = p;
+                                Thread.interrupted();
 
-                            ByteBuffer writeBuffer = p.writeBuffer;
-                            p.writeBufferLock.lock();
-                            p.writeBuffer.put((byte) 6);
-                            p.writeBuffer.putInt(messageId);
-                            p.writeBufferLock.unlock();
+                                p.setWriteBufferFilled();
 
-                            Thread.interrupted();
+                                if (Thread.interrupted()) {
+                                    System.out.println("bd2n8xnrgm63734r9mt34y349qx5qn5qn935nxc69q56t");
+                                }
 
-                            p.setWriteBufferFilled();
-
-                            if (Thread.interrupted()) {
-                                System.out.println("bd2n8xnrgm63734r9mt34y349qx5qn5qn935nxc69q56t");
-                            }
-
-                            msgsRequestedThisCycle++;
-                            System.out.print(" " + p.requestedMsgs + " ");
-                            //System.out.println("requested... " + p.requestedMsgs);
+                                msgsRequestedThisCycle++;
+                                System.out.print(" " + p.requestedMsgs + " ");
+                                //System.out.println("requested... " + p.requestedMsgs);
 //                        
 
 //                        System.out.println("Nachricht download: " + p.ip + ":" + p.port + " MsgTimestamp: " + m.timestamp + " Requested: " + p.requestedMsgs);
+                                p.requestedMsgs++;
 
-                            p.requestedMsgs++;
+                                if (p.requestedMsgs > MAX_REQUEST_PER_PEER || p.requestedMsgs > p.maxSimultaneousRequests) {
+                                    break;
+                                }
 
-                            if (p.requestedMsgs > MAX_REQUEST_PER_PEER) {
-                                break;
-                            }
+                            } else if (m.public_type == 1) {
 
-                        } else if (m.public_type == 1) {
+                                synchronized (p.getPendingMessages()) {
+                                    p.getPendingMessages().remove(messageId);
+                                }
 
-                            synchronized (p.getPendingMessages()) {
-                                p.getPendingMessages().remove(messageId);
-                            }
+                                // found a stick...
+                                //checking difficulty
+                                Stick stick = new Stick(m.getKey().getPubKey(), m.timestamp, m.nonce);
 
-                            // found a stick...
-                            //checking difficulty
-                            Stick stick = new Stick(m.getKey().getPubKey(), m.timestamp, m.nonce);
+                                double difficulty = stick.getDifficulty();
 
-                            double difficulty = stick.getDifficulty();
+                                if (difficulty < Stick.DIFFICULTY) {
+                                    System.out.println("Stick is invalid, not enough difficulty...");
+                                } else {
+                                    System.out.println("Stick found: " + difficulty);
+                                    m.verified = true;
+                                    RawMsg addMessage = MessageHolder.addMessage(m);
+                                    Test.broadcastMsg(addMessage);
+                                    Test.messageStore.addStick(m.key.database_id, messageId, difficulty, m.timestamp + 1000 * 60 * 60 * 24 * 7);
+                                }
 
-                            if (difficulty < Stick.DIFFICULTY) {
-                                System.out.println("Stick is invalid, not enough difficulty...");
+                            } else if (m.public_type == 15) {
+                                //remove all msgs from that chan that are older then this message with
+                                // public type 20 or greater 50
+                                //removeMessagesFromChannel
+                                //TODO WRONG PLACE HERE! implement in ConnectionHandler!
                             } else {
-                                System.out.println("Stick found: " + difficulty);
-                                m.verified = true;
-                                RawMsg addMessage = MessageHolder.addMessage(m);
-                                Test.broadcastMsg(addMessage);;
+                                System.out.println("Message type not defined.... " + m.public_type);
                             }
-
-
-                        } else if (m.public_type == 15) {
-                            //remove all msgs from that chan that are older then this message with
-                            // public type 20 or greater 50
-                            //removeMessagesFromChannel
-                            //TODO WRONG PLACE HERE! implement in ConnectionHandler!
-                        } else {
-                            System.out.println("Message type not defined.... " + m.public_type);
                         }
+
                     }
 
-
-
-
-
-
-                }
-
-                synchronized (syncInterrupt) {
+                    syncInterrupt.lock();
                     allowInterrupt = true;
-                }
-                try {
+                    syncInterrupt.unlock();
+                    try {
 
-                    //System.out.println("wait");
+                        //System.out.println("wait");
+                        if (shortWait) {
+//                            sleep(100);
+                        } else {
+                            sleep(5000);
+                        }
 
-                    if (shortWait) {
-                        //sleep(100);
-                    } else {
-                        sleep(5000);
+                    } catch (InterruptedException ex) {
                     }
-
-                } catch (InterruptedException ex) {
-                }
-                synchronized (syncInterrupt) {
+                    syncInterrupt.lock();
                     allowInterrupt = false;
-                }
-                //Keine nachricht zum requesten, warte auf neue Nachricht, bzw timeout checken
+                    syncInterrupt.unlock();
+
+                    //clear interrupted flag, might called twiche, so writeBuffer would think it was interrupted...
+                    interrupted();
+
+                    //Keine nachricht zum requesten, warte auf neue Nachricht, bzw timeout checken
 //                if (!requestedOne) {
 //                    while (!triggered) {
 //                        try {
@@ -396,7 +425,22 @@ public class MessageDownloader {
 //                    }
 //
 //                }
+                } catch (Throwable e) {
+
+                    System.out.println("MessageDownloader exception!!!!: ");
+                    e.printStackTrace();
+                    Test.sendStacktrace("catched msg downloader exc.: \n", e);
+
+                }
             }
         }
+
+    }
+
+    public static void removeRequestedMessage(RawMsg toRemove) {
+        requestedMsgsLock.lock();
+        MessageDownloader.RawMsgEntry asEntryMsg = new MessageDownloader.RawMsgEntry(toRemove);
+        MessageDownloader.requestedMsgs.remove(asEntryMsg);
+        requestedMsgsLock.unlock();
     }
 }

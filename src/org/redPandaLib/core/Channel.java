@@ -51,7 +51,6 @@ public class Channel implements Serializable, Comparable<Channel> {
     public static Channel generateNew(String name) {
         Channel newIdentity = new Channel();
 
-
         newIdentity.key = new ECKey();
 
         System.out.println("priv key: " + byte2String(newIdentity.key.getPrivKeyBytes()));
@@ -59,7 +58,7 @@ public class Channel implements Serializable, Comparable<Channel> {
 
         newIdentity.name = name;
 
-        newIdentity.id = getNextId();
+        newIdentity.addToList();
 
         return newIdentity;
 
@@ -163,7 +162,6 @@ public class Channel implements Serializable, Comparable<Channel> {
 //        return replaceAll;
 
         //return Base64.encodeToString(b, false);
-
         return Base58.encode(b);
 
     }
@@ -175,7 +173,6 @@ public class Channel implements Serializable, Comparable<Channel> {
             //        return decodeBuffer;
 
             //return Base64.decode(in);
-
             return Base58.decode(in);
         } catch (AddressFormatException ex) {
             Logger.getLogger(Channel.class.getName()).log(Level.SEVERE, null, ex);
@@ -303,27 +300,22 @@ public class Channel implements Serializable, Comparable<Channel> {
         Sha256Hash hash = Sha256Hash.createDouble(b);
         byte[] bytes = hash.getBytes();
 
-
-
         byte[] checksum = new byte[8];
 
         for (int i = 0; i < checksum.length; i++) {
             checksum[i] = bytes[i];
         }
 
-
         byte[] outBytes = new byte[mainBytes.length + checksum.length];
 
         System.arraycopy(mainBytes, 0, outBytes, 0, mainBytes.length);
         System.arraycopy(checksum, 0, outBytes, mainBytes.length, checksum.length);
-
 
         String out = prefix;
 
         out += Base58.encode(outBytes);
         //out += "-";
         //out += Base58.encode(checksum);
-
 
         return out;
 
@@ -346,7 +338,6 @@ public class Channel implements Serializable, Comparable<Channel> {
         System.out.println("rest: " + remaining);
         byte[] bytes = Base58.decode(remaining);
 
-
         if (pub) {
 
             byte[] publicKeyBytes = new byte[33];
@@ -362,7 +353,6 @@ public class Channel implements Serializable, Comparable<Channel> {
             if (!channel.exportForHumans().equals(address)) {
                 return null;
             }
-
 
             return channel;
 
@@ -380,18 +370,8 @@ public class Channel implements Serializable, Comparable<Channel> {
                 return null;
             }
 
-
-
-
             return channel;
         }
-
-
-
-
-
-
-
 
     }
 
@@ -408,6 +388,20 @@ public class Channel implements Serializable, Comparable<Channel> {
 
     public boolean addToList() {
         id = Channel.getNextId();
+
+        new Thread() {
+
+            @Override
+            public void run() {
+                if (Test.peerList != null) {
+                    for (Peer p : Test.getClonedPeerList()) {
+                        p.disconnect("added new channel");
+                    }
+                }
+            }
+
+        }.start();
+
         return Test.addChannel(this);
     }
 

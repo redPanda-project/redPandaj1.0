@@ -63,6 +63,10 @@ public class TextMessageContent implements Serializable {
         return new TextMessageContent(deliveredMsg.database_Id, deliveredMsg.key.database_id, deliveredMsg.public_type, DeliveredMsg.BYTE, deliveredMsg.timestamp, deliveredMsg.decryptedContent, deliveredMsg.channel, deliveredMsg.getIdentity(), null, fromMe);
     }
 
+    public static TextMessageContent fromImageMsg(ImageMsg imageMsg, boolean fromMe, String fileName) {
+        return new TextMessageContent(imageMsg.database_Id, imageMsg.key.database_id, imageMsg.public_type, ImageMsg.BYTE, imageMsg.timestamp, imageMsg.decryptedContent, imageMsg.channel, imageMsg.getIdentity(), fileName, fromMe);
+    }
+
     public Channel getChannel() {
         return channel;
     }

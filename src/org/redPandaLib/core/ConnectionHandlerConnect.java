@@ -82,7 +82,7 @@ public class ConnectionHandlerConnect extends Thread {
                         System.out.println("finished!");
 
                         if (!connected) {
-                            System.out.println("connection could not be established...");
+                            Log.put("connection could not be established...",150);
                             key.cancel();
                             peer.setConnected(false);
                             peer.isConnecting = false;
