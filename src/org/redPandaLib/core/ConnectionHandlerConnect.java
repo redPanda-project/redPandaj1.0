@@ -44,7 +44,7 @@ public class ConnectionHandlerConnect extends Thread {
                 Set<SelectionKey> selectedKeys = selector.selectedKeys();
 
                 if (readyChannels == 0 && selectedKeys.isEmpty()) {
-                    System.out.print(".");
+                    //System.out.print(".");
 
                     try {
                         sleep(100);

@@ -215,7 +215,7 @@ public class Peer implements Comparable<Peer> {
     public void disconnect(String reason) {
 
         try {
-            writeBufferLock.tryLock(5, TimeUnit.SECONDS);
+            writeBufferLock.tryLock(2, TimeUnit.SECONDS);
 
             Log.put("DISCONNECT: " + reason, 30);
 

@@ -234,11 +234,20 @@ public class Main {
         shutdown = true;
         Settings.connectToNewClientsTill = 0;
         System.out.println("disconnecting from peers...");
-        if (Test.peerList != null) {
-            for (Peer p : Test.peerList) {
-                p.disconnect("shutdown");
+
+        new Thread() {
+
+            @Override
+            public void run() {
+                if (Test.peerList != null) {
+                    for (Peer p : Test.peerList) {
+                        p.disconnect("shutdown");
+                    }
+                }
             }
-        }
+
+        }.start();
+
         System.out.println("shutting down database...");
         if (Test.messageStore != null) {
             Test.messageStore.quit();

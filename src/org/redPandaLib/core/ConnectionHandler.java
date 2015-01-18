@@ -14,6 +14,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -118,6 +119,7 @@ public class ConnectionHandler extends Thread {
             //System.out.println("added con");
         } catch (IOException ex) {
             Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
+            return;
         }
 
         sendHeader(peer);
@@ -149,7 +151,7 @@ public class ConnectionHandler extends Thread {
             Set<SelectionKey> selectedKeys = selector.selectedKeys();
 
             if (readyChannels == 0 && selectedKeys.isEmpty()) {
-                System.out.print(".");
+//                System.out.print(".");
 
 //                    for (SelectionKey k : selector.keys()) {
 //
@@ -320,7 +322,7 @@ public class ConnectionHandler extends Thread {
                             peer.readBuffer = allocate;
 //                                System.out.println("readBuffer full, generated new one with 2x larger size....");
                         } else if (read == -1) {
-                            System.out.println("closing connection " + peer.ip + ":" + peer.port + ": not readable! " + readBuffer);
+                            Log.put("closing connection " + peer.ip + ":" + peer.port + ": not readable! " + readBuffer, 200);
                             peer.disconnect(" read == -1 ");
                             key.cancel();
                         } else {
@@ -559,7 +561,7 @@ public class ConnectionHandler extends Thread {
 
 //                                int position = writeBuffer.position();
 //                                int limit = writeBuffer.limit();
-                        int writtenBytes = 0;
+                        int writtenBytes = -1;
                         boolean remainingBytes = false;
                         peer.writeBuffer.flip();
 
@@ -635,7 +637,7 @@ public class ConnectionHandler extends Thread {
         peer.writeBufferLock.unlock();
 
         //peer.authed = true;
-        System.out.println("requested new authkey... " + peer.nonce);
+        Log.put("requested new authkey... " + peer.nonce, 150);
 
     }
 
@@ -986,7 +988,7 @@ public class ConnectionHandler extends Thread {
 
 //            System.out.println("###### content len: " + contentLength);
             if (contentLength > readBuffer.remaining()) {
-                Log.put("not enough bytes yet... " + (contentLength - readBuffer.remaining()), -200);
+                Log.put("not enough bytes yet... missing: " + (contentLength - readBuffer.remaining()) + " got: " + readBuffer.remaining() + " needed: " + contentLength, -200);
                 return 0;
             }
 
@@ -1158,9 +1160,8 @@ public class ConnectionHandler extends Thread {
             int hashkeyToIdHis = readBuffer.getInt();
 
             //mine = his
-            System.out.println("keyToIdHis: " + peerTrustData.keyToIdHis.size() + " - " + keyToIdMine);
-            System.out.println("keyToIdMine: " + peerTrustData.keyToIdMine.size() + " - " + keyToIdHis);
-
+            //System.out.println("keyToIdHis: " + peerTrustData.keyToIdHis.size() + " - " + keyToIdMine);
+            //System.out.println("keyToIdMine: " + peerTrustData.keyToIdMine.size() + " - " + keyToIdHis);
             Set<Integer> keySet = peerTrustData.keyToIdHis.keySet();
             ArrayList<Integer> arrayList = new ArrayList<Integer>(keySet);
 
@@ -1438,14 +1439,14 @@ public class ConnectionHandler extends Thread {
                     System.arraycopy(peer.peerTrustData.authKey, 0, rc4CrpytKeySeedRead, 0, 32);
 
                     if (peer.peerIsHigher()) {
-                        System.out.println("Im higher");
+                        //System.out.println("Im higher");
                         System.arraycopy(peer.toEncodeForAuthFromMe, 0, rc4CrpytKeySeedWrite, 32, 32);
                         System.arraycopy(peer.toEncodeForAuthFromHim, 0, rc4CrpytKeySeedWrite, 64, 32);
 
                         System.arraycopy(peer.toEncodeForAuthFromHim, 0, rc4CrpytKeySeedRead, 32, 32);
                         System.arraycopy(peer.toEncodeForAuthFromMe, 0, rc4CrpytKeySeedRead, 64, 32);
                     } else {
-                        System.out.println("Im lower");
+                        //System.out.println("Im lower");
                         System.arraycopy(peer.toEncodeForAuthFromMe, 0, rc4CrpytKeySeedRead, 32, 32);
                         System.arraycopy(peer.toEncodeForAuthFromHim, 0, rc4CrpytKeySeedRead, 64, 32);
 
@@ -1464,9 +1465,8 @@ public class ConnectionHandler extends Thread {
 //                    System.out.println("Hashed key is: " + Utils.bytesToHexString(rc4CryptKey));
 
                     //System.out.println("KABUM, initialisiere Verschluesselung, key fuer ARC4  " + Utils.bytesToHexString(rc4CryptKeyFalseWrite) + " -- " + Utils.bytesToHexString(rc4CryptKeyFalseRead));
-                    System.out.println("ARC4 active. IP: " + peer.ip);
+                    //System.out.println("ARC4 active. IP: " + peer.ip);
                     //Beide bruachen einen eigenen rc4 verschluesseler da sich der Key aendert mit jedem byte welches verschluesselt wird...
-
                     //System.out.println("Key length: " + rc4CryptKeyFalse.length);
                     //Key fuer RC4 darf nur max 31 bytes haben, loesche letztes byte...
                     byte[] rc4CryptKeyWrite = new byte[31];
@@ -1484,10 +1484,10 @@ public class ConnectionHandler extends Thread {
                     }
 
                     peer.peerTrustData.lastSeen = System.currentTimeMillis();
-                    System.out.println("PEER is now trusted...");
+                    Log.put("PEER is now trusted...", 300);
 
                     if (peer.peerTrustData.ips.contains(peer.ip)) {
-                        System.out.println("IP schon in den trusted Data...");
+                        Log.put("IP schon in den trusted Data...", 200);
                     } else {
 
                         if (peer.peerTrustData.ips.size() > 30) {
@@ -1496,7 +1496,7 @@ public class ConnectionHandler extends Thread {
 
                         peer.peerTrustData.ips.add(peer.ip);
                         peer.peerTrustData.port = peer.port;
-                        System.out.println("IP added and port set!");
+                        Log.put("IP added and port set!", 300);
                     }
 
                     peer.removeRequestedMsgs();
@@ -1536,9 +1536,10 @@ public class ConnectionHandler extends Thread {
                     try {
                         peer.writeBufferCrypted = ByteBuffer.allocate(1024 * 1024);
                     } catch (Throwable e) {
+                        e.printStackTrace();
                         System.out.println("Speicher konnte nicht reserviert werden2. Disconnect peer...");
                         peer.disconnect("speicher voll 34642");
-                        peer.writeBufferLock.unlock();
+                        return 0;
                     }
 
                     //FULL CONNECTED TO NODE!
@@ -1551,8 +1552,7 @@ public class ConnectionHandler extends Thread {
                     peer.retries = 0;
 
                     //peer.setWriteBufferFilled();
-                    System.out.println("send byte 8 to node");
-
+                    //System.out.println("send byte 8 to node");
                     break;
 
                 } else {
@@ -1967,16 +1967,15 @@ public class ConnectionHandler extends Thread {
                                     break;
                                 }
 
-                                int size = 0;
+                                int used = 0;
                                 peer.writeBufferLock.lock();
-                                size = peer.writeBuffer.position();
+                                used = peer.writeBuffer.position();
                                 peer.writeBufferLock.unlock();
-                                if (size != 0) {
-                                    System.out.println("writeBuffer position: " + size + " ip: " + peer.ip);
+                                if (used > 200) {
+                                    //System.out.println("SLEEP writeBuffer position: " + used + " ip: " + peer.ip);
                                     //peer.setWriteBufferFilled();
                                     try {
                                         sleep(100);
-                                        System.out.println("SLEEP");
                                     } catch (InterruptedException ex) {
                                         Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
                                     }

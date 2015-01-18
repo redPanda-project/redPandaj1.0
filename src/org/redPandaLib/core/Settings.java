@@ -17,7 +17,7 @@ import java.io.InputStreamReader;
 public class Settings {
 
     public static int STD_PORT = 59558;
-    public static int MIN_CONNECTIONS = 12;
+    public static int MIN_CONNECTIONS = 20;
     public static int MAX_CONNECTIONS = 50;
     public static int pingTimeout = 180; //time in sec
     public static int pingDelay = 120; //time in sec
@@ -39,6 +39,7 @@ public class Settings {
     public static boolean SUPERNODE = false;
     public static boolean BROADCAST_MSGS_AFTER_VERIFICATION = true;
     public static boolean REMOVE_OLD_MESSAGES = false;
+    public static String EXTERNAL_DATABASE_LOGIN_CREDENTIALS = "";
 
     private static void readGeneralDotDat() {
         try {
@@ -93,18 +94,34 @@ public class Settings {
                 }
             }
 
+            //reads database logins if contains , on the right side.
+            readLine = bufferedReader.readLine();
+            if (readLine != null) {
+                String[] split = readLine.split("=");
+                if (split.length == 2) {
+                    String key = split[0];
+
+                    if (key.equals("external_database_login")) {
+
+                        String value = split[1];
+                        if (value.contains(",")) {
+                            EXTERNAL_DATABASE_LOGIN_CREDENTIALS = value;
+                            System.out.println("added external database credentials");
+                        }
+                    }
+                }
+            }
+
             bufferedReader.close();
             fileInputStream.close();
-            
+
             //current example cfg:
-            
 //59558
 //1000
 //testnet=false
 //supernode=true
 //lightClient=false
 //removeOldMessages=true
-
         } catch (IOException ex) {
         } catch (NumberFormatException e) {
         }

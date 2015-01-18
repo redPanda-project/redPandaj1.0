@@ -204,7 +204,14 @@ public class MessageVerifierHsqlDb {
                             @Override
                             public void run() {
 
+                                setPriority(Thread.MIN_PRIORITY);
+                                
                                 boolean verify = rawMsg.verify();
+                                
+                                if (Main.shutdown) {
+                                    return;
+                                }
+                                
 
                                 try {
                                     if (verify) {

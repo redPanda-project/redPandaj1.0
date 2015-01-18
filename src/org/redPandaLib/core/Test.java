@@ -5,8 +5,12 @@
 package org.redPandaLib.core;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
@@ -21,6 +25,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.Map.Entry;
 import java.util.Random;
 import java.util.logging.Level;
@@ -78,7 +83,7 @@ public class Test {
     public static boolean NAT_OPEN = false;
     public static ArrayList<PeerTrustData> peerTrusts = new ArrayList<PeerTrustData>();
     public static MessageStore messageStore;
-    public static String imageStoreFolder = "";
+    public static String imageStoreFolder = "images/";
     public static String stackTraceString = "";
     public static long lastSentStackTrace = 0;
     public static ImageInfos imageInfos = new ImageInfosImageIO();
@@ -95,45 +100,53 @@ public class Test {
      * @param args the command line arguments
      */
     public static void main(boolean listenConsole, SaverInterface saver) throws IOException {
-        // TODO code application logic here
-        new Thread() {
+
+        Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
 
             @Override
-            public void run() {
-
-                //ToDo: remove later...
-                while (true) {
-                    try {
-                        sleep(2000);
-                    } catch (InterruptedException ex) {
-                        Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-
-                    try {
-                        Class.forName("java.lang.management.ManagementFactory");
-                    } catch (ClassNotFoundException e) {
-                        return;
-                    }
-
-                    ThreadMXBean tmb = ManagementFactory.getThreadMXBean();
-                    long[] ids = tmb.findDeadlockedThreads();
-                    if (ids == null) {
-                        continue;
-                    }
-                    System.out.println("first id:" + ids[0]);
-
-                    ThreadInfo[] infos = tmb.getThreadInfo(ids);
-
-                    for (ThreadInfo info : infos) {
-                        System.out.println("Name: " + info.getThreadName());
-                    }
-
-                }
-
+            public void uncaughtException(Thread t, Throwable e) {
+                e.printStackTrace();
+                sendStacktrace(e);
             }
+        });
 
-        }.start();
-
+//        new Thread() {
+//
+//            @Override
+//            public void run() {
+//
+//                //ToDo: remove later...
+//                while (true) {
+//                    try {
+//                        sleep(2000);
+//                    } catch (InterruptedException ex) {
+//                        Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+//                    }
+//
+//                    try {
+//                        Class.forName("java.lang.management.ManagementFactory");
+//                    } catch (ClassNotFoundException e) {
+//                        return;
+//                    }
+//
+//                    ThreadMXBean tmb = ManagementFactory.getThreadMXBean();
+//                    long[] ids = tmb.findDeadlockedThreads();
+//                    if (ids == null) {
+//                        continue;
+//                    }
+//                    System.out.println("first id:" + ids[0]);
+//
+//                    ThreadInfo[] infos = tmb.getThreadInfo(ids);
+//
+//                    for (ThreadInfo info : infos) {
+//                        System.out.println("Name: " + info.getThreadName());
+//                    }
+//
+//                }
+//
+//            }
+//
+//        }.start();
         Test.saver = saver;
 
         //loadChannels();
@@ -195,8 +208,8 @@ public class Test {
                             commitDatabase();
                             lastSaved = System.currentTimeMillis();
                         } catch (Exception e) {
-                            System.out.println("oh oh, konnte peers nicht speichern... ");
-                            e.printStackTrace();
+                            Log.put("oh oh, konnte peers nicht speichern... ",70);
+                            //e.printStackTrace();
                         }
                     }
 
@@ -464,6 +477,10 @@ public class Test {
                     }
 
                     continue;
+                }
+
+                if (readLine.equals("throw ex")) {
+                    throw new RuntimeException("test exception thrown...");
                 }
 
                 if (readLine.equals("t")) {
@@ -1582,12 +1599,8 @@ public class Test {
                         System.out.println("outgoing con failed, unknown host...");
                     }
                 } catch (Exception ex) {
-                    System.out.println("catched: ");
-                    ex.printStackTrace();
 
-                    if (DEBUG) {
-                        System.out.println("outgoing con failed...");
-                    }
+                        Log.put("outgoing con failed...",150);
                 }
 
             }
@@ -1799,6 +1812,9 @@ public class Test {
         }
         saveTrustData();
 
+        File file = new File(Test.imageStoreFolder);
+        file.mkdir();
+
         new Outboundthread().start();
         MessageDownloader.start();
         MessageVerifierHsqlDb.start();
@@ -1868,6 +1884,14 @@ public class Test {
         out += stacktrace2String(thrwbl);
 
 //        stackTraceString += out + "\n#######################\n\n\n";
+        try {
+            PrintWriter outputWriter = new PrintWriter(new BufferedWriter(new FileWriter("error.log", true)));
+            outputWriter.println("\n\n\n############## " + new Date() + " ###############\n\n\n" + out);
+            outputWriter.close();
+        } catch (IOException e) {
+            //exception handling left as an exercise for the reader
+        }
+
         Main.sendBroadCastMsg(out);
     }
 
