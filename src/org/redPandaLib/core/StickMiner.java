@@ -36,7 +36,9 @@ public class StickMiner {
                 public void run() {
 
                                 final String orgName = Thread.currentThread().getName();
+                                     if (!orgName.contains(" ")) {
             Thread.currentThread().setName(orgName + " - stickminer");
+                                     }
                     
                     //setPriority(MIN_PRIORITY);
 

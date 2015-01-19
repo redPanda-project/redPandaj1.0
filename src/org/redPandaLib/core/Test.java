@@ -7,7 +7,7 @@ package org.redPandaLib.core;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -24,8 +24,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 import java.util.logging.Level;
@@ -180,7 +182,7 @@ public class Test {
             public void run() {
 
                 final String orgName = Thread.currentThread().getName();
-                Thread.currentThread().setName(orgName + " - ChronJobs for peer comunication");
+                Thread.currentThread().setName(orgName + " - ChronJobs for peer communication");
 
                 long lastSaved = System.currentTimeMillis();
 
@@ -208,7 +210,7 @@ public class Test {
                             commitDatabase();
                             lastSaved = System.currentTimeMillis();
                         } catch (Exception e) {
-                            Log.put("oh oh, konnte peers nicht speichern... ",70);
+                            Log.put("oh oh, konnte peers nicht speichern... ", 70);
                             //e.printStackTrace();
                         }
                     }
@@ -384,7 +386,7 @@ public class Test {
                     Collections.sort(list);
 
 //                    System.out.println("IP:PORT \t\t\t\t\t\t Nonce \t\t\t Last Answer \t Alive \t retries \t LoadedMsgs \t Ping \t Authed \t PMSG\n");
-                    System.out.format("%50s %22s %12s %10s %7s %8s %10s %10s %10s %8s\n", "[IP]:PORT", "nonce", "last answer", "alive", "retries", "ping", "loaded Msg", "sent Msg", "intro. Msg", "bad Msg");
+                    System.out.format("%50s %22s %12s %10s %7s %8s %10s %10s %10s %8s\n", "[IP]:PORT", "nonce", "last answer", "conntected", "retries", "ping", "loaded Msg", "sent Msg", "intro. Msg", "bad Msg");
                     for (Peer peer : list) {
 
                         if (peer.isConnected()) {
@@ -1056,6 +1058,29 @@ public class Test {
                     continue;
                 }
 
+                if (readLine.equals("d6")) {
+                    Map<Thread, StackTraceElement[]> allStackTraces = Thread.getAllStackTraces();
+
+                    System.out.println(allStackTraces.toString());
+
+                    Collection<StackTraceElement[]> values = allStackTraces.values();
+
+                    for (Thread thd : allStackTraces.keySet()) {
+
+                        System.out.println("Thread Name: " + thd.getName() + " state: " + thd.getState());
+
+                        StackTraceElement[] a = allStackTraces.get(thd);
+
+                        for (int i = 0; i < a.length; i++) {
+
+                            System.out.println("" + a[i].toString());
+                        }
+                        System.out.println("#######");
+
+                    }
+                    continue;
+                }
+
                 if (readLine.equals("D")) {
                     System.out.println("debug info: ");
                     for (PeerTrustData ptd : peerTrusts) {
@@ -1573,7 +1598,9 @@ public class Test {
             public void run() {
 
                 final String orgName = Thread.currentThread().getName();
-                Thread.currentThread().setName(orgName + " - Conntect to Node");
+                if (!orgName.contains(" ")) {
+                    Thread.currentThread().setName(orgName + " - Connected to Node");
+                }
 
                 try {
                     //Socket socket = new Socket(peer.ip, peer.port);
@@ -1600,7 +1627,7 @@ public class Test {
                     }
                 } catch (Exception ex) {
 
-                        Log.put("outgoing con failed...",150);
+                    Log.put("outgoing con failed...", 150);
                 }
 
             }
@@ -1885,7 +1912,8 @@ public class Test {
 
 //        stackTraceString += out + "\n#######################\n\n\n";
         try {
-            PrintWriter outputWriter = new PrintWriter(new BufferedWriter(new FileWriter("error.log", true)));
+            PrintWriter outputWriter = new PrintWriter(new FileOutputStream("error.log", true));
+            //PrintWriter outputWriter = new PrintWriter(new BufferedWriter(new FileWriter("error.log", true)));
             outputWriter.println("\n\n\n############## " + new Date() + " ###############\n\n\n" + out);
             outputWriter.close();
         } catch (IOException e) {

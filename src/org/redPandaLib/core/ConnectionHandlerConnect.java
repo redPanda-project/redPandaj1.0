@@ -32,15 +32,17 @@ public class ConnectionHandlerConnect extends Thread {
     @Override
     public void run() {
         while (!Main.shutdown) {
-            
-                        final String orgName = Thread.currentThread().getName();
-            Thread.currentThread().setName(orgName + " - ConnectionHandlerConnect");
-            
+
+            final String orgName = Thread.currentThread().getName();
+            if (!orgName.contains(" ")) {
+                Thread.currentThread().setName(orgName + " - ConnectionHandlerConnect");
+            }
+
             try {
                 int readyChannels = selector.select();
 
                 System.out.println("rdy chans: " + readyChannels);
-                
+
                 Set<SelectionKey> selectedKeys = selector.selectedKeys();
 
                 if (readyChannels == 0 && selectedKeys.isEmpty()) {
@@ -53,7 +55,6 @@ public class ConnectionHandlerConnect extends Thread {
                     }
                     continue;
                 }
-
 
                 Iterator<SelectionKey> keyIterator = selectedKeys.iterator();
 
@@ -82,7 +83,7 @@ public class ConnectionHandlerConnect extends Thread {
                         System.out.println("finished!");
 
                         if (!connected) {
-                            Log.put("connection could not be established...",150);
+                            Log.put("connection could not be established...", 150);
                             key.cancel();
                             peer.setConnected(false);
                             peer.isConnecting = false;
@@ -95,17 +96,14 @@ public class ConnectionHandlerConnect extends Thread {
                         }
 
                         //System.out.println("Connection established...");
-
                         key.cancel();
                         peer.isConnecting = false;
                         peer.setConnected(true);
-
 
                         // a connection was established with a remote server.
                     }
 
                 }
-
 
             } catch (IOException ex) {
                 Logger.getLogger(ConnectionHandlerConnect.class.getName()).log(Level.SEVERE, null, ex);

@@ -129,7 +129,9 @@ public class ConnectionHandler extends Thread {
     public void run() {
 
         final String orgName = Thread.currentThread().getName();
-        Thread.currentThread().setName(orgName + " - IncomingHandler - Main");
+        if (!orgName.contains(" ")) {
+            Thread.currentThread().setName(orgName + " - IncomingHandler - Main");
+        }
 
         while (!Main.shutdown) {
 
@@ -892,7 +894,9 @@ public class ConnectionHandler extends Thread {
                 public void run() {
 
                     final String orgName = Thread.currentThread().getName();
+                         if (!orgName.contains(" ")) {
                     Thread.currentThread().setName(orgName + " - send Message Thread");
+                         }
 
                     RawMsg rawMsg = null;
                     rawMsg = MessageHolder.getRawMsg(id);
@@ -1028,7 +1032,9 @@ public class ConnectionHandler extends Thread {
                         @Override
                         public void run() {
                             final String orgName = Thread.currentThread().getName();
+                                 if (!orgName.contains(" ")) {
                             Thread.currentThread().setName(orgName + " - addMessage + ev. broadcast");
+                                 }
                             RawMsg addMessage = MessageHolder.addMessage(getFinal);
 
                             //System.out.println("DWGDYWGDYW " + addMessage.key.database_id);
@@ -1855,7 +1861,9 @@ public class ConnectionHandler extends Thread {
             @Override
             public void run() {
                 final String orgName = Thread.currentThread().getName();
+                     if (!orgName.contains(" ")) {
                 Thread.currentThread().setName(orgName + " - syncMessages");
+                     }
 
                 setPriority(MIN_PRIORITY);
 

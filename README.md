@@ -22,7 +22,7 @@ Hint: Long press on name to change it. Small names in a new line indicate delive
 Desktop/Console (Linux, Windows): http://files.redPanda.im
 
 At the moment we are focusing on the back-end, i.e. the cummunication between the nodes and the delivery of messages.
-We just got from closed alpha to public alpha state, meaning we are looking for people who are interessted in this project and want to set up a solid network for the peer-to-peer comunication.
+We just got from closed alpha to public alpha state, meaning we are looking for people who are interessted in this project and want to set up a solid network for the peer-to-peer communication.
 
 As of now the system is not scaleable. So, at 200 user the peers will generate a lot of traffic and at 2000 users the supernodes will not be able to serve any messages at all. These numbers are just a brief estimate.
 We are currently fixing this by working on the first relay method for messages.

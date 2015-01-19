@@ -37,33 +37,33 @@ public class MysqlConnection {
 
     }
 
-    public void reconnect() {
-
-        new Thread() {
-
-            @Override
-            public void run() {
-                try {
-                    System.out.println("CLOSING");
-                    //con.closeFully();
-                    //con.createStatement().execute("SHUTDOWN");
-                    con.abort(Executors.newFixedThreadPool(1));
-                    System.out.println("CLOSED");
-                } catch (SQLException ex) {
-                    ex.printStackTrace();
-                }
-                try {
-                    System.out.println("INIT GLEICH");
-                    initConnection();
-                    Test.messageStore = new DirectMessageStore(con);
-                    System.out.println("INIT FINISH");
-                } catch (SQLException ex) {
-                    ex.printStackTrace();
-                }
-            }
-        }.start();
-
-    }
+//    public void reconnect() {
+//
+//        new Thread() {
+//
+//            @Override
+//            public void run() {
+//                try {
+//                    System.out.println("CLOSING");
+//                    //con.closeFully();
+//                    //con.createStatement().execute("SHUTDOWN");
+//                    con.abort(Executors.newFixedThreadPool(1));
+//                    System.out.println("CLOSED");
+//                } catch (SQLException ex) {
+//                    ex.printStackTrace();
+//                }
+//                try {
+//                    System.out.println("INIT GLEICH");
+//                    initConnection();
+//                    Test.messageStore = new DirectMessageStore(con);
+//                    System.out.println("INIT FINISH");
+//                } catch (SQLException ex) {
+//                    ex.printStackTrace();
+//                }
+//            }
+//        }.start();
+//
+//    }
 
     private boolean initConnection() throws SQLException {
         try {
