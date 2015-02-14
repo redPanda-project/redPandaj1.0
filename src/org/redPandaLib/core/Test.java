@@ -16,6 +16,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.net.*;
+import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.security.Security;
@@ -26,6 +27,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.ConcurrentModificationException;
 import java.util.Date;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -107,6 +109,7 @@ public class Test {
 
             @Override
             public void uncaughtException(Thread t, Throwable e) {
+                System.out.println("uncaught exception!");
                 e.printStackTrace();
                 sendStacktrace(e);
             }
@@ -305,16 +308,16 @@ public class Test {
                 }
             }
         };
-
-        thread.setUncaughtExceptionHandler(new UncaughtExceptionHandler() {
-
-            @Override
-            public void uncaughtException(Thread t, Throwable e) {
-                sendStacktrace(e);
-
-                throw new RuntimeException("PING thread died....");
-            }
-        });
+//
+//        thread.setUncaughtExceptionHandler(new UncaughtExceptionHandler() {
+//
+//            @Override
+//            public void uncaughtException(Thread t, Throwable e) {
+//                sendStacktrace(e);
+//
+//                throw new RuntimeException("PING thread died....");
+//            }
+//        });
 
         thread.start();
 
@@ -1081,6 +1084,51 @@ public class Test {
                     continue;
                 }
 
+                if (readLine.equals("d7")) {
+
+                    //System.out.println("rdy keys: " + ConnectionHandler.selector.selectNow());
+                    try {
+                        for (SelectionKey key : ConnectionHandler.selector.keys()) {
+                            if (key.attachment() == null) {
+                                System.out.println("valid: " + key.isValid() + ", no attachment");
+                            } else {
+                                Peer peer = (Peer) key.attachment();
+                                System.out.println("valid: " + key.isValid() + " ip: " + peer.ip + ":" + peer.port);
+                            }
+                        }
+                    } catch (ConcurrentModificationException e) {
+                        System.out.println("list modified, try again...");
+                    }
+
+                    continue;
+                }
+
+                if (readLine.equals("d8")) {
+                    System.out.println("WARNING, clearing all keys, this means no inbound connections are now possible till restart!!!");
+                    try {
+                        for (SelectionKey key : ConnectionHandler.selector.keys()) {
+                            key.cancel();
+                        }
+                    } catch (ConcurrentModificationException e) {
+                        System.out.println("list modified, try again...");
+                    }
+                    continue;
+                }
+
+                // set log level
+                if (readLine.equals("ll")) {
+                    System.out.println("new log level:");
+                    readLine = bufferedReader.readLine();
+                    try {
+                        int newLvl = Integer.parseInt(readLine);
+                        Log.LEVEL = newLvl;
+                        System.out.println("Done.");
+                    } catch (NumberFormatException e) {
+                        System.out.println("No Number.");
+                    }
+                    continue;
+                }
+
                 if (readLine.equals("D")) {
                     System.out.println("debug info: ");
                     for (PeerTrustData ptd : peerTrusts) {
@@ -1287,15 +1335,14 @@ public class Test {
             final String orgName = Thread.currentThread().getName();
             Thread.currentThread().setName(orgName + " - OutboundThread");
 
-            Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
-
-                @Override
-                public void uncaughtException(Thread t, Throwable e) {
-                    e.printStackTrace();
-                    sendStacktrace(e);
-                }
-            });
-
+//            Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
+//
+//                @Override
+//                public void uncaughtException(Thread t, Throwable e) {
+//                    e.printStackTrace();
+//                    sendStacktrace(e);
+//                }
+//            });
             long loopCount = 0;
 
             while (!Main.shutdown) {
@@ -1582,18 +1629,17 @@ public class Test {
 //        threadPool2.submit(
         peer.connectinThread = new Thread() {
 
-            @Override
-            public UncaughtExceptionHandler getUncaughtExceptionHandler() {
-                return new UncaughtExceptionHandler() {
-
-                    @Override
-                    public void uncaughtException(Thread t, Throwable e) {
-                        sendStacktrace(e);
-                        peer.disconnect("exception 87842");
-                    }
-                };
-            }
-
+//            @Override
+//            public UncaughtExceptionHandler getUncaughtExceptionHandler() {
+//                return new UncaughtExceptionHandler() {
+//
+//                    @Override
+//                    public void uncaughtException(Thread t, Throwable e) {
+//                        sendStacktrace(e);
+//                        peer.disconnect("exception 87842");
+//                    }
+//                };
+//            }
             @Override
             public void run() {
 
@@ -1902,13 +1948,13 @@ public class Test {
 
     public static void sendStacktrace(Throwable thrwbl) {
 
-        thrwbl.printStackTrace();
-
 //        if (System.currentTimeMillis() - lastSentStackTrace < 1000*60*10) {
 //            
 //        }
         String out = "Stacktrace: \n";
         out += stacktrace2String(thrwbl);
+
+        System.out.println("StackTrace: " + out);
 
 //        stackTraceString += out + "\n#######################\n\n\n";
         try {

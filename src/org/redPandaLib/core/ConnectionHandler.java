@@ -135,7 +135,7 @@ public class ConnectionHandler extends Thread {
 
         while (!Main.shutdown) {
 
-            //System.out.println("NEW KEY RUN!!!!");
+            Log.put("NEW KEY RUN!!!!", 100);
             int readyChannels = 0;
             try {
                 readyChannels = selector.select();
@@ -149,6 +149,22 @@ public class ConnectionHandler extends Thread {
                 continue;
             }
 
+//            try {
+//                for (SelectionKey sk : selector.keys()) {
+//                    Peer peer = (Peer) sk.attachment();
+//                    if (peer == null) {
+//                        continue;
+//                    }
+//                    if (peer.selectionKey != sk) {
+//                        System.out.println("key was replaced.... - have to cancel key...");
+//                    }
+//                    if (!Test.peerList.contains(peer)) {
+//                        System.out.println("Peer was removed! - have to cancel key...");
+//                    }
+//                }
+//            } catch (ConcurrentModificationException e) {
+//
+//            }
             //System.out.println("" + selector.isOpen() + " " + selector.keys().size());
             Set<SelectionKey> selectedKeys = selector.selectedKeys();
 
@@ -597,18 +613,16 @@ public class ConnectionHandler extends Thread {
                     }
 
                 } catch (IOException e) {
+                    key.cancel();
                     Peer peer = ((Peer) key.attachment());
                     System.out.println("error! " + peer.ip + ":" + peer.port);
-                    //e.printStackTrace();
-                    //closeConnection(peer, key);
-                    peer.disconnect(" IOException 4827f3fj");
-
+                    e.printStackTrace();
                 } catch (Throwable e) {
+                    key.cancel();
                     Peer peer = ((Peer) key.attachment());
                     System.out.println("Catched fatal exception! " + peer.ip + ":" + peer.port);
                     e.printStackTrace();
-                    //closeConnection(peer, key);
-                    peer.disconnect(" IOException 4827f3fj");
+                    //peer.disconnect(" IOException 4827f3fj");
                 }
 
             }
@@ -894,9 +908,9 @@ public class ConnectionHandler extends Thread {
                 public void run() {
 
                     final String orgName = Thread.currentThread().getName();
-                         if (!orgName.contains(" ")) {
-                    Thread.currentThread().setName(orgName + " - send Message Thread");
-                         }
+                    if (!orgName.contains(" ")) {
+                        Thread.currentThread().setName(orgName + " - send Message Thread");
+                    }
 
                     RawMsg rawMsg = null;
                     rawMsg = MessageHolder.getRawMsg(id);
@@ -1032,9 +1046,9 @@ public class ConnectionHandler extends Thread {
                         @Override
                         public void run() {
                             final String orgName = Thread.currentThread().getName();
-                                 if (!orgName.contains(" ")) {
-                            Thread.currentThread().setName(orgName + " - addMessage + ev. broadcast");
-                                 }
+                            if (!orgName.contains(" ")) {
+                                Thread.currentThread().setName(orgName + " - addMessage + ev. broadcast");
+                            }
                             RawMsg addMessage = MessageHolder.addMessage(getFinal);
 
                             //System.out.println("DWGDYWGDYW " + addMessage.key.database_id);
@@ -1840,6 +1854,9 @@ public class ConnectionHandler extends Thread {
                     }
 
                     peer.writeBufferLock.lock();
+                    if (peer.writeBuffer == null) {
+                        return;
+                    }
                     peer.writeBuffer.put((byte) 71);
                     peer.writeBuffer.putLong(oldestTime);
                     peer.writeBufferLock.unlock();
@@ -1847,6 +1864,10 @@ public class ConnectionHandler extends Thread {
 
                 } catch (SQLException ex) {
                     Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
+                } finally {
+                    if (peer.writeBufferLock.isHeldByCurrentThread()) {
+                        peer.writeBufferLock.lock();
+                    }
                 }
 
                 Log.put("finish!!!!!", 20);
@@ -1861,9 +1882,9 @@ public class ConnectionHandler extends Thread {
             @Override
             public void run() {
                 final String orgName = Thread.currentThread().getName();
-                     if (!orgName.contains(" ")) {
-                Thread.currentThread().setName(orgName + " - syncMessages");
-                     }
+                if (!orgName.contains(" ")) {
+                    Thread.currentThread().setName(orgName + " - syncMessages");
+                }
 
                 setPriority(MIN_PRIORITY);
 

@@ -41,7 +41,7 @@ public class Settings {
     public static boolean REMOVE_OLD_MESSAGES = false;
     public static String EXTERNAL_DATABASE_LOGIN_CREDENTIALS = "";
 
-    private static void readGeneralDotDat() {
+        public static void readGeneralDotDat() {
         try {
             File file = new File(Saver.SAVE_DIR + "/general.dat");
             FileInputStream fileInputStream = new FileInputStream(file);
@@ -129,7 +129,6 @@ public class Settings {
     }
 
     public static int getStartPort() {
-        readGeneralDotDat();
         return STD_PORT;
     }
 }

@@ -365,7 +365,7 @@ public class MessageVerifierHsqlDb {
                                                             InputStream ios = null;
                                                             int readBytes = 0;
                                                             try {
-                                                                ios = new FileInputStream(readFile);
+                                                                ios = new FileInputStream(readFile); //ToDoE: file not found exception ?!?
                                                                 while ((readBytes = ios.read(buffer)) != -1) {
                                                                     fileOutputStream.write(buffer, 0, readBytes);
                                                                 }

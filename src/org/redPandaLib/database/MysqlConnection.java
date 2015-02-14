@@ -20,21 +20,17 @@ public class MysqlConnection {
     public static String db_file = "data/messages";
     private Connection con = null;
     public String path = "";
-    private String databaseName = "redpanda";
-    private String user = "redpanda";
-    private String password = "jfhezchuthre";
+    private String databaseName;
+    private String user;
+    private String password;
 
-    public MysqlConnection(String path, String db_file) throws SQLException {
-        this.path = path;
-        this.db_file = db_file;
-        initConnection();
-    }
-
-    public MysqlConnection() throws SQLException {
+    public MysqlConnection(String databaseName, String user, String password) throws SQLException {
+        this.databaseName = databaseName;
+        this.user = user;
+        this.password = password;
         if (initConnection()) {
             return;
         }
-
     }
 
 //    public void reconnect() {
@@ -64,7 +60,6 @@ public class MysqlConnection {
 //        }.start();
 //
 //    }
-
     private boolean initConnection() throws SQLException {
         try {
             // Treiberklasse laden
@@ -75,7 +70,7 @@ public class MysqlConnection {
         }
         con = null;
         try {
-            con =  DriverManager.getConnection(
+            con = DriverManager.getConnection(
                     "jdbc:mysql://localhost/" + databaseName, user, password);
         } catch (SQLInvalidAuthorizationSpecException e) {
             //mega hack
@@ -226,13 +221,13 @@ public class MysqlConnection {
         return false;
     }
 
-    public static void main(String[] args) {
-        try {
-            new MysqlConnection();
-        } catch (SQLException ex) {
-            Logger.getLogger(HsqlConnection.class.getName()).log(Level.SEVERE, null, ex);
-        }
-    }
+//    public static void main(String[] args) {
+//        try {
+//            new MysqlConnection();
+//        } catch (SQLException ex) {
+//            Logger.getLogger(HsqlConnection.class.getName()).log(Level.SEVERE, null, ex);
+//        }
+//    }
 
 //    public void init() {
 //

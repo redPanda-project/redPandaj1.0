@@ -46,7 +46,7 @@ public class Peer implements Comparable<Peer> {
 //    public ArrayList<ByteBuffer> writeBuffers = new ArrayList<ByteBuffer>();
     public ByteBuffer readBuffer;
     public ByteBuffer writeBuffer;
-    private SelectionKey selectionKey;
+    SelectionKey selectionKey;
     public boolean firstCommandsProceeded;
     private boolean connected = false;
     public boolean isConnecting;
