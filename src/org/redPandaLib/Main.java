@@ -55,8 +55,6 @@ public class Main {
             System.exit(1314);
         }
 
-        Settings.readGeneralDotDat();
-
         Test.main(listenConsole, saver);
         Thread thread = new Thread() {
 
@@ -98,7 +96,10 @@ public class Main {
     public static void useMysqlDatabase() {
 
         try {
-            MysqlConnection mysqlConnection = new MysqlConnection("redPanda", Settings.EXTERNAL_DATABASE_LOGIN_CREDENTIALS.split(",")[0], Settings.EXTERNAL_DATABASE_LOGIN_CREDENTIALS.split(",")[1]);
+            
+            String[] split = Settings.EXTERNAL_DATABASE_LOGIN_CREDENTIALS.split(",");
+            
+            MysqlConnection mysqlConnection = new MysqlConnection(split[1], split[0], split[2]);
 //            Test.hsqlConnection = mysqlConnection;
             Test.messageStore = new DirectMessageStore(mysqlConnection.getConnection());
         } catch (SQLException e) {

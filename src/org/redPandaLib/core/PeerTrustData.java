@@ -19,7 +19,7 @@ import org.redPandaLib.services.MessageDownloader;
  * @author rflohr
  */
 public class PeerTrustData implements Serializable {
-
+    
     public int internalId = -1;
     long nonce;
     byte[] authKey;
@@ -33,7 +33,7 @@ public class PeerTrustData implements Serializable {
     public ArrayList<Integer> keyToIdMine = new ArrayList<Integer>();
     public HashMap<Integer, RawMsg> pendingMessages = new HashMap<Integer, RawMsg>();
     public HashMap<Integer, RawMsg> pendingMessagesTimedOut = new HashMap<Integer, RawMsg>();
-
+    
     public HashMap<Integer, RawMsg> getPendingMessagesTimedOut() {
         return pendingMessagesTimedOut;
     }
@@ -57,16 +57,16 @@ public class PeerTrustData implements Serializable {
         }
         MessageDownloader.trigger();
     }
-
+    
     public HashMap<Integer, RawMsg> getPendingMessagesPublic() {
         return pendingMessagesPublic;
     }
-
+    
     public ECKey id2KeyHis(int id) {
         return keyToIdHis.get(id);
-
+        
     }
-
+    
     public int key2IdHis(ECKey k) {
         Set<Map.Entry<Integer, ECKey>> entrySet = keyToIdHis.entrySet();
         for (Map.Entry<Integer, ECKey> entry : entrySet) {
@@ -92,55 +92,57 @@ public class PeerTrustData implements Serializable {
     public HashMap<Integer, RawMsg> getPendingMessages() {
         return pendingMessages;
     }
-
+    
     @Override
     protected PeerTrustData clone() throws CloneNotSupportedException {
-
+        
         PeerTrustData cloned = (PeerTrustData) super.clone();
-
+        
         cloned.keyToIdHis = (HashMap<Integer, ECKey>) keyToIdHis.clone();
-
+        
         cloned.pendingMessagesPublic = (HashMap<Integer, RawMsg>) pendingMessagesPublic.clone();
-
+        
         cloned.loadedMsgs = (ArrayList<Integer>) loadedMsgs.clone();
-
+        
         cloned.keyToIdMine = (ArrayList<Integer>) keyToIdMine.clone();
-
+        
         cloned.pendingMessages = (HashMap<Integer, RawMsg>) pendingMessages.clone();
-
+        
         cloned.sendChannelsToFilter = (ArrayList<Integer>) sendChannelsToFilter.clone();
-
+        
         System.out.println("CLONED: " + Utils.bytesToHexString(cloned.authKey));
-
+        
         return cloned;
     }
-
+    
     public void initInternalId() {
         synchronized (Test.peerTrusts) {
-
+            
             internalId = 0;
             while (true) {
                 internalId++;
-
+                
                 boolean inUse = false;
                 for (PeerTrustData ptd : Test.peerTrusts) {
-
+                    
                     if (ptd == this) {
                         continue;
                     }
-
+                    
                     if (ptd.internalId == internalId) {
                         inUse = true;
                         break;
                     }
                 }
-
+                
                 if (!inUse) {
                     break;
                 }
-
+                
             }
-
+            
+           
+            Test.messageStore.clearFilterChannel(internalId);
             Test.messageStore.removeMessageToSend(internalId);
             
             System.out.println("GOT ID: " + internalId);

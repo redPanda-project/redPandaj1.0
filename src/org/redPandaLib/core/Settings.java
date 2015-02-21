@@ -39,7 +39,7 @@ public class Settings {
     public static boolean SUPERNODE = false;
     public static boolean BROADCAST_MSGS_AFTER_VERIFICATION = true;
     public static boolean REMOVE_OLD_MESSAGES = false;
-    public static String EXTERNAL_DATABASE_LOGIN_CREDENTIALS = "";
+    public static String EXTERNAL_DATABASE_LOGIN_CREDENTIALS = null; //format: user,dbname,password
 
         public static void readGeneralDotDat() {
         try {
@@ -104,9 +104,11 @@ public class Settings {
                     if (key.equals("external_database_login")) {
 
                         String value = split[1];
-                        if (value.contains(",")) {
+                        if (value.split(",").length == 3) {
                             EXTERNAL_DATABASE_LOGIN_CREDENTIALS = value;
                             System.out.println("added external database credentials");
+                        } else {
+                            System.out.println("No mysql login data found, using internal database.");
                         }
                     }
                 }
@@ -117,11 +119,12 @@ public class Settings {
 
             //current example cfg:
 //59558
-//1000
+//15000
 //testnet=false
-//supernode=true
+//supernode=false
 //lightClient=false
 //removeOldMessages=true
+//external_database_login=false (otherwise set equal to loginUser'comma symbol'loginPassword)
         } catch (IOException ex) {
         } catch (NumberFormatException e) {
         }

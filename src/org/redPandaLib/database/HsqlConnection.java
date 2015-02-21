@@ -103,6 +103,27 @@ public class HsqlConnection {
         stmt.executeUpdate("SET FILES DEFRAG 50");
         stmt.executeUpdate("SET DATABASE TRANSACTION CONTROL MVLOCKS");
         con.commit();
+        createTables(stmt);
+
+//        new Thread() {
+//
+//            @Override
+//            public void run() {
+//                try {
+//                    Statement stmt = con.createStatement();
+//                    stmt.execute("CHECKPOINT DEFRAG");
+//                    stmt.close();
+//                } catch (SQLException ex) {
+//                    Logger.getLogger(HsqlConnection.class.getName()).log(Level.SEVERE, null, ex);
+//                }
+//                
+//                
+//            }
+// }.start();
+        return false;
+    }
+
+    public static void createTables(Statement stmt) throws SQLException {
         //            PubKey
         //id INTEGER
         //key BINARY(33)
@@ -245,23 +266,6 @@ public class HsqlConnection {
         //            rs.close();
         // Statement schließen
         stmt.close();
-
-//        new Thread() {
-//
-//            @Override
-//            public void run() {
-//                try {
-//                    Statement stmt = con.createStatement();
-//                    stmt.execute("CHECKPOINT DEFRAG");
-//                    stmt.close();
-//                } catch (SQLException ex) {
-//                    Logger.getLogger(HsqlConnection.class.getName()).log(Level.SEVERE, null, ex);
-//                }
-//                
-//                
-//            }
-// }.start();
-        return false;
     }
 
     public static void main(String[] args) {

@@ -532,6 +532,9 @@ public class MessageVerifierHsqlDb {
                                                         loadedFrom = peer;
                                                         System.out.println("loaded from peer: " + peer.getIp() + ":" + peer.getPort());
                                                         peer.getPeerTrustData().badMessages++;
+                                                        peer.disconnect("bad signature!!!");
+                                                        Test.peerTrusts.remove(peer.peerTrustData);
+                                                        System.out.println("REMOVED PEER TRUST!");
                                                     }
                                                 }
 

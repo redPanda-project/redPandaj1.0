@@ -65,8 +65,7 @@ public class MysqlConnection {
             // Treiberklasse laden
             Class.forName("com.mysql.jdbc.Driver");
         } catch (ClassNotFoundException e) {
-            System.err.println("Treiberklasse nicht gefunden!");
-            return true;
+            throw new RuntimeException("No mysql jdbc driver found.");
         }
         con = null;
         try {
@@ -117,7 +116,7 @@ public class MysqlConnection {
         //decrypted_content LONGVARBINARY
         //stmt.executeUpdate("drop table if exists message");
         stmt.executeUpdate("create  table if not exists message (message_id INTEGER PRIMARY KEY AUTO_INCREMENT, pubkey_id INTEGER, public_type TINYINT, timestamp BIGINT, nonce INTEGER,  signature BINARY(72), content MEDIUMBLOB, verified boolean)");
-        stmt.executeUpdate("create  table if not exists channelmessage (pubkey_id INTEGER, message_id INTEGER, message_type INTEGER, decryptedContent MEDIUMBLOB, identity BIGINT, fromMe BOOLEAN, FOREIGN KEY (pubkey_id) REFERENCES pubkey(pubkey_id))");
+        stmt.executeUpdate("create  table if not exists channelmessage (pubkey_id INTEGER, message_id INTEGER, message_type INTEGER, timestamp BIGINT,decryptedContent MEDIUMBLOB, identity BIGINT, fromMe BOOLEAN, FOREIGN KEY (pubkey_id) REFERENCES pubkey(pubkey_id))");
         //table for sticks
         stmt.executeUpdate("create  table if not exists sticks (pubkey_id INTEGER, message_id INTEGER, difficulty DOUBLE, validTill BIGINT, FOREIGN KEY (pubkey_id) REFERENCES pubkey(pubkey_id))");
         stmt.executeUpdate("create  table if not exists peerMessagesIntroducedToMe (peer_id BIGINT, message_id INTEGER)");

@@ -71,6 +71,8 @@ public interface MessageStore {
 
     public void delFilterChannel(long peer_id, int channel_id);
 
+    public void clearFilterChannel(long peer_id);
+
     public void addMessageToSend(int message_id, int channel_id);
 
     public void addMessageToSendToSpecificPeer(int message_id, int peer_id);
@@ -82,6 +84,6 @@ public interface MessageStore {
     public ResultSet getMessagesForBackSync(long time, int cnt);
 
     public void resetMessageCounter();
-    
+
     public void checkpoint();
 }

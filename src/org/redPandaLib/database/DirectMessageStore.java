@@ -1080,4 +1080,18 @@ public class DirectMessageStore implements MessageStore {
     public void resetMessageCounter() {
         resetMessageCount = true;
     }
+
+    @Override
+    public void clearFilterChannel(long peer_id) {
+        try {
+            String query = "DELETE from filterChannels WHERE peer_id = ?";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setLong(1, peer_id);
+            pstmt.execute();
+            pstmt.close();
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+    
 }

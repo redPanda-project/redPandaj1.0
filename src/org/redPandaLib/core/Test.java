@@ -17,6 +17,7 @@ import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.net.*;
 import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.security.Security;
@@ -27,11 +28,13 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.ConcurrentModificationException;
 import java.util.Date;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.redPandaLib.Main;
@@ -193,15 +196,15 @@ public class Test {
 
                     if (System.currentTimeMillis() - lastSaved > 120 * 1000) {
 
-                        if (ConnectionHandler.allSockets.size() > 10) {
-                            ConnectionHandler.removeUnusedSockets();
-                        }
-
+//                        if (ConnectionHandler.allSockets.size() > 10) {
+//                            ConnectionHandler.removeUnusedSockets();
+//                        }
                         long ctime = System.currentTimeMillis();
                         //clean up trust data:
                         for (PeerTrustData ptd : (ArrayList<PeerTrustData>) peerTrusts.clone()) {
                             if (ctime - ptd.lastSeen > 1000 * 60 * 60 * 24 * 7) {
                                 peerTrusts.remove(ptd);
+                                messageStore.clearFilterChannel(ptd.internalId);
                                 messageStore.removeMessageToSend(ptd.internalId);
                                 System.out.println("remove peer trust, last seen over one week....");
                             }
@@ -371,6 +374,38 @@ public class Test {
 
         System.out.println("shutdownhook added...");
 
+        //ToDo: remove
+        while (peerList == null) {
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException ex) {
+            }
+        }
+
+        try {
+            PreparedStatement prepareStatement = messageStore.getConnection().prepareStatement("SELECT COUNT(message_id) FROM haveToSendMessageToPeer");
+            ResultSet executeQuery = prepareStatement.executeQuery();
+            executeQuery.next();
+
+            int a = executeQuery.getInt(1);
+
+            if (a > 10000) {
+                Main.sendBroadCastMsg("MessagesToSync too big, truncating both tables: " + a);
+                PreparedStatement prepareStatement2 = messageStore.getConnection().prepareStatement("TRUNCATE table haveToSendMessageToPeer");
+                prepareStatement2.execute();
+                prepareStatement2.close();
+
+                prepareStatement2 = messageStore.getConnection().prepareStatement("TRUNCATE table filterChannels");
+                prepareStatement2.execute();
+                prepareStatement2.close();
+
+            }
+
+            executeQuery.close();
+            prepareStatement.close();
+        } catch (SQLException ex) {
+        }
+
         if (listenConsole) {
             while (!Main.shutdown) {
                 String readLine = bufferedReader.readLine();
@@ -389,7 +424,7 @@ public class Test {
                     Collections.sort(list);
 
 //                    System.out.println("IP:PORT \t\t\t\t\t\t Nonce \t\t\t Last Answer \t Alive \t retries \t LoadedMsgs \t Ping \t Authed \t PMSG\n");
-                    System.out.format("%50s %22s %12s %10s %7s %8s %10s %10s %10s %8s\n", "[IP]:PORT", "nonce", "last answer", "conntected", "retries", "ping", "loaded Msg", "sent Msg", "intro. Msg", "bad Msg");
+                    System.out.format("%50s %22s %12s %10s %7s %8s %10s %10s %10s %8s %10s\n", "[IP]:PORT", "nonce", "last answer", "conntected", "retries", "ping", "loaded Msg", "bytes out", "bytes in", "bad Msg", "ToSyncM");
                     for (Peer peer : list) {
 
                         if (peer.isConnected()) {
@@ -405,9 +440,9 @@ public class Test {
                         }
 
                         if (peer.getPeerTrustData() == null) {
-                            System.out.format("%50s %22d %12s %10s %7d %8s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.));
+                            System.out.format("%50s %22d %12s %10s %7d %8s %10s %10d %10d\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.), "-", peer.sendBytes, peer.receivedBytes);
                         } else {
-                            System.out.format("%50s %22d %12s %10s %7d %8s %10d %10d %10d %8s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), -1, -1, peer.getPeerTrustData().badMessages);
+                            System.out.format("%50s %22d %12s %10s %7d %8s %10d %10d %10d %8s %10d\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId));
                         }
 
 //                        while (c.length() < 15) {
@@ -418,6 +453,42 @@ public class Test {
 //                        } else {
 //                            output += "" + a + " \t " + b + "\t " + c + "\t " + peer.isConnected() + "\t " + peer.retries + "\t " + peer.getLoadedMsgs().size() + " \t " + (Math.round(peer.ping * 100) / 100.) + "\t " + peer.authed + "\t " + peer.getPendingMessages().size() + " \t" + peer.requestedMsgs + " \t" + peer.getPeerTrustData().synchronizedMessages + "\n";
 //                        }
+                    }
+
+                    System.out.println("Not connected trust data:");
+
+                    ArrayList<Peer> clonedPeerList = getClonedPeerList();
+
+                    System.out.format("%12s %25s %12s %12s\n", "ID", "Last Seen", "SyncedMsgs", "ToSync");
+
+                    ArrayList<PeerTrustData> peerTrustsCloned = (ArrayList<PeerTrustData>) peerTrusts.clone();
+
+                    Collections.sort(peerTrustsCloned, new Comparator<PeerTrustData>() {
+
+                        @Override
+                        public int compare(PeerTrustData o1, PeerTrustData o2) {
+                            return (int) (o2.lastSeen - o1.lastSeen);
+                        }
+                    });
+
+                    for (PeerTrustData ptd : peerTrustsCloned) {
+
+                        boolean found = false;
+                        for (Peer p : clonedPeerList) {
+                            if (p.isFullConnected() && p.peerTrustData == ptd) {
+                                found = true;
+                                break;
+                            }
+                        }
+
+                        if (found) {
+                            continue;
+                        }
+
+                        int messagesToSync = messagesToSync(ptd.internalId);
+
+                        System.out.format("%12d %25s %12d %12d\n", ptd.internalId, formatInterval(System.currentTimeMillis() - ptd.lastSeen), ptd.synchronizedMessages, messagesToSync);
+
                     }
 
                     System.out.println("Connected to " + actCons + " peers. (NAT type: " + (NAT_OPEN ? "open" : "closed") + ")");
@@ -433,8 +504,7 @@ public class Test {
 //                        unverifiedMsgs++;
 //                    }
 //
-                    System.out.println("Saved Sockets: " + ConnectionHandler.allSockets.size());
-
+                    //System.out.println("Saved Sockets: " + ConnectionHandler.allSockets.size());
                     new Thread() {
 
                         @Override
@@ -1057,7 +1127,7 @@ public class Test {
                 }
 
                 if (readLine.equals("d5")) {
-                    ConnectionHandler.removeUnusedSockets();
+                    //ConnectionHandler.removeUnusedSockets();
                     continue;
                 }
 
@@ -1084,29 +1154,28 @@ public class Test {
                     continue;
                 }
 
-                if (readLine.equals("d7")) {
-
-                    //System.out.println("rdy keys: " + ConnectionHandler.selector.selectNow());
-                    try {
-                        for (SelectionKey key : ConnectionHandler.selector.keys()) {
-                            if (key.attachment() == null) {
-                                System.out.println("valid: " + key.isValid() + ", no attachment");
-                            } else {
-                                Peer peer = (Peer) key.attachment();
-                                System.out.println("valid: " + key.isValid() + " ip: " + peer.ip + ":" + peer.port);
-                            }
-                        }
-                    } catch (ConcurrentModificationException e) {
-                        System.out.println("list modified, try again...");
-                    }
-
-                    continue;
-                }
-
+//                if (readLine.equals("d7")) {
+//
+//                    //System.out.println("rdy keys: " + ConnectionHandler.selector.selectNow());
+//                    try {
+//                        for (SelectionKey key : ConnectionHandler.selector.keys()) {
+//                            if (key.attachment() == null) {
+//                                System.out.println("valid: " + key.isValid() + ", no attachment");
+//                            } else {
+//                                Peer peer = (Peer) key.attachment();
+//                                System.out.println("valid: " + key.isValid() + " ip: " + peer.ip + ":" + peer.port);
+//                            }
+//                        }
+//                    } catch (ConcurrentModificationException e) {
+//                        System.out.println("list modified, try again...");
+//                    }
+//
+//                    continue;
+//                }
                 if (readLine.equals("d8")) {
                     System.out.println("WARNING, clearing all keys, this means no inbound connections are now possible till restart!!!");
                     try {
-                        for (SelectionKey key : ConnectionHandler.selector.keys()) {
+                        for (SelectionKey key : Test.connectionHandler.selector.keys()) {
                             key.cancel();
                         }
                     } catch (ConcurrentModificationException e) {
@@ -1115,6 +1184,69 @@ public class Test {
                     continue;
                 }
 
+                if (readLine.equals("d9")) {
+                    connectionHandler.exit();
+                    connectionHandler = new ConnectionHandler();
+                    connectionHandler.start();
+
+                    System.out.println("tried to renew the ConnectionHandler...");
+
+                    continue;
+                }
+
+                if (readLine.equals("d10")) {
+                    //removing all trust which arent connected
+                    for (PeerTrustData trust : (ArrayList<PeerTrustData>) peerTrusts.clone()) {
+
+                        boolean found = false;
+                        for (Peer peer : getClonedPeerList()) {
+                            if (peer.peerTrustData == trust) {
+                                found = true;
+                                break;
+                            }
+                        }
+
+                        if (!found) {
+                            System.out.println("removing trust: " + trust.internalId);
+                            peerTrusts.remove(trust);
+                            messageStore.clearFilterChannel(trust.internalId);
+                            messageStore.removeMessageToSend(trust.internalId);
+                        }
+                    }
+
+                    continue;
+                }
+
+                if (readLine.equals("d11")) {
+                    try {
+                        PreparedStatement prepareStatement = messageStore.getConnection().prepareStatement("SELECT COUNT(message_id) FROM haveToSendMessageToPeer");
+                        ResultSet executeQuery = prepareStatement.executeQuery();
+                        executeQuery.next();
+                        System.out.println("MessagesToSync: " + executeQuery.getInt(1));
+                        executeQuery.close();
+                        prepareStatement.close();
+
+                    } catch (SQLException ex) {
+                        Logger.getLogger(Test.class
+                                .getName()).log(Level.SEVERE, null, ex);
+                    }
+                    continue;
+                }
+                if (readLine.equals("d12")) {
+                    try {
+                        PreparedStatement prepareStatement = messageStore.getConnection().prepareStatement("TRUNCATE table haveToSendMessageToPeer");
+                        prepareStatement.execute();
+                        prepareStatement.close();
+
+                        prepareStatement = messageStore.getConnection().prepareStatement("TRUNCATE table filterChannels");
+                        prepareStatement.execute();
+                        prepareStatement.close();
+
+                    } catch (SQLException ex) {
+                        Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                    continue;
+                }
                 // set log level
                 if (readLine.equals("ll")) {
                     System.out.println("new log level:");
@@ -1190,6 +1322,25 @@ public class Test {
         }
     }
 
+    public static int messagesToSync(long internalIdFromPeerTrust) {
+        int messagesToSync = -1;
+        //mysql querrys:
+        try {
+            PreparedStatement prepareStatement = messageStore.getConnection().prepareStatement("SELECT COUNT(message_id) FROM haveToSendMessageToPeer WHERE peer_id = ?");
+            prepareStatement.setLong(1, internalIdFromPeerTrust);
+            ResultSet executeQuery = prepareStatement.executeQuery();
+            executeQuery.next();
+            messagesToSync = executeQuery.getInt(1);
+            executeQuery.close();
+            prepareStatement.close();
+
+        } catch (SQLException ex) {
+            Logger.getLogger(Test.class
+                    .getName()).log(Level.SEVERE, null, ex);
+        }
+        return messagesToSync;
+    }
+
     private static void loadChannels() {
         channels = saver.loadIdentities();
         synchronized (channels) {
@@ -1239,6 +1390,7 @@ public class Test {
             if (p.isConnected() && p.isAuthed() && p.syncMessagesSince <= rawMsg.timestamp) {
                 p.writeMessage(rawMsg);
                 p.setWriteBufferFilled();
+
             }
         }
 
@@ -1975,4 +2127,13 @@ public class Test {
         out += stacktrace2String(thrwbl);
         Main.sendBroadCastMsg(out);
     }
+
+    private static String formatInterval(final long l) {
+        final long hr = TimeUnit.MILLISECONDS.toHours(l);
+        final long min = TimeUnit.MILLISECONDS.toMinutes(l - TimeUnit.HOURS.toMillis(hr));
+        final long sec = TimeUnit.MILLISECONDS.toSeconds(l - TimeUnit.HOURS.toMillis(hr) - TimeUnit.MINUTES.toMillis(min));
+        final long ms = TimeUnit.MILLISECONDS.toMillis(l - TimeUnit.HOURS.toMillis(hr) - TimeUnit.MINUTES.toMillis(min) - TimeUnit.SECONDS.toMillis(sec));
+        return String.format("%02d:%02d:%02d.%03d", hr, min, sec, ms);
+    }
+
 }

@@ -69,6 +69,9 @@ public class Peer implements Comparable<Peer> {
     public long syncMessagesSince = 0;
     public ArrayList<Integer> removedSendMessages = new ArrayList<Integer>();
     public int maxSimultaneousRequests = 1;
+    
+    public long sendBytes = 0;
+    public long receivedBytes = 0;
 
     public Peer(String ip, int port) {
         this.ip = ip;

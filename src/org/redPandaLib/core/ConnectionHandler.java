@@ -14,7 +14,6 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -30,6 +29,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.redPandaLib.ByteUtils;
 import org.redPandaLib.Main;
+import static org.redPandaLib.core.Test.peerList;
 import static org.redPandaLib.core.Test.saveTrustData;
 import org.redPandaLib.core.messages.RawMsg;
 import org.redPandaLib.crypt.AESCrypt;
@@ -44,11 +44,12 @@ import org.redPandaLib.crypt.Sha256Hash;
 public class ConnectionHandler extends Thread {
 
     public static final int READ_BUFFER_SIZE = 1024 * 205;
-    public static Selector selector;
-    public static ArrayList<Socket> allSockets = new ArrayList<Socket>();
-    static ExecutorService threadPool = new ThreadPoolExecutor(1, 4, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());//Executors.newFixedThreadPool(4);
+    public Selector selector;
+    //public ArrayList<Socket> allSockets = new ArrayList<Socket>();
+    ExecutorService threadPool = new ThreadPoolExecutor(1, 4, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());//Executors.newFixedThreadPool(4);
+    private boolean exit = false;
 
-    static {
+    public ConnectionHandler() {
         try {
             selector = Selector.open();
         } catch (IOException ex) {
@@ -56,15 +57,37 @@ public class ConnectionHandler extends Thread {
         }
     }
 
-    public ConnectionHandler() {
+    public void exit() {
+        exit = true;
+        System.out.println("closing all connections....");
+        for (Peer peer : (ArrayList<Peer>) peerList.clone()) {
+            peer.disconnect("c");
+        }
+
+        System.out.println("Closing all associated channels...");
+        for (SelectionKey key : selector.keys()) {
+            try {
+                key.channel().close();
+            } catch (IOException ex) {
+                Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        selector.wakeup();
+        System.out.println("Closing selector...");
+        try {
+            selector.close();
+        } catch (IOException ex) {
+            Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        selector.wakeup();
+        interrupt();
     }
 
     public void addConnection(Peer peer, boolean connectionPending) {
 
-        synchronized (allSockets) {
-            allSockets.add(peer.getSocketChannel().socket());
-        }
-
+//        synchronized (allSockets) {
+//            allSockets.add(peer.getSocketChannel().socket());
+//        }
         //TODO: remove later when it will be saved...
         //peer.keyToIdHis = new HashMap<Integer, ECKey>();
         //peer.keyToIdMine = new ArrayList<Integer>();
@@ -133,7 +156,7 @@ public class ConnectionHandler extends Thread {
             Thread.currentThread().setName(orgName + " - IncomingHandler - Main");
         }
 
-        while (!Main.shutdown) {
+        while (!Main.shutdown && !exit) {
 
             Log.put("NEW KEY RUN!!!!", 100);
             int readyChannels = 0;
@@ -193,6 +216,10 @@ public class ConnectionHandler extends Thread {
             Iterator<SelectionKey> keyIterator = selectedKeys.iterator();
 
             while (keyIterator.hasNext()) {
+
+                if (exit) {
+                    break;
+                }
 
                 SelectionKey key = keyIterator.next();
                 keyIterator.remove();
@@ -276,6 +303,12 @@ public class ConnectionHandler extends Thread {
 
                         if (peer.readBufferCrypted == null) {
                             read = peer.getSocketChannel().read(readBuffer);
+
+                            //check if this thread should exit!
+                            if (interrupted()) {
+                                return;
+                            }
+
                         } else {
 
                             if (peer.readKey == null) {
@@ -285,6 +318,12 @@ public class ConnectionHandler extends Thread {
                             }
 
                             read = peer.getSocketChannel().read(peer.readBufferCrypted);
+
+                            //check if this thread should exit!
+                            if (interrupted()) {
+                                return;
+                            }
+
                             peer.readBufferCrypted.flip();
 
                             if (peer.readBuffer.remaining() <= 1024) {
@@ -315,6 +354,7 @@ public class ConnectionHandler extends Thread {
 
                         if (read > 0) {
                             Test.inBytes += read;
+                            peer.receivedBytes += read;
                         }
 
                         if (read == 0) {
@@ -608,6 +648,7 @@ public class ConnectionHandler extends Thread {
 
                         //System.out.println("wrote from buffer... " + writtenBytes + " ip: " + peer.ip);
                         Test.outBytes += writtenBytes;
+                        peer.sendBytes += writtenBytes;
                         peer.writeBufferLock.unlock();
 
                     }
@@ -627,6 +668,8 @@ public class ConnectionHandler extends Thread {
 
             }
         }
+
+        System.out.println("ConnectionHandler thread died...");
 
     }
 
@@ -1537,6 +1580,7 @@ public class ConnectionHandler extends Thread {
                         ex.printStackTrace();
                     }
                     Test.outBytes += writtenBytes;
+                    peer.sendBytes += writtenBytes;
 
                     peer.writeBuffer.compact();
 
@@ -2158,49 +2202,48 @@ public class ConnectionHandler extends Thread {
 //        peer.getSocketChannel().close();
 //    }
 
-    public static void removeUnusedSockets() {
-
-        ArrayList<Socket> toRemove = new ArrayList<Socket>();
-
-        synchronized (allSockets) {
-
-            for (Socket socket : allSockets) {
-
-                boolean found = false;
-
-                for (Peer peer : Test.getClonedPeerList()) {
-
-                    SocketChannel socketChannel = peer.getSocketChannel();
-
-                    if (socketChannel == null) {
-                        continue;
-                    }
-
-                    if (socket.equals(socketChannel.socket())) {
-                        found = true;
-                        break;
-                    }
-
-                }
-
-                if (!found) {
-//                    if (socket.isClosed()) {
-//                        System.out.println("found socket, which wasnt closed");
-//                    } else {
-//                        System.out.println("found closed socket");
+//    public void removeUnusedSockets() {
+//
+//        ArrayList<Socket> toRemove = new ArrayList<Socket>();
+//
+//        synchronized (allSockets) {
+//
+//            for (Socket socket : allSockets) {
+//
+//                boolean found = false;
+//
+//                for (Peer peer : Test.getClonedPeerList()) {
+//
+//                    SocketChannel socketChannel = peer.getSocketChannel();
+//
+//                    if (socketChannel == null) {
+//                        continue;
 //                    }
-                    try {
-                        //socket isnt used by any Peer, can be closed and removed.
-                        socket.close();
-                    } catch (IOException ex) {
-                    }
-                    toRemove.add(socket);
-                }
-
-            }
-
-            allSockets.removeAll(toRemove);
-        }
-    }
-
+//
+//                    if (socket.equals(socketChannel.socket())) {
+//                        found = true;
+//                        break;
+//                    }
+//
+//                }
+//
+//                if (!found) {
+////                    if (socket.isClosed()) {
+////                        System.out.println("found socket, which wasnt closed");
+////                    } else {
+////                        System.out.println("found closed socket");
+////                    }
+//                    try {
+//                        //socket isnt used by any Peer, can be closed and removed.
+//                        socket.close();
+//                    } catch (IOException ex) {
+//                    }
+//                    toRemove.add(socket);
+//                }
+//
+//            }
+//
+//            allSockets.removeAll(toRemove);
+//        }
+//    }
 }
