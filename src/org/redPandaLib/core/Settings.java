@@ -41,7 +41,7 @@ public class Settings {
     public static boolean REMOVE_OLD_MESSAGES = false;
     public static String EXTERNAL_DATABASE_LOGIN_CREDENTIALS = null; //format: user,dbname,password
 
-        public static void readGeneralDotDat() {
+    public static void readGeneralDotDat() {
         try {
             File file = new File(Saver.SAVE_DIR + "/general.dat");
             FileInputStream fileInputStream = new FileInputStream(file);
@@ -74,6 +74,9 @@ public class Settings {
             if (readLine != null) {
                 if (readLine.equals("supernode=true")) {
                     SUPERNODE = true;
+                    //allow the other nodes to trigger the ping, shoud save batter on 3G usage for others.
+                    pingTimeout *= 2;
+                    pingDelay *= 2;
                     System.out.println("I am a supernode! :)");
                 }
             }

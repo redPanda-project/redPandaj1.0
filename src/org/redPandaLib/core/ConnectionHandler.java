@@ -158,7 +158,7 @@ public class ConnectionHandler extends Thread {
 
         while (!Main.shutdown && !exit) {
 
-            Log.put("NEW KEY RUN!!!!", 100);
+            Log.put("NEW KEY RUN!!!!", 2000);
             int readyChannels = 0;
             try {
                 readyChannels = selector.select();
@@ -850,10 +850,12 @@ public class ConnectionHandler extends Thread {
                 syncAllMessagesSince(Math.max(timestamp, myTime), peer);
             }
 
+            //obsolet??
             if (howMuchAddresses * 33 > readBuffer.remaining()) {
                 return 0; //need more bytes in readBuffer...
             }
 
+            //obsolet??
             byte[] address = new byte[33];
             for (int i = 0; i < howMuchAddresses; i++) {
                 readBuffer.get(address);

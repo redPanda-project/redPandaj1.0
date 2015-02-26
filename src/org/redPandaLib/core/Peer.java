@@ -69,7 +69,7 @@ public class Peer implements Comparable<Peer> {
     public long syncMessagesSince = 0;
     public ArrayList<Integer> removedSendMessages = new ArrayList<Integer>();
     public int maxSimultaneousRequests = 1;
-    
+
     public long sendBytes = 0;
     public long receivedBytes = 0;
 
@@ -366,7 +366,6 @@ public class Peer implements Comparable<Peer> {
 ////        if (!remainingBytes) {
 ////            return true;
 ////        }
-
 //        if (writeBuffer.remaining() < 1024 * 1024) {
 //            ByteBuffer allocate = ByteBuffer.allocate(writeBuffer.capacity() * 2);
 //            allocate.put(writeBuffer.array());
@@ -379,7 +378,7 @@ public class Peer implements Comparable<Peer> {
             getSelectionKey().selector().wakeup();
             getSelectionKey().interestOps(getSelectionKey().interestOps() | SelectionKey.OP_WRITE);
             getSelectionKey().selector().wakeup();
-             //System.out.println("added op_write...");
+            //System.out.println("added op_write...");
         } catch (CancelledKeyException e) {
             //disconnect();
             System.out.println("cancelled key exception");
@@ -503,6 +502,9 @@ public class Peer implements Comparable<Peer> {
         writeBuffer.putInt(m.nonce);
         writeBuffer.putInt(m.database_Id);//TODO long zu int machen mit offset falls db zu gross!!
         writeBufferLock.unlock();
+
+        Log.put("Introduced message to node: " + m.database_Id + " " + nonce, 550);
+
         //should be run later manually...
 ////        boolean sureWrittenToPeer = setWriteBufferFilled();
 ////
@@ -510,7 +512,6 @@ public class Peer implements Comparable<Peer> {
 ////        if (!sureWrittenToPeer) {
 ////            //TODO
 ////        }
-
     }
 
     public void sendChannelToFilter(ECKey k) {

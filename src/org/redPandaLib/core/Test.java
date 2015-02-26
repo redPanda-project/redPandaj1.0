@@ -239,7 +239,7 @@ public class Test {
                             removePeer(p);
                         }
 
-                        if (p.getLastAnswered() > Settings.pingTimeout * 1000 || (p.isConnecting && p.getLastAnswered() > 10000)) {
+                        if (p.lastPinged - p.lastActionOnConnection > Settings.pingDelay * 1000 * 2 || (p.isConnecting && p.getLastAnswered() > 10000)) {
 
                             if (p.isConnected() || p.isConnecting) {
                                 if (DEBUG) {
@@ -279,7 +279,7 @@ public class Test {
                                     p.cnt = 0;
                                 } else {
 
-                                    if (p.isFullConnected()) {
+                                    if (p.isFullConnected()) { //&& p.getLastAnswered() > Settings.pingDelay * 1000) {
                                         p.ping();
                                     }
 
@@ -424,7 +424,7 @@ public class Test {
                     Collections.sort(list);
 
 //                    System.out.println("IP:PORT \t\t\t\t\t\t Nonce \t\t\t Last Answer \t Alive \t retries \t LoadedMsgs \t Ping \t Authed \t PMSG\n");
-                    System.out.format("%50s %22s %12s %10s %7s %8s %10s %10s %10s %8s %10s\n", "[IP]:PORT", "nonce", "last answer", "conntected", "retries", "ping", "loaded Msg", "bytes out", "bytes in", "bad Msg", "ToSyncM");
+                    System.out.format("%50s %22s %12s %10s %7s %8s %10s %10s %10s %8s %10s %10s\n", "[IP]:PORT", "nonce", "last answer", "conntected", "retries", "ping", "loaded Msg", "bytes out", "bytes in", "bad Msg", "ToSyncM", "RSM");
                     for (Peer peer : list) {
 
                         if (peer.isConnected()) {
@@ -440,9 +440,9 @@ public class Test {
                         }
 
                         if (peer.getPeerTrustData() == null) {
-                            System.out.format("%50s %22d %12s %10s %7d %8s %10s %10d %10d\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.), "-", peer.sendBytes, peer.receivedBytes);
+                            System.out.format("%50s %22d %12s %10s %7d %8s %10s %10d %10d %10d\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.), "-", peer.sendBytes, peer.receivedBytes, peer.removedSendMessages.size());
                         } else {
-                            System.out.format("%50s %22d %12s %10s %7d %8s %10d %10d %10d %8s %10d\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId));
+                            System.out.format("%50s %22d %12s %10s %7d %8s %10d %10d %10d %8s %10d %10d\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.removedSendMessages.size());
                         }
 
 //                        while (c.length() < 15) {
@@ -1244,6 +1244,26 @@ public class Test {
 
                     } catch (SQLException ex) {
                         Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                    continue;
+                }
+                if (readLine.equals("d13")) {
+
+                    ArrayList<Peer> clonedPeerList = getClonedPeerList();
+                    Collections.sort(clonedPeerList);
+                    for (Peer peer : clonedPeerList) {
+                        if (peer.peerTrustData == null) {
+                            continue;
+                        }
+                        if (messagesToSync(peer.peerTrustData.internalId) != 0) {
+
+                            System.out.println("found: " + peer.nonce);
+                            peer.removedSendMessages.clear();
+                            peer.disconnect("teeest3123");
+
+                            break;
+                        }
+
                     }
                     continue;
                 }
