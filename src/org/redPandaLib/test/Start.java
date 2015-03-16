@@ -172,6 +172,7 @@ public class Start {
         org.redPandaLib.Main.useHsqlDatabase();
 
         Log.LEVEL = -1;
+        Settings.lightClient = true;
         
         org.redPandaLib.Main.startUp(
                 true, saver);

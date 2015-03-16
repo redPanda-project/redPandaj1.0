@@ -385,10 +385,13 @@ public class DirectMessageStore implements MessageStore {
             //String query = "SELECT message_id,pubkey.pubkey_id, pubkey,public_type,timestamp,nonce,signature,content,verified from message left join pubkey on (pubkey.pubkey_id = message.pubkey_id) WHERE timestamp > ? order by timestamp asc";
             String query = "SELECT message.message_id,pubkey.pubkey_id, pubkey,public_type,timestamp,nonce,signature,content,verified from haveToSendMessageToPeer left join message on (haveToSendMessageToPeer.message_id = message.message_id) left join pubkey on (message.pubkey_id = pubkey.pubkey_id) WHERE timestamp > ? AND peer_id = ? order by timestamp asc";
             PreparedStatement pstmt = connection.prepareStatement(query);
+            //pstmt.setFetchSize(100);
             pstmt.setLong(1, from);
             pstmt.setLong(2, peer_id);
             ResultSet executeQuery = pstmt.executeQuery();
 
+            
+            
             return executeQuery;
 
 //            while (executeQuery.next()) {
@@ -979,6 +982,16 @@ public class DirectMessageStore implements MessageStore {
             pstmt.setInt(2, channel_id);
             pstmt.execute();
             pstmt.close();
+
+            //-1 will be removed every init to ensure switch from full node to light node is working properly
+            if (channel_id != -1) {
+                //ToDo: improve to just remove the right messages, but that may be used to attack a node.
+                query = "DELETE from haveToSendMessageToPeer WHERE peer_id = ?";
+                pstmt = connection.prepareStatement(query);
+                pstmt.setLong(1, peer_id);
+                pstmt.execute();
+                pstmt.close();
+            }
         } catch (SQLException ex) {
             Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -1093,5 +1106,5 @@ public class DirectMessageStore implements MessageStore {
             Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-    
+
 }

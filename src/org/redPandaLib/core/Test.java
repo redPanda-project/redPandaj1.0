@@ -424,7 +424,7 @@ public class Test {
                     Collections.sort(list);
 
 //                    System.out.println("IP:PORT \t\t\t\t\t\t Nonce \t\t\t Last Answer \t Alive \t retries \t LoadedMsgs \t Ping \t Authed \t PMSG\n");
-                    System.out.format("%50s %22s %12s %10s %7s %8s %10s %10s %10s %8s %10s %10s\n", "[IP]:PORT", "nonce", "last answer", "conntected", "retries", "ping", "loaded Msg", "bytes out", "bytes in", "bad Msg", "ToSyncM", "RSM");
+                    System.out.format("%50s %22s %12s %10s %7s %8s %10s %10s %10s %8s %10s %10s %10s\n", "[IP]:PORT", "nonce", "last answer", "conntected", "retries", "ping", "loaded Msg", "bytes out", "bytes in", "bad Msg", "ToSyncM", "RSM", "BacckSyncdT");
                     for (Peer peer : list) {
 
                         if (peer.isConnected()) {
@@ -442,8 +442,9 @@ public class Test {
                         if (peer.getPeerTrustData() == null) {
                             System.out.format("%50s %22d %12s %10s %7d %8s %10s %10d %10d %10d\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.), "-", peer.sendBytes, peer.receivedBytes, peer.removedSendMessages.size());
                         } else {
-                            System.out.format("%50s %22d %12s %10s %7d %8s %10d %10d %10d %8s %10d %10d\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.removedSendMessages.size());
+                            System.out.format("%50s %22d %12s %10s %7d %8s %10d %10d %10d %8s %10d %10d %10s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.removedSendMessages.size(), formatInterval(System.currentTimeMillis()-peer.peerTrustData.backSyncedTill));
                         }
+                        
 
 //                        while (c.length() < 15) {
 //                            c += " \t";
@@ -1405,15 +1406,32 @@ public class Test {
 
         Test.messageStore.addMessageToSend(rawMsg.database_Id, rawMsg.key.database_id);
 
-        //System.out.println("channel_id: " + rawMsg.key.database_id);
-        for (Peer p : getClonedPeerList()) {
-            if (p.isConnected() && p.isAuthed() && p.syncMessagesSince <= rawMsg.timestamp) {
-                p.writeMessage(rawMsg);
-                p.setWriteBufferFilled();
+        try {
+            String query = "SELECT peer_id from haveToSendMessageToPeer WHERE message_id = ?";
+            PreparedStatement pstmt = Test.messageStore.getConnection().prepareStatement(query);
+            pstmt.setInt(1, rawMsg.database_Id);
+            ResultSet executeQuery = pstmt.executeQuery();
+
+            ArrayList<Peer> clonedPeerList = getClonedPeerList();
+            
+            while (executeQuery.next()) {
+
+                for (Peer p : clonedPeerList) {
+                    if (p.isConnected() && p.isAuthed() && p.syncMessagesSince <= rawMsg.timestamp && executeQuery.getInt(1) == p.getPeerTrustData().internalId) {
+                        p.writeMessage(rawMsg);
+                        p.setWriteBufferFilled();
+                        break;
+                    }
+                }
 
             }
+
+            pstmt.close();
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
         }
 
+        //System.out.println("channel_id: " + rawMsg.key.database_id);
     }
 
     static class InboundThread extends Thread {

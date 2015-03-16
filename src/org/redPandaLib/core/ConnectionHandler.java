@@ -117,6 +117,7 @@ public class ConnectionHandler extends Thread {
         peer.trustRetries = 0;
         peer.removedSendMessages = new ArrayList<Integer>();
         peer.maxSimultaneousRequests = 1;
+        peer.myInterestedChannelsCodedInHisIDs.clear();
 
         try {
             SocketChannel socketChannel = peer.getSocketChannel();
@@ -927,16 +928,46 @@ public class ConnectionHandler extends Thread {
             //System.out.println("Peer got following msg: " + timestamp + " " + channelId + " " + nonce + " " + messageId);
             //if (!contains) {
 //                System.out.println("found msg i want to have...");
-            peer.addPendingMessage(messageId, rawMsg);
-            //Test.messageStore.addMsgIntroducedToMe(peer.getPeerTrustData().internalId, messageId);
-            peer.getPeerTrustData().synchronizedMessages++;
+            boolean dontAddMessage = false;
 
-            Log.put("added pending msg... + " + peer.ip + " - " + messageId, 60);
+            //Check if I realy want this message, perhaps I removed the channel or the other side is spamming me.
+            if (Settings.lightClient) {
+
+                if (!peer.myInterestedChannelsCodedInHisIDs.contains(pubkey_id_local)) {
+
+                    //int my_pubkeyId = Test.messageStore.getPubkeyId(id2KeyHis);
+                    if (Test.channels.contains(new Channel(id2KeyHis, null))) {
+                        peer.myInterestedChannelsCodedInHisIDs.add(pubkey_id_local);
+                    } else {
+
+                        int pubkeyId = Test.messageStore.getPubkeyId(id2KeyHis);
+
+                        peer.writeBufferLock.lock();
+                        peer.writeBuffer.put((byte) 62);
+                        peer.writeBuffer.putInt(pubkeyId);
+                        peer.writeBufferLock.unlock();
+
+                        dontAddMessage = true;
+
+                        System.out.println("channel was removed, sending to node.... " + pubkeyId + " node: " + peer.nonce);
+
+                    }
+
+                }
+            }
+
+            if (!dontAddMessage) {
+                peer.addPendingMessage(messageId, rawMsg);
+                //Test.messageStore.addMsgIntroducedToMe(peer.getPeerTrustData().internalId, messageId);
+                peer.getPeerTrustData().synchronizedMessages++;
+
+                Log.put("added pending msg... + " + peer.ip + " - " + messageId, 60);
 //                synchronized (writeBuffer) {
 //                    writeBuffer.put((byte) 6);
 //                    writeBuffer.putInt(messageId);
 //                }
-            //}
+                //}
+            }
             return 1 + 21;
 
         } else if (command == (byte) 6) {
@@ -1051,7 +1082,7 @@ public class ConnectionHandler extends Thread {
 
 //            System.out.println("###### content len: " + contentLength);
             if (contentLength > readBuffer.remaining()) {
-                Log.put("not enough bytes yet... missing: " + (contentLength - readBuffer.remaining()) + " got: " + readBuffer.remaining() + " needed: " + contentLength, -200);
+                Log.put("not enough bytes yet... missing: " + (contentLength - readBuffer.remaining()) + " got: " + readBuffer.remaining() + " needed: " + contentLength, 20);
                 return 0;
             }
 
@@ -1289,17 +1320,20 @@ public class ConnectionHandler extends Thread {
 //            if (trimedIntroducedMessages) {
 //                System.out.println("trimed introducedMessages...");
 //            }
-            for (Channel channel : Test.getChannels()) {
-                byte[] pubKey = channel.getKey().getPubKey();
-
-                //System.out.println("Channel key length: " + pubKey.length);
-//                        writeBuffer.put((byte) 60);
-//                        writeBuffer.put();
-            }
-
+//            for (Channel channel : Test.getChannels()) {
+//                byte[] pubKey = channel.getKey().getPubKey();
+//
+//                //System.out.println("Channel key length: " + pubKey.length);
+////                        writeBuffer.put((byte) 60);
+////                        writeBuffer.put();
+//            }
             if (Settings.lightClient) {
 
                 for (Channel channel : Test.channels) {
+
+                    //remove -1 for migration from super node to light node.
+                    peer.writeBuffer.put((byte) 62);
+                    peer.writeBuffer.putInt(-1);
 
                     if (!peer.getPeerTrustData().sendChannelsToFilter.contains(peer)) {
                         peer.sendChannelToFilter(channel.key);
@@ -1716,15 +1750,19 @@ public class ConnectionHandler extends Thread {
             final int hisKeyId = readBuffer.getInt();
             //ECKey get = peer.getKeyToIdHis().get(hisKeyId);
 
-            ECKey id2KeyHis = peer.getId2KeyHis(hisKeyId);
-
-            if (id2KeyHis == null) {
-                //id2keys wrong!
-                peer.disconnect("id2KeyHis null");
+            if (hisKeyId == -1) {
+                Test.messageStore.delFilterChannel(peer.getPeerTrustData().internalId, -1);
             } else {
-                int pubkeyIdMine = Test.messageStore.getPubkeyId(id2KeyHis);
-                Test.messageStore.delFilterChannel(peer.getPeerTrustData().internalId, pubkeyIdMine);
+                ECKey id2KeyHis = peer.getId2KeyHis(hisKeyId);
 
+                if (id2KeyHis == null) {
+                    //id2keys wrong!
+                    peer.disconnect("id2KeyHis null");
+                } else {
+                    int pubkeyIdMine = Test.messageStore.getPubkeyId(id2KeyHis);
+                    Test.messageStore.delFilterChannel(peer.getPeerTrustData().internalId, pubkeyIdMine);
+
+                }
             }
             return 1 + 4;
 
@@ -1789,6 +1827,7 @@ public class ConnectionHandler extends Thread {
         }
 
         byte nextByte = 0;
+
         if (readBuffer.hasRemaining()) {
             nextByte = readBuffer.get();
         }
@@ -1808,7 +1847,8 @@ public class ConnectionHandler extends Thread {
         } catch (java.nio.channels.NotYetConnectedException e) {
         }
         //System.out.println("closing, got panic command...");
-        peer.disconnect("NotYetConnectedException");
+        peer.disconnect(
+                "NotYetConnectedException");
         //TODO add again
         //Test.removePeer(peer);
 
@@ -1822,7 +1862,7 @@ public class ConnectionHandler extends Thread {
             @Override
             public void run() {
 
-                long oldestTime = Long.MAX_VALUE;
+                long oldestTime = time;
 
                 Log.put("!BACK! sync... from: " + time, 20);
                 ResultSet executeQuery = MessageHolder.getMessagesForBackSync(time, cnt);
@@ -1870,14 +1910,16 @@ public class ConnectionHandler extends Thread {
                             peer.writeBufferLock.lock();
                             size = peer.writeBuffer.position();
                             peer.writeBufferLock.unlock();
-                            if (size != 0) {
+                            if (size > 500) {
                                 System.out.println("writeBuffer position: " + size + " ip: " + peer.ip);
                                 //peer.setWriteBufferFilled();
                                 try {
                                     sleep(100);
                                     System.out.println("SLEEP");
+
                                 } catch (InterruptedException ex) {
-                                    Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
+                                    Logger.getLogger(ConnectionHandler.class
+                                            .getName()).log(Level.SEVERE, null, ex);
                                 }
                             } else {
                                 breakLoop = true;
@@ -1891,11 +1933,11 @@ public class ConnectionHandler extends Thread {
                         peer.writeMessage(m);
                         peer.setWriteBufferFilled();
 
-                        if (m.timestamp < oldestTime) {
+                        //if (m.timestamp < oldestTime) {
                             oldestTime = m.timestamp;
-                        }
+                        //}
 
-                        System.out.println("back sync one message.....!!! sleep!");
+                        Log.put("back sync one message.....!!! sleep!" + " msgid: " + message_id, 1);
 
                     }
 
@@ -1909,7 +1951,8 @@ public class ConnectionHandler extends Thread {
                     peer.setWriteBufferFilled();
 
                 } catch (SQLException ex) {
-                    Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(ConnectionHandler.class
+                            .getName()).log(Level.SEVERE, null, ex);
                 } finally {
                     if (peer.writeBufferLock.isHeldByCurrentThread()) {
                         peer.writeBufferLock.lock();
@@ -1992,8 +2035,10 @@ public class ConnectionHandler extends Thread {
                                         //sleep for a little bit.
                                         //System.out.println("sleeping," + peer.ip + " msg id: " + executeQuery.getInt("message_id"));
                                         sleep(200);
+
                                     } catch (InterruptedException ex) {
-                                        Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
+                                        Logger.getLogger(ConnectionHandler.class
+                                                .getName()).log(Level.SEVERE, null, ex);
                                     }
                                     //System.out.println("sleeeped");
                                     continue;
@@ -2051,8 +2096,10 @@ public class ConnectionHandler extends Thread {
                                     //peer.setWriteBufferFilled();
                                     try {
                                         sleep(100);
+
                                     } catch (InterruptedException ex) {
-                                        Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
+                                        Logger.getLogger(ConnectionHandler.class
+                                                .getName()).log(Level.SEVERE, null, ex);
                                     }
                                 } else {
                                     breakLoop = true;
@@ -2119,8 +2166,10 @@ public class ConnectionHandler extends Thread {
                                     try {
                                         sleep(100);
                                         System.out.println("SLEEP");
+
                                     } catch (InterruptedException ex) {
-                                        Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
+                                        Logger.getLogger(ConnectionHandler.class
+                                                .getName()).log(Level.SEVERE, null, ex);
                                     }
                                 } else {
                                     breakLoop = true;
@@ -2135,7 +2184,8 @@ public class ConnectionHandler extends Thread {
 
                     }
                 } catch (SQLException ex) {
-                    Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(ConnectionHandler.class
+                            .getName()).log(Level.SEVERE, null, ex);
                 }
                 Log.put("finish", 20);
 
@@ -2161,7 +2211,8 @@ public class ConnectionHandler extends Thread {
             System.out.println("added ServerSocketChannel");
 
         } catch (IOException ex) {
-            Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(ConnectionHandler.class
+                    .getName()).log(Level.SEVERE, null, ex);
         }
     }
 

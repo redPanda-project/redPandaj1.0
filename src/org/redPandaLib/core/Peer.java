@@ -39,7 +39,7 @@ public class Peer implements Comparable<Peer> {
     int cnt = 0;
     public long connectedSince = 0;
     long lastAllMsgsQuerried = Settings.till;
-    long nonce;
+    public long nonce;
     private ArrayList<String> filterAdresses;
     private SocketChannel socketChannel;
 //    public ArrayList<ByteBuffer> readBuffers = new ArrayList<ByteBuffer>();
@@ -70,6 +70,8 @@ public class Peer implements Comparable<Peer> {
     public ArrayList<Integer> removedSendMessages = new ArrayList<Integer>();
     public int maxSimultaneousRequests = 1;
 
+    public ArrayList<Integer> myInterestedChannelsCodedInHisIDs = new ArrayList<Integer>(); //for perfomance, so I dont have to look in the database for every message i am introduced.
+    
     public long sendBytes = 0;
     public long receivedBytes = 0;
 
@@ -495,6 +497,14 @@ public class Peer implements Comparable<Peer> {
         //int indexOfKey = keyToIdMine.indexOf(k);
         int indexOfKey = k.database_id;
 
+        if (writeBuffer.remaining() <  1 + 4 + 1 + 8 + 4 + 4 ) {
+            ByteBuffer oldbuffer = writeBuffer;
+            writeBuffer =  ByteBuffer.allocate(writeBuffer.capacity()+50);
+            writeBuffer.put(oldbuffer.array());
+            writeBuffer.position(oldbuffer.position());
+            System.out.println("writebuffer was raised...");
+        }
+        
         writeBuffer.put((byte) 5);
         writeBuffer.putInt(indexOfKey);
         writeBuffer.put(m.public_type);

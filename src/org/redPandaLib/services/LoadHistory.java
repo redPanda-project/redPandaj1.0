@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.redPandaLib.Main;
+import org.redPandaLib.core.Log;
 import org.redPandaLib.core.Peer;
 import org.redPandaLib.core.Test;
 
@@ -78,17 +79,17 @@ public class LoadHistory {
                             continue;
                         }
 
-                        System.out.println("go back in time...");
+                        //System.out.println("go back in time...");
+                        System.out.print("b");
 
                         for (Peer p : (ArrayList<Peer>) Test.peerList.clone()) {
                             if (p.isAuthed() && p.isConnected() && p.syncMessagesSince == 0) {
 
                                 long backSyncedTill = p.getPeerTrustData().backSyncedTill;
 
-                                System.out.println("peer: " + p.getIp());
-
+                                //System.out.println("peer: " + p.getIp());
                                 if (lastRequesteFrom.get(p) != null && lastRequesteFrom.get(p) == backSyncedTill) {
-                                    System.out.println("last request not done or finished?");
+                                    //System.out.println("last request not done or finished?");
                                     continue;
                                 }
 
@@ -101,6 +102,8 @@ public class LoadHistory {
                                 p.setWriteBufferFilled();
 
                                 lastRequesteFrom.put(p, backSyncedTill);
+
+                                Log.put("requested new sync back: " + p.nonce + " time: " + backSyncedTill, 0);
 
                             } else {
                                 lastRequesteFrom.remove(p);
