@@ -96,9 +96,9 @@ public class Main {
     public static void useMysqlDatabase() {
 
         try {
-            
+
             String[] split = Settings.EXTERNAL_DATABASE_LOGIN_CREDENTIALS.split(",");
-            
+
             MysqlConnection mysqlConnection = new MysqlConnection(split[1], split[0], split[2]);
 //            Test.hsqlConnection = mysqlConnection;
             Test.messageStore = new DirectMessageStore(mysqlConnection.getConnection());
@@ -178,7 +178,7 @@ public class Main {
         }
     }
 
-    public static void sendImageToChannel(Channel channel, String pathToFile) {
+    public static void sendImageToChannel(Channel channel, String pathToFile, boolean lowPriority) {
         //        Test.clientVersion++;
         //        Msg msg = new Msg(System.currentTimeMillis(), 99, channel, Test.clientSeed, Test.clientVersion, "[" + Test.getNick() + "] " + text);
         //        Test.processNewMessage(msg, true);
@@ -187,7 +187,7 @@ public class Main {
         //        rawMsg.sign();
         //        MessageHolder.addMessage(rawMsg);
         //        Test.broadcastMsg(rawMsg);
-        ArrayList<ImageMsg> build = ImageMsg.build(channel, pathToFile);
+        ArrayList<ImageMsg> build = ImageMsg.build(channel, pathToFile, lowPriority);
 
         if (build == null) {
             return;//todo throw exception

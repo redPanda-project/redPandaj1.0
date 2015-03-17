@@ -173,6 +173,7 @@ public class Start {
 
         Log.LEVEL = -1;
         Settings.lightClient = true;
+        Settings.REDUCE_TRAFFIC = false;
         
         org.redPandaLib.Main.startUp(
                 true, saver);

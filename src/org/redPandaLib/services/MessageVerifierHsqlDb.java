@@ -10,6 +10,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import static java.lang.Thread.sleep;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -60,7 +61,7 @@ public class MessageVerifierHsqlDb {
     public static boolean PAUSE = false;
     public static ArrayList<ImageMsg> imageMsgs = new ArrayList<ImageMsg>();
     private static long lastRemovedOldMessages = 0;
-    private static ExecutorService sendDeliveredMsgsThreads = Executors.newFixedThreadPool(1);
+    private static ExecutorService sendDeliveredMsgsThreads = Executors.newFixedThreadPool(2);
     private static long lastDbReconnected = 0;
     public static int MAX_PERMITS = 10;
     public static Semaphore sem = new Semaphore(MAX_PERMITS);
@@ -205,13 +206,12 @@ public class MessageVerifierHsqlDb {
                             public void run() {
 
                                 setPriority(Thread.MIN_PRIORITY);
-                                
+
                                 boolean verify = rawMsg.verify();
-                                
+
                                 if (Main.shutdown) {
                                     return;
                                 }
-                                
 
                                 try {
                                     if (verify) {
@@ -226,20 +226,6 @@ public class MessageVerifierHsqlDb {
 //                                int index = MessageHolder.msgs.indexOf(m);
 //                                MessageHolder.msgs.set(index, message);
 //                            }
-                                        if (Settings.BROADCAST_MSGS_AFTER_VERIFICATION) {
-                                            if (timestamp > System.currentTimeMillis() - 1000 * 60 * 60 * 24 * 7) {
-                                                new Thread() {
-
-                                                    @Override
-                                                    public void run() {
-                                                        final String orgName = Thread.currentThread().getName();
-                                                        Thread.currentThread().setName(orgName + " - broadCastMsg");
-                                                        Test.broadcastMsg(message);
-                                                    }
-                                                }.start();
-                                            }
-                                        }
-
                                         boolean succesfullCommited = false;
                                         while (!succesfullCommited) {
                                             PreparedStatement stmt = null;
@@ -365,7 +351,7 @@ public class MessageVerifierHsqlDb {
                                                             InputStream ios = null;
                                                             int readBytes = 0;
                                                             try {
-                                                                ios = new FileInputStream(readFile); //ToDoE: file not found exception ?!?
+                                                                ios = new FileInputStream(readFile); //ToDoE: file not found exception ?!?, THREADED!!! need to sync that all are finished
                                                                 while ((readBytes = ios.read(buffer)) != -1) {
                                                                     fileOutputStream.write(buffer, 0, readBytes);
                                                                 }
@@ -510,6 +496,20 @@ public class MessageVerifierHsqlDb {
                                             //new ImageSaver("").saveImage("", "loaded.jpg");
                                         } else {
                                             //System.out.println("No textmsg?");
+                                        }
+
+                                        if (Settings.BROADCAST_MSGS_AFTER_VERIFICATION) {
+                                            if (timestamp > System.currentTimeMillis() - 1000 * 60 * 60 * 24 * 7) {
+                                                Runnable sendRunnable = new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        final String orgName = Thread.currentThread().getName();
+                                                        Thread.currentThread().setName(orgName + " - broadCastMsg");
+                                                        Test.broadcastMsg(message);
+                                                    }
+                                                };
+                                                sendDeliveredMsgsThreads.submit(sendRunnable);
+                                            }
                                         }
 
                                     } else {

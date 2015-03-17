@@ -261,6 +261,15 @@ public class MessageDownloader {
                                 continue;
                             }
 
+                            //This is just a hack for low priority msgs, see explanation after definition of Settings.REDUCE_TRAFFIC!!!
+                            if (Settings.REDUCE_TRAFFIC && m.public_type >= 100) {
+                                synchronized (p.getPendingMessages()) {
+                                    p.getPendingMessages().remove(messageId);
+                                }
+                                System.out.println("removed message, reduce traffic!!!");
+                                continue;
+                            }
+
                             //STICKS and msgs.
                             if (m.public_type == 20 || m.public_type > 50) {
 

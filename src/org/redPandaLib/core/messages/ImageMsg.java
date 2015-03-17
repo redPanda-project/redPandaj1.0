@@ -37,7 +37,7 @@ public class ImageMsg extends RawMsg {
         public_type = 20;
     }
 
-    public static ArrayList<ImageMsg> build(Channel channel, String pathToImage) {
+    public static ArrayList<ImageMsg> build(Channel channel, String pathToImage, boolean lowPriority) {
         try {
             File file = new File(pathToImage);
 
@@ -59,7 +59,6 @@ public class ImageMsg extends RawMsg {
                 blockSize = 100 * 1024;
             }
 
-
             int block = 0;
             int blocks = messageContentBytes.length / blockSize + 1;
 
@@ -79,6 +78,9 @@ public class ImageMsg extends RawMsg {
 
                 ImageMsg imgMsg = new ImageMsg(key, timeStamp, 110 + block);
 
+                if (lowPriority) {
+                    imgMsg.public_type = 100;
+                }
                 imgMsg.channel = channel;
 
                 byte[] content = new byte[1 + 8 + 4 + 4 + bytesThisRound];

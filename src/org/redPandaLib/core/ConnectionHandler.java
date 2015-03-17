@@ -931,6 +931,7 @@ public class ConnectionHandler extends Thread {
             boolean dontAddMessage = false;
 
             //Check if I realy want this message, perhaps I removed the channel or the other side is spamming me.
+            // or i just wrote to a channel i'm not listening to, like the main channel!!!
             if (Settings.lightClient) {
 
                 if (!peer.myInterestedChannelsCodedInHisIDs.contains(pubkey_id_local)) {
@@ -938,6 +939,7 @@ public class ConnectionHandler extends Thread {
                     //int my_pubkeyId = Test.messageStore.getPubkeyId(id2KeyHis);
                     if (Test.channels.contains(new Channel(id2KeyHis, null))) {
                         peer.myInterestedChannelsCodedInHisIDs.add(pubkey_id_local);
+                        System.out.println("added !! " + pubkey_id_local + " node: " + peer.nonce);
                     } else {
 
                         int pubkeyId = Test.messageStore.getPubkeyId(id2KeyHis);
@@ -951,9 +953,15 @@ public class ConnectionHandler extends Thread {
 
                         System.out.println("channel was removed, sending to node.... " + pubkeyId + " node: " + peer.nonce);
 
+                        //There may be still messages to sync to other nodes, we have to remove them!!
+                        //ToDo: replace this hack!
+                        Test.messageStore.removeMessageToSend(peer.getPeerTrustData().internalId);
+
                     }
 
                 }
+
+                System.out.println("contains!!! " + pubkey_id_local + " node: " + peer.nonce);
             }
 
             if (!dontAddMessage) {
@@ -1934,7 +1942,7 @@ public class ConnectionHandler extends Thread {
                         peer.setWriteBufferFilled();
 
                         //if (m.timestamp < oldestTime) {
-                            oldestTime = m.timestamp;
+                        oldestTime = m.timestamp;
                         //}
 
                         Log.put("back sync one message.....!!! sleep!" + " msgid: " + message_id, 1);

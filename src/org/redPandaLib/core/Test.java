@@ -389,7 +389,8 @@ public class Test {
 
             int a = executeQuery.getInt(1);
 
-            if (a > 10000) {
+            //ToDo: remove or raise later...
+            if (a > 100000) {
                 Main.sendBroadCastMsg("MessagesToSync too big, truncating both tables: " + a);
                 PreparedStatement prepareStatement2 = messageStore.getConnection().prepareStatement("TRUNCATE table haveToSendMessageToPeer");
                 prepareStatement2.execute();
@@ -442,9 +443,8 @@ public class Test {
                         if (peer.getPeerTrustData() == null) {
                             System.out.format("%50s %22d %12s %10s %7d %8s %10s %10d %10d %10d\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.), "-", peer.sendBytes, peer.receivedBytes, peer.removedSendMessages.size());
                         } else {
-                            System.out.format("%50s %22d %12s %10s %7d %8s %10d %10d %10d %8s %10d %10d %10s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.removedSendMessages.size(), formatInterval(System.currentTimeMillis()-peer.peerTrustData.backSyncedTill));
+                            System.out.format("%50s %22d %12s %10s %7d %8s %10d %10d %10d %8s %10d %10d %10s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.removedSendMessages.size(), formatInterval(System.currentTimeMillis() - peer.peerTrustData.backSyncedTill));
                         }
-                        
 
 //                        while (c.length() < 15) {
 //                            c += " \t";
@@ -657,7 +657,7 @@ public class Test {
                     Main.addSpamChannel();
 
                     System.out.println("image send file img.jpg");
-                    Main.sendImageToChannel(SpecialChannels.SPAM, "img.jpg");
+                    Main.sendImageToChannel(SpecialChannels.SPAM, "img.jpg", true);
 
                     continue;
                 }
@@ -1401,7 +1401,7 @@ public class Test {
         //ToDo: remove later
         int containsMsg = messageStore.containsMsg(rawMsg);
         if (containsMsg != rawMsg.database_Id) {
-            throw new RuntimeException("!!!! kek");
+            throw new RuntimeException("!!!! kek " + containsMsg + " != " + rawMsg.database_Id);
         }
 
         Test.messageStore.addMessageToSend(rawMsg.database_Id, rawMsg.key.database_id);
@@ -1413,7 +1413,7 @@ public class Test {
             ResultSet executeQuery = pstmt.executeQuery();
 
             ArrayList<Peer> clonedPeerList = getClonedPeerList();
-            
+
             while (executeQuery.next()) {
 
                 for (Peer p : clonedPeerList) {

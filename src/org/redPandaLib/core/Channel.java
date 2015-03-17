@@ -23,6 +23,7 @@ import org.redPandaLib.crypt.Sha256Hash;
  */
 public class Channel implements Serializable, Comparable<Channel> {
 
+    private static final long serialVersionUID = -4056734674983489374L;
     protected int id = -1;
     protected ECKey key;
     protected String securityHash;

@@ -18,7 +18,7 @@ import org.redPandaLib.crypt.Sha256Hash;
  */
 public class Stick {
 
-    public static final double DIFFICULTY = 2.9;
+    public static final double DIFFICULTY = 20.9; //nearly disabled currenlty....
     byte[] pubkey;
     long timestamp;
     int nonce;
