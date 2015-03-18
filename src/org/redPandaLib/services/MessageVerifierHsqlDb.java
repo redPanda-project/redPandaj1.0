@@ -27,6 +27,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.redPandaLib.Main;
@@ -65,6 +66,8 @@ public class MessageVerifierHsqlDb {
     private static long lastDbReconnected = 0;
     public static int MAX_PERMITS = 10;
     public static Semaphore sem = new Semaphore(MAX_PERMITS);
+
+    public static final ReentrantLock filesSystemLockForImages = new ReentrantLock(); //Need this lock because if check for all blocks then one might not be finished.
 
     public static void start() {
         myThread.setPriority(Thread.MIN_PRIORITY);
@@ -317,90 +320,99 @@ public class MessageVerifierHsqlDb {
                                             int partsForImage = imageMsg.getParts();
                                             int partNumber = imageMsg.getPartCount();
 
-                                            String partFileName = "imgpart-" + imageMsg.getTimestamp() + "-" + imageMsg.getIdentity() + "-" + partNumber + "-" + partsForImage + ".part";
-                                            writeBytesToFile(imageMsg.getImageBytes(), Test.imageStoreFolder + partFileName);
+                                            filesSystemLockForImages.lock();
 
-                                            System.out.println("wrote bytes into part file");
+                                            try {
 
-                                            System.out.println("check for all exiting parts...");
+                                                String partFileName = "imgpart-" + imageMsg.getTimestamp() + "-" + imageMsg.getIdentity() + "-" + partNumber + "-" + partsForImage + ".part";
+                                                writeBytesToFile(imageMsg.getImageBytes(), Test.imageStoreFolder + partFileName);
 
-                                            boolean missing = false;
+                                                System.out.println("wrote bytes into part file");
 
-                                            for (int i = 0; i < partsForImage; i++) {
-                                                File file = new File(Test.imageStoreFolder + "imgpart-" + imageMsg.getTimestamp() + "-" + imageMsg.getIdentity() + "-" + i + "-" + partsForImage + ".part");
-                                                if (!file.exists()) {
-                                                    missing = true;
-                                                    break;
+                                                System.out.println("check for all exiting parts...");
+
+                                                boolean missing = false;
+
+                                                for (int i = 0; i < partsForImage; i++) {
+                                                    File file = new File(Test.imageStoreFolder + "imgpart-" + imageMsg.getTimestamp() + "-" + imageMsg.getIdentity() + "-" + i + "-" + partsForImage + ".part");
+                                                    if (!file.exists()) {
+                                                        missing = true;
+                                                        break;
+                                                    }
                                                 }
-                                            }
 
-                                            System.out.println("part missing: " + missing);
+                                                System.out.println("part missing: " + missing);
 
-                                            if (!missing) {
+                                                if (!missing) {
 
-                                                String pathToFile = Test.imageStoreFolder + "img-" + imageMsg.getChannel().getName() + "-" + imageMsg.getTimestamp() + ".jpg";
-                                                File outFile = new File(pathToFile);
-                                                try {
-                                                    FileOutputStream fileOutputStream = new FileOutputStream(outFile);
+                                                    String pathToFile = Test.imageStoreFolder + "img-" + imageMsg.getChannel().getName() + "-" + imageMsg.getTimestamp() + ".jpg";
+                                                    File outFile = new File(pathToFile);
                                                     try {
+                                                        FileOutputStream fileOutputStream = new FileOutputStream(outFile);
+                                                        try {
 
-                                                        for (int i = 0; i < partsForImage; i++) {
-                                                            File readFile = new File(Test.imageStoreFolder + "imgpart-" + imageMsg.getTimestamp() + "-" + imageMsg.getIdentity() + "-" + i + "-" + partsForImage + ".part");
+                                                            for (int i = 0; i < partsForImage; i++) {
+                                                                File readFile = new File(Test.imageStoreFolder + "imgpart-" + imageMsg.getTimestamp() + "-" + imageMsg.getIdentity() + "-" + i + "-" + partsForImage + ".part");
 
-                                                            byte[] buffer = new byte[1024 * 50];
-                                                            InputStream ios = null;
-                                                            int readBytes = 0;
-                                                            try {
-                                                                ios = new FileInputStream(readFile); //ToDoE: file not found exception ?!?, THREADED!!! need to sync that all are finished
-                                                                while ((readBytes = ios.read(buffer)) != -1) {
-                                                                    fileOutputStream.write(buffer, 0, readBytes);
-                                                                }
-                                                            } finally {
+                                                                byte[] buffer = new byte[1024 * 50];
+                                                                InputStream ios = null;
+                                                                int readBytes = 0;
                                                                 try {
-                                                                    if (ios != null) {
-                                                                        ios.close();
+                                                                    ios = new FileInputStream(readFile); //ToDoE: file not found exception ?!?, THREADED!!! need to sync that all are finished
+                                                                    while ((readBytes = ios.read(buffer)) != -1) {
+                                                                        fileOutputStream.write(buffer, 0, readBytes);
                                                                     }
-                                                                } catch (IOException e) {
+                                                                } finally {
+                                                                    try {
+                                                                        if (ios != null) {
+                                                                            ios.close();
+                                                                        }
+                                                                    } catch (IOException e) {
+                                                                    }
                                                                 }
+
+                                                                readFile.delete();
+
                                                             }
 
-                                                            readFile.delete();
+                                                            Infos infos = Test.imageInfos.getInfos(pathToFile);
+                                                            String imageInfos = pathToFile + "\n" + infos.width + "\n" + infos.heigth;
 
-                                                        }
+                                                            long identity = imageMsg.getIdentity();
+                                                            boolean fromMe = (identity == Test.localSettings.identity);
 
-                                                        Infos infos = Test.imageInfos.getInfos(pathToFile);
-                                                        String imageInfos = pathToFile + "\n" + infos.width + "\n" + infos.heigth;
+                                                            Test.messageStore.addDecryptedContent(pubkey_id, message_id, ImageMsg.BYTE, imageMsg.getTimestamp(), imageInfos.getBytes(), imageMsg.getIdentity(), fromMe);
+                                                            TextMessageContent fromTextMsg = TextMessageContent.fromImageMsg(imageMsg, fromMe, imageInfos);
 
-                                                        long identity = imageMsg.getIdentity();
-                                                        boolean fromMe = (identity == Test.localSettings.identity);
+                                                            for (NewMessageListener listener : Main.listeners) {
+                                                                listener.newMessage(fromTextMsg);
+                                                            }
 
-                                                        Test.messageStore.addDecryptedContent(pubkey_id, message_id, ImageMsg.BYTE, imageMsg.getTimestamp(), imageInfos.getBytes(), imageMsg.getIdentity(), fromMe);
-                                                        TextMessageContent fromTextMsg = TextMessageContent.fromImageMsg(imageMsg, fromMe, imageInfos);
+                                                            //send delivered msg
+                                                            if (Settings.SEND_DELIVERED_MSG && SpecialChannels.isSpecial(pubkey) == null) {
+                                                                sendDeliveredMessage(message);
+                                                            }
 
-                                                        for (NewMessageListener listener : Main.listeners) {
-                                                            listener.newMessage(fromTextMsg);
-                                                        }
-
-                                                        //send delivered msg
-                                                        if (Settings.SEND_DELIVERED_MSG && SpecialChannels.isSpecial(pubkey) == null) {
-                                                            sendDeliveredMessage(message);
-                                                        }
-
-                                                    } catch (IOException ex) {
-                                                        Logger.getLogger(ImageSaver.class.getName()).log(Level.SEVERE, null, ex);
-                                                    } finally {
-                                                        try {
-                                                            fileOutputStream.close();
                                                         } catch (IOException ex) {
-                                                            Logger.getLogger(MessageVerifierHsqlDb.class.getName()).log(Level.SEVERE, null, ex);
+                                                            Logger.getLogger(ImageSaver.class.getName()).log(Level.SEVERE, null, ex);
+                                                        } finally {
+                                                            try {
+                                                                fileOutputStream.close();
+                                                            } catch (IOException ex) {
+                                                                Logger.getLogger(MessageVerifierHsqlDb.class.getName()).log(Level.SEVERE, null, ex);
+                                                            }
                                                         }
+                                                    } catch (FileNotFoundException ex) {
+                                                        Logger.getLogger(ImageSaver.class.getName()).log(Level.SEVERE, null, ex);
                                                     }
-                                                } catch (FileNotFoundException ex) {
-                                                    Logger.getLogger(ImageSaver.class.getName()).log(Level.SEVERE, null, ex);
+
                                                 }
 
+                                            } catch (Throwable e) {
+                                                Test.sendStacktrace(e);
+                                            } finally {
+                                                filesSystemLockForImages.unlock();
                                             }
-
 //                                imageMsgs.add((ImageMsg) message);
 //
 //                                System.out.println("in ram: " + imageMsgs.size());

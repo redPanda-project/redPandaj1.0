@@ -74,10 +74,10 @@ public class ECVerificationTest {
         long cnt = 1;
         long starttime = System.currentTimeMillis();
         
-        while (true) {
+        while (cnt < 50000) {
         
             if (cnt%500==0) {
-                 System.out.println((double)cnt/(System.currentTimeMillis()-starttime)*1000);
+                 System.out.println((double)cnt/(System.currentTimeMillis()-starttime)*1000 + " overall: " + cnt);
             }
             
         Sha256Hash hash2 = Sha256Hash.create(toSign);

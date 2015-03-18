@@ -43,6 +43,10 @@ public class ImageMsg extends RawMsg {
 
             byte[] messageContentBytes = read(file);
 
+            if (messageContentBytes == null) {
+                return null;
+            }
+
             System.out.println("image bytes: " + messageContentBytes.length);
 
             ECKey key = channel.getKey();
