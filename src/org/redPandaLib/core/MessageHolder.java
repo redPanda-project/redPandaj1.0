@@ -22,7 +22,7 @@ public class MessageHolder {
     public static ArrayList<RawMsg> msgs = new ArrayList<RawMsg>();
 
     /**
-     * Only contains the necessary data for sync...
+     * Only contains the necessary data for sync, so NO content is available!!
      *
      * @return
      */

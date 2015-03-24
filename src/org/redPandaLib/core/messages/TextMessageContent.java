@@ -28,6 +28,7 @@ public class TextMessageContent implements Serializable {
     public long identity;
     public String text;
     public boolean fromMe;
+    public boolean read = false;
     //
 
     public TextMessageContent() {

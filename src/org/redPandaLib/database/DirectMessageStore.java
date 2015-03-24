@@ -8,7 +8,6 @@ import crypt.Utils;
 import java.io.UnsupportedEncodingException;
 import java.sql.*;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
@@ -16,10 +15,8 @@ import java.util.logging.Logger;
 import org.redPandaLib.core.Channel;
 import org.redPandaLib.core.Log;
 import org.redPandaLib.core.Test;
-import static org.redPandaLib.core.Test.messageStore;
 import org.redPandaLib.core.messages.RawMsg;
 import org.redPandaLib.core.messages.TextMessageContent;
-import org.redPandaLib.core.messages.TextMsg;
 import org.redPandaLib.crypt.ECKey;
 
 /**
@@ -383,15 +380,13 @@ public class DirectMessageStore implements MessageStore {
         try {
             //get Key Id
             //String query = "SELECT message_id,pubkey.pubkey_id, pubkey,public_type,timestamp,nonce,signature,content,verified from message left join pubkey on (pubkey.pubkey_id = message.pubkey_id) WHERE timestamp > ? order by timestamp asc";
-            String query = "SELECT message.message_id,pubkey.pubkey_id, pubkey,public_type,timestamp,nonce,signature,content,verified from haveToSendMessageToPeer left join message on (haveToSendMessageToPeer.message_id = message.message_id) left join pubkey on (message.pubkey_id = pubkey.pubkey_id) WHERE timestamp > ? AND peer_id = ? order by timestamp asc";
+            String query = "SELECT message.message_id,pubkey.pubkey_id, pubkey,public_type,timestamp,nonce,signature,verified from haveToSendMessageToPeer left join message on (haveToSendMessageToPeer.message_id = message.message_id) left join pubkey on (message.pubkey_id = pubkey.pubkey_id) WHERE timestamp > ? AND peer_id = ? order by timestamp asc";
             PreparedStatement pstmt = connection.prepareStatement(query);
             //pstmt.setFetchSize(100);
             pstmt.setLong(1, from);
             pstmt.setLong(2, peer_id);
             ResultSet executeQuery = pstmt.executeQuery();
 
-            
-            
             return executeQuery;
 
 //            while (executeQuery.next()) {
@@ -509,7 +504,8 @@ public class DirectMessageStore implements MessageStore {
             //String query = "SELECT message_id,message_type,decryptedContent,timestamp,identity,fromMe,nonce from channelmessage LEFT JOIN message on (channelmessage.message_id = message.message_id) WHERE pubkey_id =? AND timestamp < ? AND timestamp > ? ORDER BY timestamp";
             //String query = "SELECT message_id,message_type,decryptedContent,channelmessage.timestamp,identity,fromMe,nonce from channelmessage LEFT JOIN message on (channelmessage.message_id = message.message_id) WHERE pubkey_id =? AND timestamp > 0 ORDER BY timestamp DESC";
 //WARNING added timestamp to channelmessage - old querys have to be edited!!!!
-            String query = "SELECT message_id,message_type,timestamp,decryptedContent,identity,fromMe from channelmessage WHERE pubkey_id =? AND timestamp > 0 ORDER BY timestamp DESC";
+            //String query = "SELECT message_id,message_type,timestamp,decryptedContent,identity,fromMe from channelmessage WHERE pubkey_id =? AND timestamp > 0 ORDER BY timestamp DESC";
+            String query = "SELECT channelmessage.message_id,message_type,timestamp,decryptedContent,identity,fromMe, (notReadMessage.message_id is NULL) as markedAsRead from channelmessage LEFT JOIN notReadMessage on (channelmessage.message_id = notReadMessage.message_id) WHERE pubkey_id =? AND timestamp > 0 ORDER BY timestamp DESC";
             //System.out.println("QUERY: " + query);
 
             PreparedStatement pstmt = connection.prepareStatement(query);
@@ -533,6 +529,7 @@ public class DirectMessageStore implements MessageStore {
                 long timestamp = executeQuery.getLong("timestamp");
                 long identity = executeQuery.getLong("identity");
                 boolean fromMe = executeQuery.getBoolean("fromMe");
+                boolean read = executeQuery.getBoolean("markedAsRead");
                 //long nonce = executeQuery.getLong("nonce");
                 //TextMsg textMsg = new TextMsg(ecKey, timestamp, to, null, null, decryptedContent, instanceByPublicKey, true, true, message_id);
                 //TextMessageContent textMessageContent = new TextMessageContent(message_id, pubkeyId, message_type, timestamp, decryptedContent, instanceByPublicKey , , query, fromMe)fromMe);
@@ -549,6 +546,7 @@ public class DirectMessageStore implements MessageStore {
                 textMessageContent.timestamp = timestamp;
                 textMessageContent.identity = identity;
                 textMessageContent.decryptedContent = decryptedContent;
+                textMessageContent.read = read;
 
                 //System.out.println("MSG!! " + message_id);
                 list.add(textMessageContent);
@@ -1087,6 +1085,36 @@ public class DirectMessageStore implements MessageStore {
         }
 
         return null;
+    }
+
+    @Override
+    public void addUnreadMessage(long message_id) {
+        try {
+            //channelmessage (channel_id INTEGER, message_id INTEGER, message_type INTEGER, decryptedContent LONGVARBINARY);
+            String query = "INSERT into notReadMessage (message_id) VALUES (?)";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setLong(1, message_id);
+            pstmt.execute();
+            pstmt.close();
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+    }
+
+    @Override
+    public void markAsRead(long message_id) {
+        try {
+            //channelmessage (channel_id INTEGER, message_id INTEGER, message_type INTEGER, decryptedContent LONGVARBINARY);
+            String query = "DELETE from notReadMessage WHERE message_id = ?";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setLong(1, message_id);
+            pstmt.execute();
+            pstmt.close();
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
     }
 
     @Override

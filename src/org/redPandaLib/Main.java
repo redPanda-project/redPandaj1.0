@@ -173,6 +173,7 @@ public class Main {
         Test.broadcastMsg(addMessage);
         Test.messageStore.addDecryptedContent(addMessage.getKey().database_id, (int) addMessage.database_Id, TextMsg.BYTE, addMessage.timestamp, ((TextMsg) addMessage).getText(), ((TextMsg) addMessage).getIdentity(), true);
         TextMessageContent textMessageContent = TextMessageContent.fromTextMsg((TextMsg) addMessage, true);
+        textMessageContent.read = true;
         for (NewMessageListener listener : Main.listeners) {
             listener.newMessage(textMessageContent);
         }
@@ -216,6 +217,7 @@ public class Main {
         Test.messageStore.addDecryptedContent(addMessage.getKey().database_id, (int) addMessage.database_Id, ImageMsg.BYTE, addMessage.timestamp, imageInfos.getBytes(), ((ImageMsg) addMessage).getIdentity(), true);
 
         TextMessageContent textMessageContent = TextMessageContent.fromImageMsg((ImageMsg) addMessage, true, imageInfos);
+        textMessageContent.read = true;
         for (NewMessageListener listener : Main.listeners) {
             listener.newMessage(textMessageContent);
         }
@@ -365,5 +367,9 @@ public class Main {
             return false;
         }
         return true;
+    }
+
+    public static void markAsRead(long message_id) {
+        Test.messageStore.markAsRead(message_id);
     }
 }

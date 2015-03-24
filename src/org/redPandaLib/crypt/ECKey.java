@@ -28,6 +28,7 @@ import org.spongycastle.asn1.*;
 import org.spongycastle.asn1.sec.SECNamedCurves;
 import org.spongycastle.asn1.x9.X9ECParameters;
 import org.spongycastle.crypto.AsymmetricCipherKeyPair;
+import org.spongycastle.crypto.digests.SHA256Digest;
 import org.spongycastle.crypto.ec.CustomNamedCurves;
 import org.spongycastle.crypto.generators.ECKeyPairGenerator;
 import org.spongycastle.crypto.params.ECDomainParameters;
@@ -35,6 +36,7 @@ import org.spongycastle.crypto.params.ECKeyGenerationParameters;
 import org.spongycastle.crypto.params.ECPrivateKeyParameters;
 import org.spongycastle.crypto.params.ECPublicKeyParameters;
 import org.spongycastle.crypto.signers.ECDSASigner;
+import org.spongycastle.crypto.signers.HMacDSAKCalculator;
 import org.spongycastle.math.ec.ECCurve;
 import org.spongycastle.math.ec.ECFieldElement;
 import org.spongycastle.math.ec.ECPoint;
@@ -426,11 +428,11 @@ public class ECKey implements Serializable {
         if (priv == null) {
             throw new IllegalStateException("This ECKey does not have the private key necessary for signing.");
         }
-        ECDSASigner signer = new ECDSASigner();
-        ECPrivateKeyParameters privKey = new ECPrivateKeyParameters(priv, ecParams);
+        ECDSASigner signer = new ECDSASigner(new HMacDSAKCalculator(new SHA256Digest()));
+        ECPrivateKeyParameters privKey = new ECPrivateKeyParameters(priv, CURVE);
         signer.init(true, privKey);
-        BigInteger[] sigs = signer.generateSignature(input.getBytes());
-        return new ECDSASignature(sigs[0], sigs[1]);
+        BigInteger[] components = signer.generateSignature(input.getBytes());
+        return new ECDSASignature(components[0], components[1]).toCanonicalised();
     }
 
     /**

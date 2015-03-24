@@ -159,11 +159,12 @@ public class ConnectionHandler extends Thread {
 
         while (!Main.shutdown && !exit) {
 
-            Log.put("NEW KEY RUN!!!!", 2000);
+            Log.put("NEW KEY RUN - before select", 2000);
             int readyChannels = 0;
             try {
                 readyChannels = selector.select();
             } catch (Exception e) {
+                e.printStackTrace();
                 //Main.sendBroadCastMsg("key was canceled...");
                 try {
                     sleep(100);
@@ -172,6 +173,8 @@ public class ConnectionHandler extends Thread {
                 }
                 continue;
             }
+
+            Log.put("NEW KEY RUN - after select", 2000);
 
 //            try {
 //                for (SelectionKey sk : selector.keys()) {
@@ -2075,9 +2078,9 @@ public class ConnectionHandler extends Thread {
                             long timestamp = executeQuery.getLong("timestamp");
                             int nonce = executeQuery.getInt("nonce");
                             byte[] signature = executeQuery.getBytes("signature");
-                            byte[] content = executeQuery.getBytes("content");
+                            //byte[] content = executeQuery.getBytes("content"); CONTENT ISNT AVAILABLE!! WE DONT NEED THE CONTENT
                             boolean verified = executeQuery.getBoolean("verified");
-                            RawMsg m = new RawMsg(timestamp, nonce, signature, content, verified);
+                            RawMsg m = new RawMsg(timestamp, nonce, signature, null, verified); //CONTENT IS NOT NEEDED!!
                             m.database_Id = message_id;
                             m.key = ecKey;
                             m.public_type = public_type;

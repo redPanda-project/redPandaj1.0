@@ -1282,6 +1282,20 @@ public class Test {
                     continue;
                 }
 
+                //mark as read
+                if (readLine.equals("mar")) {
+                    System.out.println("mark message as read (ID):");
+                    readLine = bufferedReader.readLine();
+                    try {
+                        long id = Long.parseLong(readLine);
+                        Main.markAsRead(id);
+                        System.out.println("Done.");
+                    } catch (NumberFormatException e) {
+                        System.out.println("No Number.");
+                    }
+                    continue;
+                }
+
                 if (readLine.equals("D")) {
                     System.out.println("debug info: ");
                     for (PeerTrustData ptd : peerTrusts) {

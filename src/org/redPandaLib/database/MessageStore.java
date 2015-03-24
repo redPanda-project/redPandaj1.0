@@ -86,4 +86,8 @@ public interface MessageStore {
     public void resetMessageCounter();
 
     public void checkpoint();
+
+    public void addUnreadMessage(long message_id);
+
+    public void markAsRead(long message_id);
 }

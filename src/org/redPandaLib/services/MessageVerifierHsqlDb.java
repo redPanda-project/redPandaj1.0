@@ -66,6 +66,7 @@ public class MessageVerifierHsqlDb {
     private static long lastDbReconnected = 0;
     public static int MAX_PERMITS = 10;
     public static Semaphore sem = new Semaphore(MAX_PERMITS);
+    public static boolean USES_UNREAD_STATUS = false;
 
     public static final ReentrantLock filesSystemLockForImages = new ReentrantLock(); //Need this lock because if check for all blocks then one might not be finished.
 
@@ -210,6 +211,11 @@ public class MessageVerifierHsqlDb {
 
                                 setPriority(Thread.MIN_PRIORITY);
 
+                                final String orgName = Thread.currentThread().getName();
+                                if (orgName.length() < 20) {
+                                    Thread.currentThread().setName(orgName + " - verify and broadcast thread");
+                                }
+
                                 boolean verify = rawMsg.verify();
 
                                 if (Main.shutdown) {
@@ -256,6 +262,10 @@ public class MessageVerifierHsqlDb {
 
                                             for (NewMessageListener listener : Main.listeners) {
                                                 listener.newMessage(fromTextMsg);
+                                            }
+
+                                            if (USES_UNREAD_STATUS && !fromMe) {
+                                                Test.messageStore.addUnreadMessage(message_id);
                                             }
 
                                             //send delivered msg
@@ -388,6 +398,10 @@ public class MessageVerifierHsqlDb {
                                                                 listener.newMessage(fromTextMsg);
                                                             }
 
+                                                            if (USES_UNREAD_STATUS && !fromMe) {
+                                                                Test.messageStore.addUnreadMessage(message_id);
+                                                            }
+
                                                             //send delivered msg
                                                             if (Settings.SEND_DELIVERED_MSG && SpecialChannels.isSpecial(pubkey) == null) {
                                                                 sendDeliveredMessage(message);
@@ -516,8 +530,11 @@ public class MessageVerifierHsqlDb {
                                                     @Override
                                                     public void run() {
                                                         final String orgName = Thread.currentThread().getName();
-                                                        Thread.currentThread().setName(orgName + " - broadCastMsg");
+                                                        if (orgName.length() < 20) {
+                                                            Thread.currentThread().setName(orgName + " - broadCastMsg");
+                                                        }
                                                         Test.broadcastMsg(message);
+
                                                     }
                                                 };
                                                 sendDeliveredMsgsThreads.submit(sendRunnable);
