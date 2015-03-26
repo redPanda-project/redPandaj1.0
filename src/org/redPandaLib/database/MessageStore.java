@@ -7,6 +7,7 @@ package org.redPandaLib.database;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.util.ArrayList;
+import java.util.HashMap;
 import org.redPandaLib.core.messages.RawMsg;
 import org.redPandaLib.core.messages.TextMessageContent;
 import org.redPandaLib.crypt.ECKey;
@@ -90,4 +91,11 @@ public interface MessageStore {
     public void addUnreadMessage(long message_id);
 
     public void markAsRead(long message_id);
+
+    public void addKnownChannel(int forChannel, long identity, int fromChannel, int level);
+
+    public void removeKnownChannelFromIdenity(long identity);
+
+    public HashMap<ECKey, Integer> getAllKnownChannels();
+
 }

@@ -71,7 +71,7 @@ public class Peer implements Comparable<Peer> {
     public int maxSimultaneousRequests = 1;
 
     public ArrayList<Integer> myInterestedChannelsCodedInHisIDs = new ArrayList<Integer>(); //for perfomance, so I dont have to look in the database for every message i am introduced.
-    
+
     public long sendBytes = 0;
     public long receivedBytes = 0;
 
@@ -222,7 +222,7 @@ public class Peer implements Comparable<Peer> {
         try {
             writeBufferLock.tryLock(2, TimeUnit.SECONDS);
 
-            Log.put("DISCONNECT: " + reason, 30);
+            Log.put("DISCONNECT: " + reason, -30);
 
             setConnected(false);
 
@@ -233,6 +233,7 @@ public class Peer implements Comparable<Peer> {
             }
 
             isConnecting = false;
+            authed = false;
 
             if (selectionKey != null) {
                 selectionKey.cancel();
@@ -299,10 +300,13 @@ public class Peer implements Comparable<Peer> {
         if (writeBufferLock.tryLock()) {
             if (writeBuffer.capacity() > 0) {
                 writeBuffer.put((byte) 100);
+//                System.out.println("pinged...");
             } else {
                 System.out.println("Konnte nicht pingen...");
             }
             writeBufferLock.unlock();
+        } else {
+            System.out.println("Could not lock for ping!");
         }
 
         setWriteBufferFilled();
@@ -412,6 +416,8 @@ public class Peer implements Comparable<Peer> {
             writtenBytes = getSocketChannel().write(writeBufferCrypted);
             writeBufferCrypted.compact();
 
+//            System.out.println("written bytes to node: " + writtenBytes);
+
             //System.out.println("crypted bytes: " + Utils.bytesToHexString(buffer) + " to " + Utils.bytesToHexString(encryptedBytes));
         }
 
@@ -497,14 +503,14 @@ public class Peer implements Comparable<Peer> {
         //int indexOfKey = keyToIdMine.indexOf(k);
         int indexOfKey = k.database_id;
 
-        if (writeBuffer.remaining() <  1 + 4 + 1 + 8 + 4 + 4 ) {
+        if (writeBuffer.remaining() < 1 + 4 + 1 + 8 + 4 + 4) {
             ByteBuffer oldbuffer = writeBuffer;
-            writeBuffer =  ByteBuffer.allocate(writeBuffer.capacity()+50);
+            writeBuffer = ByteBuffer.allocate(writeBuffer.capacity() + 50);
             writeBuffer.put(oldbuffer.array());
             writeBuffer.position(oldbuffer.position());
             System.out.println("writebuffer was raised...");
         }
-        
+
         writeBuffer.put((byte) 5);
         writeBuffer.putInt(indexOfKey);
         writeBuffer.put(m.public_type);

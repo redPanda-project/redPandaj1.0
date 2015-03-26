@@ -9,6 +9,7 @@ import java.io.UnsupportedEncodingException;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -1133,6 +1134,75 @@ public class DirectMessageStore implements MessageStore {
         } catch (SQLException ex) {
             Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
         }
+    }
+
+    @Override
+    public void addKnownChannel(int forChannel, long identity, int fromChannel, int level) {
+        try {
+            String query = "DELETE from channelKnownLevel WHERE forChannel = ? AND identity = ? AND fromChannel = ?";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setInt(1, forChannel);
+            pstmt.setLong(2, identity);
+            pstmt.setInt(3, fromChannel);
+            pstmt.execute();
+            pstmt.close();
+
+            query = "INSERT into channelKnownLevel (forChannel,identity,fromChannel,level) VALUES (?,?,?,?)";
+            pstmt = connection.prepareStatement(query);
+            pstmt.setInt(1, forChannel);
+            pstmt.setLong(2, identity);
+            pstmt.setInt(3, fromChannel);
+            pstmt.setInt(4, level);
+            pstmt.execute();
+            pstmt.close();
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    @Override
+    public void removeKnownChannelFromIdenity(long identity) {
+        try {
+            String query = "DELETE from channelKnownLevel WHERE identity = ?";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setLong(1, identity);
+            pstmt.execute();
+            pstmt.close();
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    @Override
+    public HashMap<ECKey, Integer> getAllKnownChannels() {
+
+        HashMap<ECKey, Integer> list = new HashMap<ECKey, Integer>();
+
+        try {
+            //get Key Id
+            String query = "SELECT forChannel,MIN(level) as level FROM channelKnownLevel group by forChannel";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            ResultSet executeQuery = pstmt.executeQuery();
+
+            while (executeQuery.next()) {
+                int forChannel = executeQuery.getInt("forChannel");
+                int level = executeQuery.getByte("level");
+
+                byte[] channelBytes = getPubkeyById(connection, forChannel);
+
+                System.out.println("len: " + channelBytes.length);
+
+                ECKey key = new ECKey(null, channelBytes);
+
+                list.put(key, level);
+            }
+
+            executeQuery.close();
+            pstmt.close();
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return list;
     }
 
 }

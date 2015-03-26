@@ -372,4 +372,14 @@ public class Main {
     public static void markAsRead(long message_id) {
         Test.messageStore.markAsRead(message_id);
     }
+
+    public static void internetConnectionInterrupted() {
+        ArrayList<Peer> clonedPeerList = Test.getClonedPeerList();
+        for (Peer peer : clonedPeerList) {
+            peer.disconnect("internetConnectionInterrupted");
+        }
+
+        Test.triggerOutboundthread();
+
+    }
 }

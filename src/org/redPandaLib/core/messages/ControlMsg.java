@@ -6,7 +6,6 @@ package org.redPandaLib.core.messages;
 
 import java.nio.ByteBuffer;
 import org.redPandaLib.core.Channel;
-import org.redPandaLib.core.Test;
 import org.redPandaLib.crypt.ECKey;
 
 /**

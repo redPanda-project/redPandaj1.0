@@ -22,6 +22,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -40,13 +41,16 @@ import static org.redPandaLib.core.Test.inBytes;
 import static org.redPandaLib.core.Test.messageStore;
 import static org.redPandaLib.core.Test.outBytes;
 import static org.redPandaLib.core.Test.peerList;
+import org.redPandaLib.core.messages.ControlMsg;
 import org.redPandaLib.core.messages.DeliveredMsg;
 import org.redPandaLib.core.messages.ImageMsg;
+import org.redPandaLib.core.messages.InfoMsg;
 import org.redPandaLib.core.messages.RawMsg;
 import org.redPandaLib.core.messages.TextMessageContent;
 import org.redPandaLib.core.messages.TextMsg;
 import org.redPandaLib.crypt.ECKey;
 import org.redPandaLib.crypt.Utils;
+import org.redPandaLib.database.HsqlConnection;
 
 /**
  * MAX_PERMITS
@@ -123,8 +127,10 @@ public class MessageVerifierHsqlDb {
                         Test.messageStore.removeOldMessages(System.currentTimeMillis() - 1000 * 60 * 60 * 24 * 7);
                     }
 
-                    Test.messageStore.checkpoint();
-                    System.out.println("checkpointed!!!!!");
+                    if (Test.messageStore.getConnection() instanceof HsqlConnection) {
+                        Test.messageStore.checkpoint();
+                        System.out.println("checkpointed!!!!!");
+                    }
 
                 }
 
@@ -520,6 +526,33 @@ public class MessageVerifierHsqlDb {
                                             // }
                                             // }
                                             //new ImageSaver("").saveImage("", "loaded.jpg");
+                                        } else if (message instanceof InfoMsg) {
+
+                                            try {
+
+                                                InfoMsg infoMsg = (InfoMsg) message;
+                                                long identity = infoMsg.getIdentity();
+
+                                                HashMap<ECKey, Integer> levels = infoMsg.getLevels();
+
+                                                int pubKeyIdFrom = Test.messageStore.getPubkeyId(infoMsg.getKey());
+
+                                                for (ECKey channel : levels.keySet()) {
+
+                                                    int pubKeyIdfor = Test.messageStore.getPubkeyId(channel);
+
+                                                    int level = levels.get(channel) + 1;
+
+                                                    Test.messageStore.addKnownChannel(pubKeyIdfor, identity, pubKeyIdFrom, level);
+
+                                                    System.out.println("adde from other node channelLevels: " + Utils.bytesToHexString(channel.getPubKey()) + " lvel: " + level + " from: " + pubKeyIdFrom);
+
+                                                }
+
+                                            } catch (Throwable e) {
+                                                e.printStackTrace();
+                                            }
+
                                         } else {
                                             //System.out.println("No textmsg?");
                                         }

@@ -94,6 +94,7 @@ public class Test {
     public static String stackTraceString = "";
     public static long lastSentStackTrace = 0;
     public static ImageInfos imageInfos = new ImageInfosImageIO();
+    public static Outboundthread outboundthread;
 
     static {
         Security.insertProviderAt(new org.spongycastle.jce.provider.BouncyCastleProvider(), 1);
@@ -235,17 +236,25 @@ public class Test {
                     //                    synchronized (peerList) {
                     for (Peer p : (ArrayList<Peer>) peerList.clone()) {
 
+                        //ToDo: remove
+                        try {
+                            sleep(500);
+                        } catch (InterruptedException ex) {
+                            Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+
                         if (p.getLastAnswered() > 1000 * 60 * 60 * 24 * 7 && peerList.size() > 3 && p.lastActionOnConnection != 0) {
                             removePeer(p);
                         }
 
-                        if (p.lastPinged - p.lastActionOnConnection > Settings.pingDelay * 1000 * 2 || (p.isConnecting && p.getLastAnswered() > 10000)) {
+                        if (p.lastPinged - p.lastActionOnConnection > Settings.pingDelay * 1000 * 2 + 30000 || (p.isConnecting && p.getLastAnswered() > 10000)) {
 
                             if (p.isConnected() || p.isConnecting) {
                                 if (DEBUG) {
                                     Log.put(Settings.pingTimeout + " sec timeout reached! " + p.ip, 10);
                                 }
                                 p.disconnect("timeout");
+                                outboundthread.tryInterrupt();
                             } else if (p.getLastAnswered() > Settings.pingTimeout * 1000 * 2) {
                                 p.writeBuffer = null;
                                 p.readBuffer = null;
@@ -279,7 +288,12 @@ public class Test {
                                     p.cnt = 0;
                                 } else {
 
-                                    if (p.isFullConnected()) { //&& p.getLastAnswered() > Settings.pingDelay * 1000) {
+//                                    if (p.isFullConnected()) {
+//
+//                                        System.out.println("PING?: " + p.getLastAnswered() + " > " + Settings.pingDelay * 1000);
+//
+//                                    }
+                                    if (p.isFullConnected() && p.getLastAnswered() > Settings.pingDelay * 1000) {
                                         p.ping();
                                     }
 
@@ -292,8 +306,8 @@ public class Test {
                                         } else {
                                             p.trustRetries = 0;
                                             System.out.println("Found a bad guy... requesting new key: " + p.nonce);
-                                            ConnectionHandler.sendNewAuthKey(p);
-                                            //p.disconnect();
+                                            //ConnectionHandler.sendNewAuthKey(p);
+                                            p.disconnect("not authed...");
                                         }
 
                                         //System.out.println("Found a bad guy... requesting new key: " + p.nonce);
@@ -1000,6 +1014,7 @@ public class Test {
                     for (Peer peer : (ArrayList<Peer>) peerList.clone()) {
                         peer.disconnect("c");
                     }
+                    triggerOutboundthread();
                     continue;
                 }
 
@@ -1321,6 +1336,7 @@ public class Test {
                     Settings.MIN_CONNECTIONS++;
                     Settings.MAX_CONNECTIONS++;
                     System.out.println("+1 peer: " + Settings.MIN_CONNECTIONS);
+                    triggerOutboundthread();
                     continue;
                 }
 
@@ -1328,6 +1344,7 @@ public class Test {
                     Settings.MIN_CONNECTIONS--;
                     Settings.MAX_CONNECTIONS--;
                     System.out.println("-1 peer: " + Settings.MIN_CONNECTIONS);
+                    triggerOutboundthread();
                     continue;
                 }
 
@@ -1531,7 +1548,21 @@ public class Test {
         }
     }
 
+    public static void triggerOutboundthread() {
+        if (outboundthread != null) {
+            outboundthread.tryInterrupt();
+        }
+    }
+
     static class Outboundthread extends Thread {
+
+        boolean allowInterrupt = false;
+
+        public void tryInterrupt() {
+            if (allowInterrupt) {
+                interrupt();
+            }
+        }
 
         @Override
         public void run() {
@@ -1562,8 +1593,8 @@ public class Test {
                     continue;
                 }
 
+                //ToDo: remove, not working anymore
                 if (Settings.initFullNetworkSync) {
-
                     //just a one time action
                     Settings.initFullNetworkSync = false;
                     System.out.println("init full sync, closing all connections");
@@ -1598,12 +1629,21 @@ public class Test {
                 ArrayList<Peer> clonedPeerList = (ArrayList<Peer>) peerList.clone();
 
                 //Collections.shuffle(peerList);
-                Collections.sort(clonedPeerList);
+                try {
+                    Collections.sort(clonedPeerList);
+                } catch (java.lang.IllegalArgumentException e) {
+                    try {
+                        sleep(100);
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                    continue;
+                }
 
                 int actCons = 0;
                 int connectingCons = 0;
                 for (Peer peer : clonedPeerList) {
-                    if (peer.getLastAnswered() < Settings.pingTimeout * 1000 && peer.isConnected()) {
+                    if (peer.getLastAnswered() < Settings.pingTimeout * 1000 && peer.isConnected() && peer.isAuthed() && peer.isCryptedConnection()) {
 
                         String[] split = peer.ip.split("\\.");
                         if (split.length == 4 && split[0].equals("192")) {
@@ -1616,6 +1656,8 @@ public class Test {
                         connectingCons++;
                     }
                 }
+
+                boolean fasterRetry = (actCons < 2);
 
                 if (connectingCons == clonedPeerList.size()) {
                     //hack!
@@ -1639,7 +1681,7 @@ public class Test {
 
                     if (actCons >= Settings.MIN_CONNECTIONS) {
                         if (DEBUG) {
-//                            System.out.println("peers " + actCons + " are enough...");
+                            Log.put("peers " + actCons + " are enough...", 300);
                         }
                         if (cnt == 1 && actCons >= Settings.MAX_CONNECTIONS) {
                             for (Peer p1 : clonedPeerList) {
@@ -1680,7 +1722,6 @@ public class Test {
 //                        }
                         continue;
                     }
-
                     if (peer.ip.length() <= 15 && Settings.IPV6_ONLY) {
                         peerList.remove(peer);
                         if (DEBUG) {
@@ -1789,10 +1830,16 @@ public class Test {
                 }
 
                 try {
-                    //sleep(60000 + random.nextInt(30000));
-                    sleep(5000 + random.nextInt(3000));
+                    allowInterrupt = true;
+                    if (fasterRetry) {
+                        sleep(5000 + random.nextInt(3000));
+                    } else {
+                        sleep(60000 + random.nextInt(30000));
+                    }
+
                 } catch (InterruptedException ex) {
-                    Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                } finally {
+                    allowInterrupt = false;
                 }
 
             }
@@ -2092,15 +2139,40 @@ public class Test {
         File file = new File(Test.imageStoreFolder);
         file.mkdir();
 
-        new Outboundthread().start();
+        outboundthread = new Outboundthread();
+        outboundthread.start();
         MessageDownloader.start();
         MessageVerifierHsqlDb.start();
         addKnowNodes();
-        ClusterBuilder.start();
+        //ClusterBuilder.start();
         if (Settings.SUPERNODE) {
             Settings.MIN_CONNECTIONS = 30;
             Settings.MAX_CONNECTIONS = 300;
         }
+
+        new Thread() {
+
+            @Override
+            public void run() {
+                KnownChannels.updateMyChannels();
+
+                try {
+                    sleep(1000);
+                } catch (InterruptedException ex) {
+                }
+
+                if (System.currentTimeMillis() - Test.localSettings.lastSendAllMyChannels > 1000 * 60 * 60 * 24 * 1) {
+
+                    KnownChannels.sendAllKnownChannels();
+
+                    Test.localSettings.lastSendAllMyChannels = System.currentTimeMillis();
+                    Test.localSettings.save();
+
+                }
+            }
+
+        }.start();
+
     }
 
     public static void savePeers() {

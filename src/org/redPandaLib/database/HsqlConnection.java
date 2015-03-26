@@ -99,7 +99,7 @@ public class HsqlConnection {
         }
         stmt.executeUpdate("SET AUTOCOMMIT TRUE");
         //ToDo: check that this doesnt cause any problems MVLOCKS = snapshot read!!
-        stmt.executeUpdate("SET FILES LOG SIZE 10");
+        stmt.executeUpdate("SET FILES LOG SIZE 50");
         stmt.executeUpdate("SET FILES DEFRAG 50");
         stmt.executeUpdate("SET DATABASE TRANSACTION CONTROL MVLOCKS");
         con.commit();
@@ -166,6 +166,8 @@ public class HsqlConnection {
         stmt.executeUpdate("create CACHED table if not exists haveToSendMessageToPeer (peer_id BIGINT, message_id INTEGER, FOREIGN KEY (message_id) REFERENCES message(message_id) ON DELETE CASCADE)");
         stmt.executeUpdate("create CACHED table if not exists filterChannels (peer_id BIGINT, channel_id INTEGER)");//, FOREIGN KEY (channel_id) REFERENCES channel(channel_id) ON DELETE CASCADE
         stmt.executeUpdate("create CACHED table if not exists notReadMessage (message_id INTEGER, FOREIGN KEY (message_id) REFERENCES message(message_id) ON DELETE CASCADE)");
+        stmt.executeUpdate("create CACHED table if not exists channelKnownLevel (forChannel INTEGER, identity BIGINT, fromChannel INTEGER, level INTEGER)");
+
         //        ResultSet executeQuery = stmt.executeQuery("SELECT * FROM information_schema.statistics");
         //
         //

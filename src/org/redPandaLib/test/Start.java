@@ -173,8 +173,12 @@ public class Start {
 
         Log.LEVEL = -1;
         Settings.lightClient = false;
-        Settings.SUPERNODE = true;
+        Settings.SUPERNODE = false;
         Settings.REDUCE_TRAFFIC = false;
+        Settings.MIN_CONNECTIONS = 2;
+        Settings.MAX_CONNECTIONS = 4;
+        
+        Settings.pingDelay = 30;
         
         org.redPandaLib.Main.startUp(
                 true, saver);

@@ -386,11 +386,13 @@ public class ConnectionHandler extends Thread {
                         } else if (read == -1) {
                             Log.put("closing connection " + peer.ip + ":" + peer.port + ": not readable! " + readBuffer, 200);
                             peer.disconnect(" read == -1 ");
+                            Test.triggerOutboundthread();
                             key.cancel();
                         } else {
 
                             peer.lastActionOnConnection = System.currentTimeMillis();
                             //System.out.println("setting lastActionOn: " + peer.nonce);
+//                            System.out.println("read bytes: " + read);
 
 //                                System.out.println("a: " + read + " ");
 //                            System.out.println(new String(.array(), 0, read));

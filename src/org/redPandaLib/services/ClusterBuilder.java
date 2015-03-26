@@ -24,6 +24,7 @@ import org.redPandaLib.core.messages.TextMsg;
  *
  * @author rflohr
  */
+@Deprecated
 public class ClusterBuilder {
 
     static WorkingThread workingThread;
@@ -63,22 +64,16 @@ public class ClusterBuilder {
                         RawMsg addMessage = MessageHolder.addMessage(build);
                         Test.broadcastMsg(addMessage);
 
-
                     }
                 }
             }
 
-
             while (true) {
                 try {
-
-
 
                     String myIp;
 
                     myIp = IpChecker.getIp();
-
-
 
                     if (Test.localSettings.myIp.equals(myIp)) {
                         //System.out.println("found my external ip: " + myIp + " - Ip didnt change... do nothing...");
@@ -95,16 +90,13 @@ public class ClusterBuilder {
                     Test.localSettings.myIp = myIp;
                     Test.localSettings.save();
 
-
                     for (Channel channel : Main.getChannels()) {
-
 
                         byte[] content = new byte[4 + 4 + 2];
                         ByteBuffer wrap = ByteBuffer.wrap(content);
                         wrap.putInt(1);//myIp command
 
                         String[] split = myIp.split("\\.");
-
 
                         if (split.length != 4) {
                             System.out.println("my ip ist wrong...");
@@ -117,9 +109,6 @@ public class ClusterBuilder {
                         }
 
                         wrap.put(ByteUtils.intToUnsignedShortAsBytes(Test.getMyPort()));
-
-
-
 
                         ControlMsg build = ControlMsg.build(channel, System.currentTimeMillis(), 4789, content);
                         RawMsg addMessage = MessageHolder.addMessage(build);
