@@ -37,6 +37,7 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.redPandaLib.ImageTooLargeException;
 import org.redPandaLib.Main;
 import org.redPandaLib.SpecialChannels;
 import org.redPandaLib.core.messages.ImageMsg;
@@ -439,10 +440,10 @@ public class Test {
                     Collections.sort(list);
 
 //                    System.out.println("IP:PORT \t\t\t\t\t\t Nonce \t\t\t Last Answer \t Alive \t retries \t LoadedMsgs \t Ping \t Authed \t PMSG\n");
-                    System.out.format("%50s %22s %12s %10s %7s %8s %10s %10s %10s %8s %10s %10s %10s\n", "[IP]:PORT", "nonce", "last answer", "conntected", "retries", "ping", "loaded Msg", "bytes out", "bytes in", "bad Msg", "ToSyncM", "RSM", "BacckSyncdT");
+                    System.out.format("%50s %22s %12s %12s %7s %8s %10s %10s %10s %8s %10s %10s %10s\n", "[IP]:PORT", "nonce", "last answer", "conntected", "retries", "ping", "loaded Msg", "bytes out", "bytes in", "bad Msg", "ToSyncM", "RSM", "BacckSyncdT");
                     for (Peer peer : list) {
 
-                        if (peer.isConnected()) {
+                        if (peer.isConnected() && peer.authed && peer.writeBufferCrypted != null) {
                             actCons++;
                         }
 
@@ -455,9 +456,9 @@ public class Test {
                         }
 
                         if (peer.getPeerTrustData() == null) {
-                            System.out.format("%50s %22d %12s %10s %7d %8s %10s %10d %10d %10d\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.), "-", peer.sendBytes, peer.receivedBytes, peer.removedSendMessages.size());
+                            System.out.format("%50s %22d %12s %12s %7d %8s %10s %10d %10d %10d\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), "-", peer.sendBytes, peer.receivedBytes, peer.removedSendMessages.size());
                         } else {
-                            System.out.format("%50s %22d %12s %10s %7d %8s %10d %10d %10d %8s %10d %10d %10s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected(), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.removedSendMessages.size(), formatInterval(System.currentTimeMillis() - peer.peerTrustData.backSyncedTill));
+                            System.out.format("%50s %22d %12s %12s %7d %8s %10d %10d %10d %8s %10d %10d %10s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.removedSendMessages.size(), formatInterval(System.currentTimeMillis() - peer.peerTrustData.backSyncedTill));
                         }
 
 //                        while (c.length() < 15) {
@@ -671,7 +672,11 @@ public class Test {
                     Main.addSpamChannel();
 
                     System.out.println("image send file img.jpg");
-                    Main.sendImageToChannel(SpecialChannels.SPAM, "img.jpg", true);
+                    try {
+                        Main.sendImageToChannel(SpecialChannels.SPAM, "img.jpg", true);
+                    } catch (ImageTooLargeException ex) {
+                        Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                    }
 
                     continue;
                 }
@@ -1283,6 +1288,96 @@ public class Test {
                     }
                     continue;
                 }
+
+                if (readLine.equals("ls")) {
+
+                    ArrayList<Peer> clonedPeerList = getClonedPeerList();
+                    Collections.sort(clonedPeerList);
+                    for (Peer peer : clonedPeerList) {
+                        if (peer.peerTrustData == null) {
+                            continue;
+                        }
+
+                        System.out.println("peer: " + peer.nonce + " locked: " + peer.writeBufferLock.isLocked() + " holdcnt: " + peer.writeBufferLock.getHoldCount() + " queue: " + peer.writeBufferLock.getQueueLength());
+
+                    }
+                    continue;
+                }
+
+                if (readLine.equals("ls2")) {
+
+                    ArrayList<Peer> clonedPeerList = getClonedPeerList();
+                    Collections.sort(clonedPeerList);
+                    for (Peer peer : clonedPeerList) {
+                        if (peer.peerTrustData == null) {
+                            continue;
+                        }
+
+                        System.out.println("peer: " + peer.nonce + " pending msgs: " + peer.getPeerTrustData().pendingMessages.size() + " - timeouted: " + peer.getPeerTrustData().pendingMessagesTimedOut);
+
+                    }
+                    continue;
+                } else if (readLine.equals("ls3")) {
+
+                    ArrayList<Peer> clonedPeerList = getClonedPeerList();
+                    Collections.sort(clonedPeerList);
+                    for (Peer peer : clonedPeerList) {
+                        if (peer.peerTrustData == null) {
+                            continue;
+                        }
+
+                        System.out.println("peer: " + peer.nonce + " requsted: " + peer.requestedMsgs);
+
+                    }
+                    continue;
+                }
+
+                if (readLine.equals("triggerSync")) {
+
+                    ArrayList<Peer> clonedPeerList = getClonedPeerList();
+                    Collections.sort(clonedPeerList);
+                    for (Peer peer : clonedPeerList) {
+                        if (peer.peerTrustData == null || !peer.authed || !peer.isConnected()) {
+                            continue;
+                        }
+
+                        System.out.println("found: " + peer.nonce);
+                        //peer.removedSendMessages.clear();
+                        //peer.disconnect("teeest3123");
+                        //triggerOutboundthread();
+                        peer.writeBufferLock.lock();
+
+                        //init sync
+                        peer.writeBuffer.put((byte) 3);
+                        //sync last two days
+                        //writeBuffer.putLong(-1);// full sync!
+                        //writeBuffer.putLong(0);
+                        //writeBuffer.putLong(Math.max(System.currentTimeMillis() - 1000 * 60 * 60 * 24 * 2, Settings.till));
+                        //writeBuffer.putLong(Math.max(System.currentTimeMillis() - 1000 * 60, Settings.till));
+                        //writeBuffer.putLong(System.currentTimeMillis() - 1000 * 60 * 60);
+
+                        long myTime = System.currentTimeMillis() - 1000 * 60 * 60 * 24 * 7;
+                        if (Settings.SUPERNODE) {
+                            myTime = 0;
+                        }
+                        peer.writeBuffer.putLong(myTime);
+                        peer.writeBuffer.put((byte) 0);
+                        //get PeerList
+                        peer.writeBuffer.put((byte) 1);
+//                    peer.setWriteBufferFilled();
+                        peer.writeBufferLock.unlock();
+                        peer.setWriteBufferFilled();
+
+                        System.out.println("try to sync again...");
+
+                    }
+
+                    continue;
+                }
+                if (readLine.equals("triggerMD")) {
+                    MessageDownloader.trigger();
+                    continue;
+                }
                 // set log level
                 if (readLine.equals("ll")) {
                     System.out.println("new log level:");
@@ -1622,7 +1717,7 @@ public class Test {
                     continue;
                 }
 
-                if (peerList.size() == 0) {
+                if (peerList.isEmpty()) {
                     addKnowNodes();
                 }
 
@@ -1659,14 +1754,13 @@ public class Test {
 
                 boolean fasterRetry = (actCons < 2);
 
-                if (connectingCons == clonedPeerList.size()) {
-                    //hack!
-                    for (Peer peer : clonedPeerList) {
-                        peer.disconnect("con neu");
-                    }
-                    continue;
-                }
-
+//                if (connectingCons == clonedPeerList.size()) {
+//                    //hack!
+//                    for (Peer peer : clonedPeerList) {
+//                        peer.disconnect("con neu");
+//                    }
+//                    continue;
+//                }
 //                if (DEBUG) {
 //                    System.out.println("search new peers....");
 //                }
@@ -1817,11 +1911,11 @@ public class Test {
                         }
                         connectTo(peer);
                         actCons++;
-//                        try {
-//                            sleep(50);
-//                        } catch (InterruptedException ex) {
-//                            Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
-//                        }
+                        try {
+                            sleep(200);
+                        } catch (InterruptedException ex) {
+                            Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                        }
 
                     } else {
                         System.out.println("connect state: " + peer.connectAble + " -- " + peer.ip + ":" + peer.port);
@@ -1836,7 +1930,6 @@ public class Test {
                     } else {
                         sleep(60000 + random.nextInt(30000));
                     }
-
                 } catch (InterruptedException ex) {
                 } finally {
                     allowInterrupt = false;
@@ -1857,6 +1950,7 @@ public class Test {
 
         for (String host : Settings.knownNodes) {
             try {
+                //ToDo: eats up cpu if no internet is available?!?
                 findPeer(new Peer(InetAddress.getByName(host).getHostAddress(), Settings.STD_PORT));
             } catch (UnknownHostException ex) {
                 System.out.println("Could not resolve hostname: " + host);
@@ -2130,10 +2224,10 @@ public class Test {
     private static void startedUpSuccessful() {
         STARTED_UP_SUCCESSFUL = true;
 
-        //just a workaround, ToDo: bewerte Ips von einem Node
-        for (PeerTrustData ptd : peerTrusts) {
-            ptd.ips.clear();
-        }
+////        //just a workaround, ToDo: bewerte Ips von einem Node
+////        for (PeerTrustData ptd : peerTrusts) {
+////            ptd.ips.clear();
+////        }
         saveTrustData();
 
         File file = new File(Test.imageStoreFolder);

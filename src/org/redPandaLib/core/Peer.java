@@ -262,6 +262,13 @@ public class Peer implements Comparable<Peer> {
             if (writeBufferLock.isHeldByCurrentThread()) {
                 writeBufferLock.unlock();
             }
+
+            if (peerTrustData != null) {
+                peerTrustData.pendingMessages = new HashMap<Integer, RawMsg>();
+                peerTrustData.pendingMessagesTimedOut = new HashMap<Integer, RawMsg>();
+                peerTrustData.pendingMessagesPublic = new HashMap<Integer, RawMsg>();
+            }
+
         } catch (InterruptedException ex) {
             Logger.getLogger(Peer.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -302,7 +309,7 @@ public class Peer implements Comparable<Peer> {
                 writeBuffer.put((byte) 100);
 //                System.out.println("pinged...");
             } else {
-                System.out.println("Konnte nicht pingen...");
+                System.out.println("didnt ping, buffer has content...");
             }
             writeBufferLock.unlock();
         } else {
@@ -417,7 +424,6 @@ public class Peer implements Comparable<Peer> {
             writeBufferCrypted.compact();
 
 //            System.out.println("written bytes to node: " + writtenBytes);
-
             //System.out.println("crypted bytes: " + Utils.bytesToHexString(buffer) + " to " + Utils.bytesToHexString(encryptedBytes));
         }
 
@@ -430,23 +436,27 @@ public class Peer implements Comparable<Peer> {
      * @param m
      */
     public synchronized void writeMessage(RawMsg m) {
-        //may be setted to null during work...
-        ByteBuffer localWriteBuffer = writeBuffer;
 
-        if (localWriteBuffer == null || readBuffer == null) {
-            System.out.println("couldnt send msg, no buffers...");
-            return;
-        }
+        try {
+            //may be setted to null during work...
+            ByteBuffer localWriteBuffer = writeBuffer;
 
-        if (m.database_Id == -1 || m.key.database_id == -1) {
-            //Main.sendBroadCastMsg("HOLY SHIT  - nudm3284mz28423n4znc75z34c578n3485zc3857zc8345");
-            try {
-                throw new RuntimeException("HOLY SHIT  - nudm3284mz28423n4znc75z34c578n3485zc3857zc8345 " + m.database_Id + " " + m.key.database_id);
-            } catch (RuntimeException e) {
-                e.printStackTrace();
+            Log.put("try to introduce msg to node " + nonce, 200);
+
+            if (localWriteBuffer == null || readBuffer == null) {
+                System.out.println("couldnt send msg, no buffers...");
+                return;
             }
-            return;
-        }
+
+            if (m.database_Id == -1 || m.key.database_id == -1) {
+                //Main.sendBroadCastMsg("HOLY SHIT  - nudm3284mz28423n4znc75z34c578n3485zc3857zc8345");
+                try {
+                    throw new RuntimeException("HOLY SHIT  - nudm3284mz28423n4znc75z34c578n3485zc3857zc8345 " + m.database_Id + " " + m.key.database_id);
+                } catch (RuntimeException e) {
+                    e.printStackTrace();
+                }
+                return;
+            }
 
 //        if (peerTrustData.sendMessages.contains(m.database_Id)) {
 //            return;
@@ -456,11 +466,11 @@ public class Peer implements Comparable<Peer> {
 //            //System.out.println("peer doesnt want messages for this channel: " + m.key.getPubKey());
 //            return;
 //        }
-        //peerTrustData.sendMessages.add(m.database_Id);
-        //Test.messageStore.addMsgIntroducedToHim(peerTrustData.internalId, m.database_Id);
-        //System.out.println("added to db: " + peerTrustData.internalId + " - " + m.database_Id);
-        ECKey k = m.key;
-        if (!peerTrustData.keyToIdMine.contains(k.database_id)) {
+            //peerTrustData.sendMessages.add(m.database_Id);
+            //Test.messageStore.addMsgIntroducedToHim(peerTrustData.internalId, m.database_Id);
+            //System.out.println("added to db: " + peerTrustData.internalId + " - " + m.database_Id);
+            ECKey k = m.key;
+            if (!peerTrustData.keyToIdMine.contains(k.database_id)) {
 
 //            if (k.getPubKey().length != 33) {
 //                System.out.println("Dbdzudgn268rtgx6345g345m: " + " len: " + k.getPubKey().length);
@@ -475,59 +485,68 @@ public class Peer implements Comparable<Peer> {
 //
 //                System.out.println("Dbdzudgn268rtgx6345g345m: " + " len: " + k.getPubKey().length);
 //            }
+                writeBufferLock.lock();
+                if (writeBuffer == null) {
+                    writeBufferLock.unlock();
+                    return;
+                }
+                peerTrustData.keyToIdMine.add(k.database_id);
+                //int indexOf = keyToIdMine.indexOf(k);
+                int indexOf = m.key.database_id;
+                localWriteBuffer.put((byte) 4);
+                localWriteBuffer.put(k.getPubKey());
+                localWriteBuffer.putInt(indexOf);
+                //System.out.println("Msg index: " + indexOf);
+                writeBufferLock.unlock();
+
+            }
+
+            if (m.public_type == -1) {
+                throw new RuntimeException("omg!");
+            }
+
+            Log.put("try to get lock for writebuffer for node " + nonce, 200);
             writeBufferLock.lock();
+            Log.put("got lock: " + nonce, 200);
             if (writeBuffer == null) {
+                Log.put("writebuffer null: " + nonce, 200);
                 writeBufferLock.unlock();
                 return;
             }
-            peerTrustData.keyToIdMine.add(k.database_id);
-            //int indexOf = keyToIdMine.indexOf(k);
-            int indexOf = m.key.database_id;
-            localWriteBuffer.put((byte) 4);
-            localWriteBuffer.put(k.getPubKey());
-            localWriteBuffer.putInt(indexOf);
-            //System.out.println("Msg index: " + indexOf);
+            //int indexOfKey = keyToIdMine.indexOf(k);
+            int indexOfKey = k.database_id;
+            Log.put("asdf " + nonce, 200);
+            if (writeBuffer.remaining() < 1 + 4 + 1 + 8 + 4 + 4) {
+                ByteBuffer oldbuffer = writeBuffer;
+                writeBuffer = ByteBuffer.allocate(writeBuffer.capacity() + 50);
+                writeBuffer.put(oldbuffer.array());
+                writeBuffer.position(oldbuffer.position());
+                System.out.println("writebuffer was raised...");
+            }
+
+            Log.put("gd2eqe2: " + nonce, 200);
+            writeBuffer.put((byte) 5);
+            writeBuffer.putInt(indexOfKey);
+            writeBuffer.put(m.public_type);
+            writeBuffer.putLong(m.timestamp);
+            writeBuffer.putInt(m.nonce);
+            writeBuffer.putInt(m.database_Id);//TODO long zu int machen mit offset falls db zu gross!!
+            Log.put("try to unlock: " + nonce + " isLockedByMe: " + writeBufferLock.isHeldByCurrentThread(), 200);
+
             writeBufferLock.unlock();
 
-        }
+            Log.put("Introduced message to node: " + m.database_Id + " " + nonce, 40);
 
-        if (m.public_type == -1) {
-            throw new RuntimeException("omg!");
-        }
-
-        writeBufferLock.lock();
-        if (writeBuffer == null) {
-            writeBufferLock.unlock();
-            return;
-        }
-        //int indexOfKey = keyToIdMine.indexOf(k);
-        int indexOfKey = k.database_id;
-
-        if (writeBuffer.remaining() < 1 + 4 + 1 + 8 + 4 + 4) {
-            ByteBuffer oldbuffer = writeBuffer;
-            writeBuffer = ByteBuffer.allocate(writeBuffer.capacity() + 50);
-            writeBuffer.put(oldbuffer.array());
-            writeBuffer.position(oldbuffer.position());
-            System.out.println("writebuffer was raised...");
-        }
-
-        writeBuffer.put((byte) 5);
-        writeBuffer.putInt(indexOfKey);
-        writeBuffer.put(m.public_type);
-        writeBuffer.putLong(m.timestamp);
-        writeBuffer.putInt(m.nonce);
-        writeBuffer.putInt(m.database_Id);//TODO long zu int machen mit offset falls db zu gross!!
-        writeBufferLock.unlock();
-
-        Log.put("Introduced message to node: " + m.database_Id + " " + nonce, 550);
-
-        //should be run later manually...
+            //should be run later manually...
 ////        boolean sureWrittenToPeer = setWriteBufferFilled();
 ////
 ////        //System.out.println("wrote msg to peer: " + ip + " " + m.database_Id);
 ////        if (!sureWrittenToPeer) {
 ////            //TODO
 ////        }
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
     }
 
     public void sendChannelToFilter(ECKey k) {

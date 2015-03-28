@@ -398,6 +398,7 @@ public class Channel implements Serializable, Comparable<Channel> {
                     for (Peer p : Test.getClonedPeerList()) {
                         p.disconnect("added new channel");
                     }
+                    Test.triggerOutboundthread();
                 }
             }
 

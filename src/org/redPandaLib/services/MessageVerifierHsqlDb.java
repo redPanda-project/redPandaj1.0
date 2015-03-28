@@ -16,15 +16,11 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLIntegrityConstraintViolationException;
-import java.sql.SQLNonTransientConnectionException;
-import java.sql.SQLWarning;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map.Entry;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
@@ -38,10 +34,8 @@ import org.redPandaLib.core.*;
 import org.redPandaLib.core.ImageInfos.Infos;
 import static org.redPandaLib.core.Test.NAT_OPEN;
 import static org.redPandaLib.core.Test.inBytes;
-import static org.redPandaLib.core.Test.messageStore;
 import static org.redPandaLib.core.Test.outBytes;
 import static org.redPandaLib.core.Test.peerList;
-import org.redPandaLib.core.messages.ControlMsg;
 import org.redPandaLib.core.messages.DeliveredMsg;
 import org.redPandaLib.core.messages.ImageMsg;
 import org.redPandaLib.core.messages.InfoMsg;
@@ -311,6 +305,20 @@ public class MessageVerifierHsqlDb {
                                                     out += "\nTraffic: " + inBytes / 1024. + " kb / " + outBytes / 1024. + " kb.";
 
                                                     Main.sendBroadCastMsg(out);
+
+                                                } else if (fromTextMsg.text.equals("knownTrigger")) {
+
+                                                    System.out.println("trigger knwon channels by main channel...");
+
+                                                    new Thread() {
+
+                                                        @Override
+                                                        public void run() {
+                                                            KnownChannels.updateMyChannels();
+                                                            KnownChannels.sendAllKnownChannels();
+                                                        }
+
+                                                    }.start();
 
                                                 }
                                             }
@@ -595,8 +603,9 @@ public class MessageVerifierHsqlDb {
                                                         System.out.println("loaded from peer: " + peer.getIp() + ":" + peer.getPort());
                                                         peer.getPeerTrustData().badMessages++;
                                                         peer.disconnect("bad signature!!!");
-                                                        Test.peerTrusts.remove(peer.peerTrustData);
-                                                        System.out.println("REMOVED PEER TRUST!");
+                                                        System.out.println("disconnect...");
+                                                        //Test.peerTrusts.remove(peer.peerTrustData);
+                                                        //System.out.println("REMOVED PEER TRUST!");
                                                     }
                                                 }
 

@@ -143,6 +143,7 @@ public class ConnectionHandler extends Thread {
             //System.out.println("added con");
         } catch (IOException ex) {
             Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
+            peer.disconnect("could not init connection....");
             return;
         }
 
@@ -306,7 +307,13 @@ public class ConnectionHandler extends Thread {
                         int read = -2;
 
                         if (peer.readBufferCrypted == null) {
-                            read = peer.getSocketChannel().read(readBuffer);
+                            try {
+                                read = peer.getSocketChannel().read(readBuffer);
+                            } catch (IOException e) {
+                                key.cancel();
+                                peer.disconnect("could not read...");
+                                continue;
+                            }
 
                             //check if this thread should exit!
                             if (interrupted()) {
@@ -738,7 +745,7 @@ public class ConnectionHandler extends Thread {
                     continue;
                 }
 
-                if (!p1.isConnected()) {
+                if (!p1.isConnected() || p1.writeBufferCrypted == null || !p1.authed) {
                     continue;
                 }
 
@@ -1342,11 +1349,11 @@ public class ConnectionHandler extends Thread {
 //            }
             if (Settings.lightClient) {
 
-                for (Channel channel : Test.channels) {
+                //remove -1 for migration from super node to light node.
+                peer.writeBuffer.put((byte) 62);
+                peer.writeBuffer.putInt(-1);
 
-                    //remove -1 for migration from super node to light node.
-                    peer.writeBuffer.put((byte) 62);
-                    peer.writeBuffer.putInt(-1);
+                for (Channel channel : Test.channels) {
 
                     if (!peer.getPeerTrustData().sendChannelsToFilter.contains(peer)) {
                         peer.sendChannelToFilter(channel.key);
@@ -1602,7 +1609,7 @@ public class ConnectionHandler extends Thread {
                         Log.put("IP schon in den trusted Data...", 200);
                     } else {
 
-                        if (peer.peerTrustData.ips.size() > 30) {
+                        if (peer.peerTrustData.ips.size() > 10) {
                             peer.peerTrustData.ips.clear();
                         }
 
@@ -1612,6 +1619,10 @@ public class ConnectionHandler extends Thread {
                     }
 
                     peer.removeRequestedMsgs();
+
+                    pt.pendingMessages = new HashMap<Integer, RawMsg>();
+                    pt.pendingMessagesTimedOut = new HashMap<Integer, RawMsg>();
+                    pt.pendingMessagesPublic = new HashMap<Integer, RawMsg>();
 
                     peer.writeBufferLock.lock();
                     //ab nun werden alle bytes verschluesselt, dies wird mit dem folgenden Befehl gestarted
@@ -1978,7 +1989,7 @@ public class ConnectionHandler extends Thread {
         }.start();
     }
 
-    private void syncAllMessagesSince(final long time, final Peer peer) {
+    public static void syncAllMessagesSince(final long time, final Peer peer) {
         new Thread() {
 
             @Override
@@ -2000,65 +2011,69 @@ public class ConnectionHandler extends Thread {
                 }
 
                 try {
+                    int cntRows = 100;
+                    while (cntRows == 100) {
 
 //                            if (Settings.SUPERNODE) {
 //                                time = 0;
 //                            }
-                    Log.put("full sync... from: " + time, 20);
-                    ResultSet executeQuery = MessageHolder.getAllMessages(time, Long.MAX_VALUE, peer.getPeerTrustData().internalId);
-                    Log.put("query okay...", 20);
-                    //                        for (RawMsg m : MessageHolder.getAllMessages(time, System.currentTimeMillis())) {
+                        Log.put("full sync... from: " + time, 20);
+                        ResultSet executeQuery = MessageHolder.getAllMessages(time, Long.MAX_VALUE, peer.getPeerTrustData().internalId);
+                        Log.put("query okay...", 20);
+                        //                        for (RawMsg m : MessageHolder.getAllMessages(time, System.currentTimeMillis())) {
 
-                    if (MXBeanSupported) {
+                        cntRows = 0;
 
-                        ThreadMXBean tmb = ManagementFactory.getThreadMXBean();
-
-                        long time = new Date().getTime() * 1000000;
-                        long cput = 0;
-                        double cpuperc = -1;
-
+////                        if (MXBeanSupported) {
+////
+////                            ThreadMXBean tmb = ManagementFactory.getThreadMXBean();
+////
+////                            long time = new Date().getTime() * 1000000;
+////                            long cput = 0;
+////                            double cpuperc = -1;
+////
                         while (executeQuery.next()) {
-
+                            cntRows++;
                             msgsWithoutCPUcheck++;
-                            //System.out.println("asdf");
-
-                            while (msgsWithoutCPUcheck > 10) {
-                                msgsWithoutCPUcheck = 0;
-                                if (tmb.isThreadCpuTimeSupported()) {
-                                    if (new Date().getTime() * 1000000 - time > 1000000000) { //Reset once per second
-                                        time = new Date().getTime() * 1000000;
-                                        //cput = tmb.getCurrentThreadCpuTime();
-                                        cput = getTotalCpuTime(tmb);
-                                    }
-
-                                    if (!tmb.isThreadCpuTimeEnabled()) {
-                                        tmb.setThreadCpuTimeEnabled(true);
-                                    }
-
-                                    if (new Date().getTime() * 1000000 - time != 0) {
-                                        //cpuperc = (tmb.getCurrentThreadCpuTime() - cput) / (new Date().getTime() * 1000000.0 - time) * 100.0;
-                                        cpuperc = (getTotalCpuTime(tmb) - cput) / (new Date().getTime() * 1000000.0 - time) * 100.0;
-                                    }
-                                }
-                                //System.out.println("checking...");
-
-//If cpu usage is greater then 50%
-                                if (cpuperc > 20.0) {
-                                    try {
-                                        //sleep for a little bit.
-                                        //System.out.println("sleeping," + peer.ip + " msg id: " + executeQuery.getInt("message_id"));
-                                        sleep(200);
-
-                                    } catch (InterruptedException ex) {
-                                        Logger.getLogger(ConnectionHandler.class
-                                                .getName()).log(Level.SEVERE, null, ex);
-                                    }
-                                    //System.out.println("sleeeped");
-                                    continue;
-                                } else {
-                                    break;
-                                }
-                            }
+////                                //System.out.println("asdf");
+////
+////                                while (msgsWithoutCPUcheck > 10) {
+////                                    msgsWithoutCPUcheck = 0;
+////                                    if (tmb.isThreadCpuTimeSupported()) {
+////                                        if (new Date().getTime() * 1000000 - time > 1000000000) { //Reset once per second
+////                                            time = new Date().getTime() * 1000000;
+////                                            //cput = tmb.getCurrentThreadCpuTime();
+////                                            cput = getTotalCpuTime(tmb);
+////                                        }
+////
+////                                        if (!tmb.isThreadCpuTimeEnabled()) {
+////                                            tmb.setThreadCpuTimeEnabled(true);
+////                                        }
+////
+////                                        if (new Date().getTime() * 1000000 - time != 0) {
+////                                            //cpuperc = (tmb.getCurrentThreadCpuTime() - cput) / (new Date().getTime() * 1000000.0 - time) * 100.0;
+////                                            cpuperc = (getTotalCpuTime(tmb) - cput) / (new Date().getTime() * 1000000.0 - time) * 100.0;
+////                                        }
+////                                    }
+////                                    //System.out.println("checking...");
+////
+//////If cpu usage is greater then 50%
+////                                    if (cpuperc > 20.0) {
+////                                        try {
+////                                            //sleep for a little bit.
+////                                            //System.out.println("sleeping," + peer.ip + " msg id: " + executeQuery.getInt("message_id"));
+////                                            sleep(200);
+////
+////                                        } catch (InterruptedException ex) {
+////                                            Logger.getLogger(ConnectionHandler.class
+////                                                    .getName()).log(Level.SEVERE, null, ex);
+////                                        }
+////                                        //System.out.println("sleeeped");
+////                                        continue;
+////                                    } else {
+////                                        break;
+////                                    }
+////                                }
 
                             if (!peer.isConnected() || !peer.isAuthed()) {
                                 break;
@@ -2125,77 +2140,82 @@ public class ConnectionHandler extends Thread {
 
                         }
 
-                    } else {
-
-                        if (executeQuery == null) {
-                            return;
-                        }
-                        //no MXBean supported, like android
-                        while (executeQuery.next()) {
-
-                            if (!peer.isConnected() || !peer.isAuthed()) {
-                                break;
-                            }
-
-                            //System.out.println("sending message...");
-                            int message_id = executeQuery.getInt("message_id");
-
-                            int pubkey_id = executeQuery.getInt("pubkey_id");
-                            byte[] bytes = executeQuery.getBytes("pubkey");
-                            ECKey ecKey = new ECKey(null, bytes);
-                            ecKey.database_id = pubkey_id;
-
-                            byte public_type = executeQuery.getByte("public_type");
-                            long timestamp = executeQuery.getLong("timestamp");
-                            int nonce = executeQuery.getInt("nonce");
-                            byte[] signature = executeQuery.getBytes("signature");
-                            byte[] content = executeQuery.getBytes("content");
-                            boolean verified = executeQuery.getBoolean("verified");
-                            RawMsg m = new RawMsg(timestamp, nonce, signature, content, verified);
-                            m.database_Id = message_id;
-                            m.key = ecKey;
-                            m.public_type = public_type;
-                            //                list.add(rawMsg);
-
-                            if (!m.verified) {
-                                continue;
-                            }
-
-                            boolean breakLoop = false;
-
-                            while (!breakLoop) {
-
-                                if (!peer.isConnected() || !peer.isAuthed()) {
-                                    break;
-                                }
-
-                                int size = 0;
-                                peer.writeBufferLock.lock();
-                                size = peer.writeBuffer.position();
-                                peer.writeBufferLock.unlock();
-                                if (size != 0) {
-                                    System.out.println("writeBuffer position: " + size + " ip: " + peer.ip);
-                                    //peer.setWriteBufferFilled();
-                                    try {
-                                        sleep(100);
-                                        System.out.println("SLEEP");
-
-                                    } catch (InterruptedException ex) {
-                                        Logger.getLogger(ConnectionHandler.class
-                                                .getName()).log(Level.SEVERE, null, ex);
-                                    }
-                                } else {
-                                    breakLoop = true;
-                                }
-
-                            }
-                            peer.writeMessage(m);
-                            peer.setWriteBufferFilled();
-//                        System.out.println("send");
-
-                        }
-
+////                        } else {
+////
+////                            if (executeQuery == null) {
+////                                return;
+////                            }
+////                            //no MXBean supported, like android
+////                            while (executeQuery.next()) {
+////
+////                                if (!peer.isConnected() || !peer.isAuthed()) {
+////                                    break;
+////                                }
+////
+////                                cntRows++;
+////
+////                                //System.out.println("sending message...");
+////                                int message_id = executeQuery.getInt("message_id");
+////
+////                                int pubkey_id = executeQuery.getInt("pubkey_id");
+////                                byte[] bytes = executeQuery.getBytes("pubkey");
+////                                ECKey ecKey = new ECKey(null, bytes);
+////                                ecKey.database_id = pubkey_id;
+////
+////                                byte public_type = executeQuery.getByte("public_type");
+////                                long timestamp = executeQuery.getLong("timestamp");
+////                                int nonce = executeQuery.getInt("nonce");
+////                                byte[] signature = executeQuery.getBytes("signature");
+////                                byte[] content = executeQuery.getBytes("content");
+////                                boolean verified = executeQuery.getBoolean("verified");
+////                                RawMsg m = new RawMsg(timestamp, nonce, signature, content, verified);
+////                                m.database_Id = message_id;
+////                                m.key = ecKey;
+////                                m.public_type = public_type;
+////                                //                list.add(rawMsg);
+////
+////                                if (!m.verified) {
+////                                    continue;
+////                                }
+////
+////                                boolean breakLoop = false;
+////
+////                                while (!breakLoop) {
+////
+////                                    if (!peer.isConnected() || !peer.isAuthed()) {
+////                                        break;
+////                                    }
+////
+////                                    int size = 0;
+////                                    peer.writeBufferLock.lock();
+////                                    size = peer.writeBuffer.position();
+////                                    peer.writeBufferLock.unlock();
+////                                    if (size > 200) {
+////                                        System.out.println("writeBuffer position: " + size + " ip: " + peer.ip);
+////                                        //peer.setWriteBufferFilled();
+////                                        try {
+////                                            sleep(100);
+////                                            System.out.println("SLEEP");
+////
+////                                        } catch (InterruptedException ex) {
+////                                            Logger.getLogger(ConnectionHandler.class
+////                                                    .getName()).log(Level.SEVERE, null, ex);
+////                                        }
+////                                    } else {
+////                                        breakLoop = true;
+////                                    }
+////
+////                                }
+////                                peer.writeMessage(m);
+////                                peer.setWriteBufferFilled();
+//////                        System.out.println("send");
+////
+////                            }
+////
+////                        }
+////
                     }
+
                 } catch (SQLException ex) {
                     Logger.getLogger(ConnectionHandler.class
                             .getName()).log(Level.SEVERE, null, ex);

@@ -179,7 +179,7 @@ public class Main {
         }
     }
 
-    public static void sendImageToChannel(Channel channel, String pathToFile, boolean lowPriority) {
+    public static void sendImageToChannel(Channel channel, String pathToFile, boolean lowPriority) throws ImageTooLargeException {
         //        Test.clientVersion++;
         //        Msg msg = new Msg(System.currentTimeMillis(), 99, channel, Test.clientSeed, Test.clientVersion, "[" + Test.getNick() + "] " + text);
         //        Test.processNewMessage(msg, true);
@@ -191,7 +191,7 @@ public class Main {
         ArrayList<ImageMsg> build = ImageMsg.build(channel, pathToFile, lowPriority);
 
         if (build == null) {
-            return;//todo throw exception
+            return;
         }
 
         RawMsg addMessage = null;

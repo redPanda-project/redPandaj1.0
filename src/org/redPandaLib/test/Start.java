@@ -172,11 +172,11 @@ public class Start {
         org.redPandaLib.Main.useHsqlDatabase();
 
         Log.LEVEL = -1;
-        Settings.lightClient = false;
+        Settings.lightClient = true;
         Settings.SUPERNODE = false;
-        Settings.REDUCE_TRAFFIC = false;
-        Settings.MIN_CONNECTIONS = 2;
-        Settings.MAX_CONNECTIONS = 4;
+        Settings.REDUCE_TRAFFIC = true;
+        Settings.MIN_CONNECTIONS = 3;
+        Settings.MAX_CONNECTIONS = 5;
         
         Settings.pingDelay = 30;
         

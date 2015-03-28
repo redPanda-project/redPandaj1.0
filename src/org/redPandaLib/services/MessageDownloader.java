@@ -153,7 +153,7 @@ public class MessageDownloader {
                     for (Peer p : clonedPeerList) {
 
                         //if (!p.isConnected() || System.currentTimeMillis() - p.connectedSince < 500) {
-                        if (!p.isConnected() || !p.isAuthed()) {
+                        if (!p.isConnected() || !p.isAuthed() || !p.isCryptedConnection()) {
                             continue;
                         }
 
@@ -227,6 +227,16 @@ public class MessageDownloader {
 //                        }
                             int myMessageId = MessageHolder.contains(m);
 
+                            if (p.getPeerTrustData() == null) {
+
+                                Log.put("no trust data found, not downloading messages from node...", 80);
+                                synchronized (p.getPendingMessages()) {
+                                    p.getPendingMessages().remove(messageId);
+                                }
+                                //Log.put("|", 200);
+                                continue;
+                            }
+
                             if (p.getPeerTrustData() != null && myMessageId != -1) {
 
                                 RawMsg rawMsg = MessageHolder.getRawMsg(myMessageId);
@@ -237,6 +247,7 @@ public class MessageDownloader {
                                 }
 
                                 if (!rawMsg.verified) {
+                                    Log.put("message in db but not verified, check again next run", 80);
                                     continue;
                                 }
 
@@ -250,6 +261,12 @@ public class MessageDownloader {
                                     p.writeMessage(m);
                                     p.removedSendMessages.add(myMessageId);
                                 }
+////                                if (!removed) {
+////                                    Log.put("not removed.... sending to other node", 80);
+////                                    m.database_Id = myMessageId;
+////                                    m.key.database_id = Test.messageStore.getPubkeyId(m.key);
+////                                    p.writeMessage(m);
+////                                }
 
                             }
 
@@ -257,7 +274,7 @@ public class MessageDownloader {
                                 synchronized (p.getPendingMessages()) {
                                     p.getPendingMessages().remove(messageId);
                                 }
-                                //System.out.print("|");
+                                Log.put("|", 200);
                                 continue;
                             }
 
@@ -266,7 +283,7 @@ public class MessageDownloader {
                                 synchronized (p.getPendingMessages()) {
                                     p.getPendingMessages().remove(messageId);
                                 }
-                                System.out.println("removed message, reduce traffic!!!");
+                                Log.put("removed message, reduce traffic!!!", 40);
                                 continue;
                             }
 
@@ -295,11 +312,11 @@ public class MessageDownloader {
                                 requestedMsgsLock.lock();
                                 //Checke ob schon geladen wird und ueberpruefe timeout, falls peer zu langsam, disconnected...
                                 if (requestedMsgs.contains(asEntryMsg)) {
-                                    //ToDo: lock for requestedMsgs ? not threadsafe currently, exception will be cautch = restat of loop (hack)
+                                    //ToDo: lock for requestedMsgs ? not threadsafe currently, exception will be cautch = restart of loop (hack)
                                     RawMsgEntry get = requestedMsgs.get(requestedMsgs.indexOf(asEntryMsg));
                                     long delay = System.currentTimeMillis() - get.requestedWhen;
                                     Log.put("delay: " + delay + " ip: " + get.requestedFromPeer.getIp(), 15);
-                                    if (delay < 6000L) {
+                                    if (delay < 20000L) {
                                         requestedMsgsLock.unlock();
                                         continue;
                                     }
@@ -311,13 +328,13 @@ public class MessageDownloader {
                                         get.requestedFromPeer.getPendingMessagesTimedOut().put(messageId, get.m);
                                         //ToDo: timeout for timeoutmessages
                                     } else {
-                                        requestedMsgsLock.unlock();
-                                        continue;
-//                                    System.out.println("MSG soft timeout... just requesting at another peer");
-//                                    if (get.requestedFromPeer == p) {
-//                                        System.out.println("already requested from this peer...");
-//                                        continue;
-//                                    }
+
+                                        System.out.println("MSG soft timeout... just requesting at another peer");
+                                        if (get.requestedFromPeer == p) {
+                                            System.out.println("already requested from this peer...");
+                                            requestedMsgsLock.unlock();
+                                            continue;
+                                        }
                                     }
                                 }
 
@@ -395,25 +412,27 @@ public class MessageDownloader {
 
                     }
 
-                    syncInterrupt.lock();
-                    allowInterrupt = true;
-                    syncInterrupt.unlock();
-                    try {
+                    if (!triggered) {
+                        syncInterrupt.lock();
+                        allowInterrupt = true;
+                        syncInterrupt.unlock();
+                        try {
 
-                        //System.out.println("wait");
-                        if (shortWait) {
-//                            sleep(100);
-                        } else {
-                            sleep(1000*60);
+                            //System.out.println("wait");
+                            if (shortWait) {
+                                sleep(100);
+                            } else {
+                                sleep(1000 * 60);
+                            }
+
+                        } catch (InterruptedException ex) {
                         }
-
-                    } catch (InterruptedException ex) {
+                        syncInterrupt.lock();
+                        allowInterrupt = false;
+                        syncInterrupt.unlock();
                     }
-                    syncInterrupt.lock();
-                    allowInterrupt = false;
-                    syncInterrupt.unlock();
 
-                    //clear interrupted flag, might called twiche, so writeBuffer would think it was interrupted...
+                    //clear interrupted flag, might called twice, so writeBuffer would think it was interrupted...
                     interrupted();
 
                     //Keine nachricht zum requesten, warte auf neue Nachricht, bzw timeout checken
@@ -438,7 +457,11 @@ public class MessageDownloader {
 
                     System.out.println("MessageDownloader exception!!!!: ");
                     e.printStackTrace();
-                    Test.sendStacktrace("catched msg downloader exc.: \n", e);
+                    Test.sendStacktrace("SLEEP ! catched msg downloader exc.: \n", e);
+                    try {
+                        sleep(60000);
+                    } catch (InterruptedException ex) {
+                    }
 
                 }
             }

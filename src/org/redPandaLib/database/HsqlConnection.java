@@ -99,8 +99,9 @@ public class HsqlConnection {
         }
         stmt.executeUpdate("SET AUTOCOMMIT TRUE");
         //ToDo: check that this doesnt cause any problems MVLOCKS = snapshot read!!
-        stmt.executeUpdate("SET FILES LOG SIZE 50");
+        stmt.executeUpdate("SET FILES LOG SIZE 200");
         stmt.executeUpdate("SET FILES DEFRAG 50");
+        stmt.executeUpdate("SET SESSION RESULT MEMORY ROWS 2000");
         stmt.executeUpdate("SET DATABASE TRANSACTION CONTROL MVLOCKS");
         con.commit();
         createTables(stmt);

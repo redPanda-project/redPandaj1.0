@@ -14,6 +14,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.redPandaLib.ImageTooLargeException;
 import org.redPandaLib.core.Channel;
 import org.redPandaLib.core.Test;
 import org.redPandaLib.crypt.ECKey;
@@ -37,7 +38,7 @@ public class ImageMsg extends RawMsg {
         public_type = 20;
     }
 
-    public static ArrayList<ImageMsg> build(Channel channel, String pathToImage, boolean lowPriority) {
+    public static ArrayList<ImageMsg> build(Channel channel, String pathToImage, boolean lowPriority) throws ImageTooLargeException {
         try {
             File file = new File(pathToImage);
 
@@ -164,10 +165,10 @@ public class ImageMsg extends RawMsg {
         return wrap.getLong();
     }
 
-    public static byte[] read(File file) throws IOException {
+    public static byte[] read(File file) throws IOException, ImageTooLargeException {
 
         if (file.length() > MAX_FILE_SIZE) {
-            return null;
+            throw new ImageTooLargeException();
         }
 
         byte[] buffer = new byte[(int) file.length()];
