@@ -224,6 +224,18 @@ public class Main {
 
     }
 
+    /**
+     * Removes the decrypted messages for a channel form the database. This does
+     * not affect the encrypted messages.
+     *
+     * @param channel
+     */
+    public static void removeMessagesForChannel(Channel channel) {
+
+        Test.messageStore.removeMessagesDecryptedContent(channel);
+
+    }
+
     public static void addListener(NewMessageListener l) {
         listeners.add(l);
     }

@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.redPandaLib.Main;
 import org.redPandaLib.core.Channel;
 import org.redPandaLib.core.Log;
 import org.redPandaLib.core.Test;
@@ -376,10 +377,11 @@ public class DirectMessageStore implements MessageStore {
 
     /**
      * LIMIT 100 - self check if we have to call this method again!
+     *
      * @param from
      * @param to
      * @param peer_id
-     * @return 
+     * @return
      */
     @Override
     public ResultSet getAllMessagesForSync(long from, long to, long peer_id) {
@@ -753,6 +755,23 @@ public class DirectMessageStore implements MessageStore {
             String query = "DELETE FROM channelmessage WHERE timestamp < ?";
             PreparedStatement pstmt = connection.prepareStatement(query);
             pstmt.setLong(1, timestamp);
+            pstmt.execute();
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public void removeMessagesDecryptedContent(Channel channel) {
+        removeMessagesDecryptedContent(getPubkeyId(channel.getKey()));
+    }
+
+    public void removeMessagesDecryptedContent(int pubkey_id) {
+        try {
+            //get Key Id
+            //String query = "SELECT message_id from message WHERE pubkey_id = ? AND public_type = ? AND timestamp = ? AND nonce = ?";
+            String query = "DELETE FROM channelmessage WHERE pubkey_id = ?";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setLong(1, pubkey_id);
             pstmt.execute();
         } catch (SQLException ex) {
             Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
@@ -1181,6 +1200,19 @@ public class DirectMessageStore implements MessageStore {
     }
 
     @Override
+    public void removeKnownChannelForCHannel(int channel_id) {
+        try {
+            String query = "DELETE from channelKnownLevel WHERE forChannel = ?";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setInt(1, channel_id);
+            pstmt.execute();
+            pstmt.close();
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    @Override
     public HashMap<ECKey, Integer> getAllKnownChannels() {
 
         HashMap<ECKey, Integer> list = new HashMap<ECKey, Integer>();
@@ -1191,11 +1223,22 @@ public class DirectMessageStore implements MessageStore {
             PreparedStatement pstmt = connection.prepareStatement(query);
             ResultSet executeQuery = pstmt.executeQuery();
 
+            boolean errorAlreadySend = false;
+
             while (executeQuery.next()) {
                 int forChannel = executeQuery.getInt("forChannel");
                 int level = executeQuery.getByte("level");
 
                 byte[] channelBytes = getPubkeyById(connection, forChannel);
+
+                if (channelBytes == null) {
+                    if (!errorAlreadySend) {
+                        removeKnownChannelForCHannel(forChannel);
+                        Main.sendBroadCastMsg("Pubkey id wasnt in database - removed?!! 94624");
+                        errorAlreadySend = true;
+                    }
+                    continue;
+                }
 
                 System.out.println("len: " + channelBytes.length);
 

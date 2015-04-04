@@ -65,6 +65,7 @@ public class MessageVerifierHsqlDb {
     public static int MAX_PERMITS = 10;
     public static Semaphore sem = new Semaphore(MAX_PERMITS);
     public static boolean USES_UNREAD_STATUS = false;
+    public static long lastRun = 0;
 
     public static final ReentrantLock filesSystemLockForImages = new ReentrantLock(); //Need this lock because if check for all blocks then one might not be finished.
 
@@ -114,6 +115,8 @@ public class MessageVerifierHsqlDb {
             Thread.currentThread().setName(orgName + " - MessageVerifier");
 
             while (!Main.shutdown) {
+
+                lastRun = System.currentTimeMillis();
 
                 if ((System.currentTimeMillis() - lastRemovedOldMessages) > 1000 * 60 * 60) {
                     lastRemovedOldMessages = System.currentTimeMillis();
@@ -553,7 +556,7 @@ public class MessageVerifierHsqlDb {
 
                                                     Test.messageStore.addKnownChannel(pubKeyIdfor, identity, pubKeyIdFrom, level);
 
-                                                    System.out.println("adde from other node channelLevels: " + Utils.bytesToHexString(channel.getPubKey()) + " lvel: " + level + " from: " + pubKeyIdFrom);
+                                                    Log.put("add from other node channelLevels: " + Utils.bytesToHexString(channel.getPubKey()) + " lvel: " + level + " from: " + pubKeyIdFrom, 0);
 
                                                 }
 

@@ -8,6 +8,7 @@ import crypt.Utils;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import org.redPandaLib.core.Channel;
+import org.redPandaLib.core.Log;
 import org.redPandaLib.core.Test;
 import org.redPandaLib.crypt.ECKey;
 
@@ -68,11 +69,11 @@ public class InfoMsg extends RawMsg {
         wrap.get();
         wrap.getLong();
 
-        System.out.println("decrypted Infos: " + Utils.bytesToHexString(decryptedContent));
+        Log.put("decrypted Infos: " + Utils.bytesToHexString(decryptedContent), 0);
 
         while (wrap.hasRemaining()) {
 
-            System.out.println("remaining: " + wrap.remaining());
+            Log.put("remaining: " + wrap.remaining(), 0);
             byte[] pubKeyBytes = new byte[33];
             wrap.get(pubKeyBytes);
             int level = wrap.getInt();

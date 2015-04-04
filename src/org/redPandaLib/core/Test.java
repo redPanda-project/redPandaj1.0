@@ -47,6 +47,7 @@ import org.redPandaLib.core.messages.TextMsg;
 import org.redPandaLib.crypt.AddressFormatException;
 import org.redPandaLib.crypt.Base58;
 import org.redPandaLib.crypt.ECKey;
+import org.redPandaLib.crypt.Utils;
 import org.redPandaLib.database.DirectMessageStore;
 import org.redPandaLib.database.HsqlConnection;
 import org.redPandaLib.database.MessageStore;
@@ -67,11 +68,11 @@ public class Test {
     static int DEBUG_LEVEL = 100;
     static boolean PORTFORWARD = false;
     static final int VERSION = 20;
-    static int MY_PORT;
+    public static int MY_PORT;
     static String MAGIC = "k3gV";
     public static ArrayList<Peer> peerList = null;
     public static ArrayList<Channel> channels;
-    static long NONCE;
+    public static long NONCE;
     static int outConns = 0;
     static int inConns = 0;
     //static ExecutorService threadPool = Executors.newCachedThreadPool();
@@ -248,13 +249,19 @@ public class Test {
                             removePeer(p);
                         }
 
-                        if (p.lastPinged - p.lastActionOnConnection > Settings.pingDelay * 1000 * 2 + 30000 || (p.isConnecting && p.getLastAnswered() > 10000)) {
+                        if (p.lastPinged - p.lastActionOnConnection > Settings.pingDelay * 1000 * 2 + 30000
+                                || (p.isConnecting && p.getLastAnswered() > 10000)
+                                || (!p.isFullConnected() && p.getLastAnswered() > Settings.pingDelay * 1000)) {
 
                             if (p.isConnected() || p.isConnecting) {
                                 if (DEBUG) {
                                     Log.put(Settings.pingTimeout + " sec timeout reached! " + p.ip, 10);
                                 }
                                 p.disconnect("timeout");
+                                if (p.nonce == 0) {
+                                    Log.put("removed peer from peerList, tried once and peer never connected before: " + p.ip + ":" + p.port, 20);
+                                }
+
                                 outboundthread.tryInterrupt();
                             } else if (p.getLastAnswered() > Settings.pingTimeout * 1000 * 2) {
                                 p.writeBuffer = null;
@@ -302,7 +309,7 @@ public class Test {
 
                                         p.trustRetries++;
 
-                                        if (p.trustRetries < 5) {
+                                        if (p.trustRetries < 2) {
                                             //                                            System.out.println("Found a bad guy... doing nothing...: " + p.nonce);
                                         } else {
                                             p.trustRetries = 0;
@@ -440,7 +447,7 @@ public class Test {
                     Collections.sort(list);
 
 //                    System.out.println("IP:PORT \t\t\t\t\t\t Nonce \t\t\t Last Answer \t Alive \t retries \t LoadedMsgs \t Ping \t Authed \t PMSG\n");
-                    System.out.format("%50s %22s %12s %12s %7s %8s %10s %10s %10s %8s %10s %10s %10s\n", "[IP]:PORT", "nonce", "last answer", "conntected", "retries", "ping", "loaded Msg", "bytes out", "bytes in", "bad Msg", "ToSyncM", "RSM", "BacckSyncdT");
+                    System.out.format("%50s %22s %12s %12s %7s %8s %10s %10s %10s %8s %10s %10s %10s\n", "[IP]:PORT", "nonce", "last answer", "conntected", "retries", "ping", "loaded Msg", "bytes out", "bytes in", "bad Msg", "ToSyncM", "RSM", "BackSyncdT");
                     for (Peer peer : list) {
 
                         if (peer.isConnected() && peer.authed && peer.writeBufferCrypted != null) {
@@ -509,6 +516,8 @@ public class Test {
 
                     System.out.println("Connected to " + actCons + " peers. (NAT type: " + (NAT_OPEN ? "open" : "closed") + ")");
                     System.out.println("Traffic: " + inBytes / 1024. + " kb / " + outBytes / 1024. + " kb.");
+
+                    System.out.println("Services last run: ConnectionHandler: " + (System.currentTimeMillis() - ConnectionHandler.lastRun) + " MessageDownloader: " + (System.currentTimeMillis() - MessageDownloader.lastRun) + " MessageVerifierHsqlDb: " + (System.currentTimeMillis() - MessageVerifierHsqlDb.lastRun));
 
                     //System.out.println("Processed messages: " + msgs.size());
 //                    int unverifiedMsgs = 0;
@@ -719,7 +728,7 @@ public class Test {
 
                     System.out.println("ChannelList: ");
                     for (Channel c : channels) {
-                        System.out.println("#" + c.getId() + " \t " + c.getName() + " \t - " + c.exportForHumans() + " (" + Channel.byte2String(c.getKey().getPubKey()) + " - " + Channel.byte2String(c.getKey().getPrivKeyBytes()) + ")");
+                        System.out.println("#" + c.getId() + " \t " + c.getName() + " \t - " + c.exportForHumans() + " (pub: " + Channel.byte2String(c.getKey().getPubKey()) + " - " + Utils.bytesToHexString(c.getKey().getPubKey()) + "priv: " + Channel.byte2String(c.getKey().getPrivKeyBytes()) + ")");
                     }
                     System.out.println("send message to channel number:");
                     readLine = bufferedReader.readLine();
@@ -1878,7 +1887,7 @@ public class Test {
 
 //                    if (peerList.size() > 20) {
                     //(System.currentTimeMillis() - peer.lastActionOnConnection > 1000 * 60 * 60 * 4)
-                    if (peer.retries > 10) {
+                    if (peer.retries > 10 || (peer.nonce == 0 && peer.retries >= 1)) {
                         //peerList.remove(peer);
                         removePeer(peer);
                         if (DEBUG) {

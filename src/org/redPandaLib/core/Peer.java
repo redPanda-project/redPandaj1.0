@@ -30,12 +30,12 @@ import org.redPandaLib.crypt.RC4;
  */
 public class Peer implements Comparable<Peer> {
 
-    String ip;
-    int port;
+    public String ip;
+    public int port;
     public int connectAble = 0;
     public long retries = 0;
     long lastRetryAfter5 = 0;
-    long lastActionOnConnection = 0;
+    public long lastActionOnConnection = 0;
     int cnt = 0;
     public long connectedSince = 0;
     long lastAllMsgsQuerried = Settings.till;
@@ -57,11 +57,11 @@ public class Peer implements Comparable<Peer> {
     byte[] toEncodeForAuthFromMe;
     byte[] toEncodeForAuthFromHim;
     boolean requestedNewAuth;
-    boolean authed = false;
+    public boolean authed = false;
     RC4 writeKey;
     RC4 readKey;
-    ByteBuffer writeBufferCrypted;
-    ByteBuffer readBufferCrypted;
+    public ByteBuffer writeBufferCrypted;
+    public ByteBuffer readBufferCrypted;
     public int trustRetries = 0;
     public final ReentrantLock writeBufferLock = new ReentrantLock();
     public Thread connectinThread;
@@ -441,7 +441,7 @@ public class Peer implements Comparable<Peer> {
             //may be setted to null during work...
             ByteBuffer localWriteBuffer = writeBuffer;
 
-            Log.put("try to introduce msg to node " + nonce, 200);
+            //Log.put("try to introduce msg to node " + nonce, 200);
 
             if (localWriteBuffer == null || readBuffer == null) {
                 System.out.println("couldnt send msg, no buffers...");
@@ -505,17 +505,17 @@ public class Peer implements Comparable<Peer> {
                 throw new RuntimeException("omg!");
             }
 
-            Log.put("try to get lock for writebuffer for node " + nonce, 200);
+            //Log.put("try to get lock for writebuffer for node " + nonce, 200);
             writeBufferLock.lock();
-            Log.put("got lock: " + nonce, 200);
+            //Log.put("got lock: " + nonce, 200);
             if (writeBuffer == null) {
-                Log.put("writebuffer null: " + nonce, 200);
+                //Log.put("writebuffer null: " + nonce, 200);
                 writeBufferLock.unlock();
                 return;
             }
             //int indexOfKey = keyToIdMine.indexOf(k);
             int indexOfKey = k.database_id;
-            Log.put("asdf " + nonce, 200);
+            //Log.put("asdf " + nonce, 200);
             if (writeBuffer.remaining() < 1 + 4 + 1 + 8 + 4 + 4) {
                 ByteBuffer oldbuffer = writeBuffer;
                 writeBuffer = ByteBuffer.allocate(writeBuffer.capacity() + 50);
@@ -524,14 +524,14 @@ public class Peer implements Comparable<Peer> {
                 System.out.println("writebuffer was raised...");
             }
 
-            Log.put("gd2eqe2: " + nonce, 200);
+            //Log.put("gd2eqe2: " + nonce, 200);
             writeBuffer.put((byte) 5);
             writeBuffer.putInt(indexOfKey);
             writeBuffer.put(m.public_type);
             writeBuffer.putLong(m.timestamp);
             writeBuffer.putInt(m.nonce);
             writeBuffer.putInt(m.database_Id);//TODO long zu int machen mit offset falls db zu gross!!
-            Log.put("try to unlock: " + nonce + " isLockedByMe: " + writeBufferLock.isHeldByCurrentThread(), 200);
+            //Log.put("try to unlock: " + nonce + " isLockedByMe: " + writeBufferLock.isHeldByCurrentThread(), 200);
 
             writeBufferLock.unlock();
 
@@ -618,7 +618,7 @@ public class Peer implements Comparable<Peer> {
         return Test.NONCE > nonce;
     }
 
-    boolean isFullConnected() {
+    public boolean isFullConnected() {
         //System.out.println("hmm : " + (writeBufferCrypted != null));
         return (writeBufferCrypted != null && readBufferCrypted != null);
         //return (writeBufferCrypted != null);

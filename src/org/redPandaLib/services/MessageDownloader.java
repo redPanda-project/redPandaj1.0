@@ -34,12 +34,14 @@ public class MessageDownloader {
     public static ReentrantLock publicMsgsLoadedLock = new ReentrantLock();
     public static int messagesToVerify = 0;
     private static Random random = new Random();
+    public static long lastRun = 0;
 
     public static void trigger() {
-        triggered = true;
         syncInterrupt.lock();
         if (allowInterrupt) {
             myThread.interrupt();
+        } else {
+            triggered = true;
         }
         syncInterrupt.unlock();
     }
@@ -68,8 +70,9 @@ public class MessageDownloader {
                 Thread.currentThread().setName(orgName + " - MessageDownloader - decrease pubmsg");
 
                 while (!Main.shutdown) {
+
                     try {
-                        sleep(1000 * 10);
+                        sleep(1000 * 60 * 60);
                     } catch (InterruptedException ex) {
                         Logger.getLogger(MessageDownloader.class.getName()).log(Level.SEVERE, null, ex);
                     }
@@ -128,6 +131,8 @@ public class MessageDownloader {
             Thread.currentThread().setName(orgName + " - MessageDownloader");
             while (!Main.shutdown) {
 
+                lastRun = System.currentTimeMillis();
+
                 try {
 
                     //System.out.println("new round");
@@ -158,6 +163,7 @@ public class MessageDownloader {
                         }
 
                         if (p.requestedMsgs > MAX_REQUEST_PER_PEER || p.requestedMsgs > p.maxSimultaneousRequests || System.currentTimeMillis() - p.connectedSince < 1000 * 10) {
+                            shortWait = true;
                             continue;
                         }
 
@@ -422,7 +428,7 @@ public class MessageDownloader {
                             if (shortWait) {
                                 sleep(100);
                             } else {
-                                sleep(1000 * 60);
+                                sleep(1000 * 60 * 5);
                             }
 
                         } catch (InterruptedException ex) {

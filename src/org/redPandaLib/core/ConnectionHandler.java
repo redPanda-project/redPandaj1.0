@@ -48,6 +48,7 @@ public class ConnectionHandler extends Thread {
     //public ArrayList<Socket> allSockets = new ArrayList<Socket>();
     ExecutorService threadPool = new ThreadPoolExecutor(1, 4, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());//Executors.newFixedThreadPool(4);
     private boolean exit = false;
+    public static long lastRun = 0;
 
     public ConnectionHandler() {
         try {
@@ -160,6 +161,7 @@ public class ConnectionHandler extends Thread {
 
         while (!Main.shutdown && !exit) {
 
+            lastRun = System.currentTimeMillis();
             Log.put("NEW KEY RUN - before select", 2000);
             int readyChannels = 0;
             try {
@@ -951,7 +953,7 @@ public class ConnectionHandler extends Thread {
                     //int my_pubkeyId = Test.messageStore.getPubkeyId(id2KeyHis);
                     if (Test.channels.contains(new Channel(id2KeyHis, null))) {
                         peer.myInterestedChannelsCodedInHisIDs.add(pubkey_id_local);
-                        System.out.println("added !! " + pubkey_id_local + " node: " + peer.nonce);
+                        Log.put("added !! " + pubkey_id_local + " node: " + peer.nonce, 100);
                     } else {
 
                         int pubkeyId = Test.messageStore.getPubkeyId(id2KeyHis);
@@ -963,7 +965,7 @@ public class ConnectionHandler extends Thread {
 
                         dontAddMessage = true;
 
-                        System.out.println("channel was removed, sending to node.... " + pubkeyId + " node: " + peer.nonce);
+                        Log.put("channel was removed, sending to node.... " + pubkeyId + " node: " + peer.nonce, 0);
 
                         //There may be still messages to sync to other nodes, we have to remove them!!
                         //ToDo: replace this hack!
@@ -973,7 +975,7 @@ public class ConnectionHandler extends Thread {
 
                 }
 
-                System.out.println("contains!!! " + pubkey_id_local + " node: " + peer.nonce);
+                Log.put("contains!!! " + pubkey_id_local + " node: " + peer.nonce, 100);
             }
 
             if (!dontAddMessage) {
@@ -2117,6 +2119,12 @@ public class ConnectionHandler extends Thread {
 
                                 int used = 0;
                                 peer.writeBufferLock.lock();
+
+                                if (peer.writeBuffer == null) {
+                                    peer.writeBufferLock.unlock();
+                                    return;
+                                }
+
                                 used = peer.writeBuffer.position();
                                 peer.writeBufferLock.unlock();
                                 if (used > 200) {

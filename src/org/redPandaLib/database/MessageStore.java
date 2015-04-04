@@ -8,6 +8,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.HashMap;
+import org.redPandaLib.core.Channel;
 import org.redPandaLib.core.messages.RawMsg;
 import org.redPandaLib.core.messages.TextMessageContent;
 import org.redPandaLib.crypt.ECKey;
@@ -98,4 +99,9 @@ public interface MessageStore {
 
     public HashMap<ECKey, Integer> getAllKnownChannels();
 
+    public void removeKnownChannelForCHannel(int channel_id);
+
+    public void removeMessagesDecryptedContent(Channel channel);
+
+    public void removeMessagesDecryptedContent(int pubkey_id);
 }
