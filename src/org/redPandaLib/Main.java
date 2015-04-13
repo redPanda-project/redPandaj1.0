@@ -4,17 +4,13 @@
  */
 package org.redPandaLib;
 
-import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.Cipher;
-import javax.imageio.ImageIO;
 import org.redPandaLib.core.*;
 import org.redPandaLib.core.messages.ImageMsg;
 import org.redPandaLib.core.messages.RawMsg;
@@ -386,11 +382,13 @@ public class Main {
     }
 
     public static void internetConnectionInterrupted() {
-        ArrayList<Peer> clonedPeerList = Test.getClonedPeerList();
-        for (Peer peer : clonedPeerList) {
-            peer.disconnect("internetConnectionInterrupted");
-        }
 
+        if (Test.STARTED_UP_SUCCESSFUL) {
+            ArrayList<Peer> clonedPeerList = Test.getClonedPeerList();
+            for (Peer peer : clonedPeerList) {
+                peer.disconnect("internetConnectionInterrupted");
+            }
+        }
         Test.triggerOutboundthread();
 
     }

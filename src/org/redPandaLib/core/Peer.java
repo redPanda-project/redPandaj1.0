@@ -176,7 +176,7 @@ public class Peer implements Comparable<Peer> {
 
         if (peerTrustData != null) {
             if (peerTrustData.loadedMsgs != null) {
-                a += peerTrustData.loadedMsgs.size();
+                a += peerTrustData.getMessageLoadedCount();
             }
 
             a -= peerTrustData.badMessages * 100;
@@ -278,14 +278,22 @@ public class Peer implements Comparable<Peer> {
     public void removeRequestedMsgs() {
 
         if (peerTrustData != null) {
-            MessageDownloader.requestedMsgsLock.lock();
-            for (MessageDownloader.RawMsgEntry msg : (ArrayList<MessageDownloader.RawMsgEntry>) MessageDownloader.requestedMsgs.clone()) {
-                if (msg.requestedFromPeer == this) {
-                    MessageDownloader.requestedMsgs.remove(msg);
-                    System.out.println("REMOVED MSG FROM REQUESTED, peer disconnected!!!!");
+            try {
+                boolean tryLock = MessageDownloader.requestedMsgsLock.tryLock(2, TimeUnit.SECONDS);
+                if (!tryLock) {
+                    return;
                 }
+                for (MessageDownloader.RawMsgEntry msg : (ArrayList<MessageDownloader.RawMsgEntry>) MessageDownloader.requestedMsgs.clone()) {
+                    if (msg.requestedFromPeer == this) {
+                        MessageDownloader.requestedMsgs.remove(msg);
+                        System.out.println("REMOVED MSG FROM REQUESTED, peer disconnected!!!!");
+                    }
+                }
+
+            } catch (InterruptedException ex) {
+            } finally {
+                MessageDownloader.requestedMsgsLock.unlock();
             }
-            MessageDownloader.requestedMsgsLock.unlock();
         }
     }
 
@@ -431,9 +439,10 @@ public class Peer implements Comparable<Peer> {
     }
 
     /**
-     * NOTICE: does not flush the writeStream
+     * NOTICE: does not flush the writeStream introduces message to node,
+     * includes channel if not already sent.
      *
-     * @param m
+     * @param m - message to introduce
      */
     public synchronized void writeMessage(RawMsg m) {
 
@@ -442,7 +451,6 @@ public class Peer implements Comparable<Peer> {
             ByteBuffer localWriteBuffer = writeBuffer;
 
             //Log.put("try to introduce msg to node " + nonce, 200);
-
             if (localWriteBuffer == null || readBuffer == null) {
                 System.out.println("couldnt send msg, no buffers...");
                 return;
@@ -672,7 +680,46 @@ public class Peer implements Comparable<Peer> {
         return getPeerTrustData().getPendingMessagesPublic();
     }
 
+    /**
+     * peer trust data have to be set, otherwise NULLPOINTER!
+     * @return 
+     */
     public ArrayList<Integer> getLoadedMsgs() {
         return getPeerTrustData().loadedMsgs;
+    }
+
+    synchronized void addLoadedMsg(int database_Id) {
+
+        ArrayList<Integer> temp = getLoadedMsgs();
+
+        temp.add(database_Id);
+
+        ArrayList<Integer> loadedMsgs = (ArrayList<Integer>) temp.clone();
+
+        if (loadedMsgs.size() > 500) {
+            ArrayList<Integer> loadedMsgsNew = new ArrayList<Integer>(200);
+
+            //copy last 200 from old to new.            
+            for (int i = loadedMsgs.size() - 200; i < loadedMsgs.size(); i++) {
+                loadedMsgsNew.add(loadedMsgs.get(i));
+            }
+            getPeerTrustData().loadedMsgs = loadedMsgsNew;
+            getPeerTrustData().loadedMsgsCount += loadedMsgs.size() - 200;
+            Log.put("shrinked loadedmsgs: " + nonce, 3);
+        }
+
+    }
+
+    /**
+     * Returns -5000 if no trustdata is set!
+     *
+     * @return
+     */
+    public int getMessageLoadedCount() {
+        if (peerTrustData == null) {
+            return -5000;
+        } else {
+            return peerTrustData.getMessageLoadedCount();
+        }
     }
 }

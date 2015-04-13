@@ -7,6 +7,7 @@ package org.redPandaLib.services;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.Random;
@@ -153,7 +154,15 @@ public class MessageDownloader {
                     //                System.out.println("Scanning msgs i want to have...");
                     ArrayList<Peer> clonedPeerList = Test.getClonedPeerList();
 
-                    Collections.shuffle(clonedPeerList, random);
+                    Collections.sort(clonedPeerList, new Comparator<Peer>() {
+
+                        @Override
+                        public int compare(Peer t, Peer t1) {
+                            return (t.getMessageLoadedCount() - t1.getMessageLoadedCount());
+                        }
+                    });
+
+                    //System.out.println("top: " + clonedPeerList.get(0).getMessageLoadedCount() + " low: " + clonedPeerList.get(clonedPeerList.size() - 1).getMessageLoadedCount());
 
                     for (Peer p : clonedPeerList) {
 
@@ -438,6 +447,11 @@ public class MessageDownloader {
                         syncInterrupt.unlock();
                     }
 
+                    //sleep, so we can wait for others nodes to introduce the same message (this reduces CPU usage, but delays messages a bit)
+                    try {
+                        sleep(500);
+                    } catch (InterruptedException ex) {
+                    }
                     //clear interrupted flag, might called twice, so writeBuffer would think it was interrupted...
                     interrupted();
 

@@ -1165,7 +1165,7 @@ public class ConnectionHandler extends Thread {
 //                    System.out.println("CONTENT hash: " + Sha256Hash.create(addMessage.content));
 //                    System.out.println("signature hash: " + Sha256Hash.create(addMessage.signature));
                             synchronized (peer.getLoadedMsgs()) {
-                                peer.getLoadedMsgs().add(addMessage.database_Id);
+                                peer.addLoadedMsg(addMessage.database_Id);
                             }
 
                             if (addMessage.key.database_id == -1) {

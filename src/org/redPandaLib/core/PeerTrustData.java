@@ -29,9 +29,11 @@ public class PeerTrustData implements Serializable {
     public long lastSeen = System.currentTimeMillis();
     public ArrayList<String> ips;
     int port;
+    public int loadedMsgsCount = 0; //not 100 percent accurate, because not thread safe
+    public int receivedMsgsCount = 0;
     public HashMap<Integer, ECKey> keyToIdHis = new HashMap<Integer, ECKey>();
     public HashMap<Integer, RawMsg> pendingMessagesPublic = new HashMap<Integer, RawMsg>();
-    public ArrayList<Integer> loadedMsgs = new ArrayList<Integer>();
+    public ArrayList<Integer> loadedMsgs = new ArrayList<Integer>();  //not 100 percent accurate, because not thread safe
     public ArrayList<Integer> keyToIdMine = new ArrayList<Integer>();
     public HashMap<Integer, RawMsg> pendingMessages = new HashMap<Integer, RawMsg>();
     public HashMap<Integer, RawMsg> pendingMessagesTimedOut = new HashMap<Integer, RawMsg>();
@@ -148,5 +150,9 @@ public class PeerTrustData implements Serializable {
 
             System.out.println("GOT ID: " + internalId);
         }
+    }
+
+    public int getMessageLoadedCount() {
+        return loadedMsgsCount + loadedMsgs.size();
     }
 }

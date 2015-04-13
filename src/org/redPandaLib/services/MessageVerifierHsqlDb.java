@@ -114,6 +114,11 @@ public class MessageVerifierHsqlDb {
             final String orgName = Thread.currentThread().getName();
             Thread.currentThread().setName(orgName + " - MessageVerifier");
 
+            try {
+                sleep(2000);
+            } catch (InterruptedException ex) {
+            }
+
             while (!Main.shutdown) {
 
                 lastRun = System.currentTimeMillis();
@@ -123,6 +128,8 @@ public class MessageVerifierHsqlDb {
                     if (Settings.REMOVE_OLD_MESSAGES) {
                         Test.messageStore.removeOldMessages(System.currentTimeMillis() - 1000 * 60 * 60 * 24 * 7);
                     }
+
+                    Test.messageStore.moveChannelMessagesToHistory(System.currentTimeMillis() - 1000L * 60L * 60L * 24L * 30L * 2L);
 
                     if (Test.messageStore.getConnection() instanceof HsqlConnection) {
                         Test.messageStore.checkpoint();
@@ -280,7 +287,7 @@ public class MessageVerifierHsqlDb {
 
                                             //TODO: REMOVE WHEN NOT NEEDED ANYMORE, generating stats for debugging and send to MainChannel.
                                             if (SpecialChannels.isSpecial(pubkey) != null) {
-                                                System.out.println("Special channel text: " + fromTextMsg.text);
+                                                //System.out.println("Special channel text: " + fromTextMsg.text);
                                                 if (fromTextMsg.text.equals("status")) {
 
                                                     System.out.println("sending status");

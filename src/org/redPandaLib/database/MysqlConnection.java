@@ -123,7 +123,7 @@ public class MysqlConnection {
         stmt.executeUpdate("create  table if not exists peerMessagesIntroducedToHim (peer_id BIGINT, message_id INTEGER, FOREIGN KEY (message_id) REFERENCES message(message_id) ON DELETE CASCADE)");
         stmt.executeUpdate("create  table if not exists haveToSendMessageToPeer (peer_id BIGINT, message_id INTEGER, FOREIGN KEY (message_id) REFERENCES message(message_id) ON DELETE CASCADE)");
         stmt.executeUpdate("create  table if not exists filterChannels (peer_id BIGINT, channel_id INTEGER)");//, FOREIGN KEY (channel_id) REFERENCES channel(channel_id) ON DELETE CASCADE
-        stmt.executeUpdate("create  table if not exists notReadMessage (message_id INTEGER, FOREIGN KEY (message_id) REFERENCES message(message_id) ON DELETE CASCADE)");
+        stmt.executeUpdate("create  table if not exists notReadMessage (message_id INTEGER, FOREIGN KEY (message_id) REFERENCES channelmessage(message_id) ON DELETE CASCADE)");
         stmt.executeUpdate("create  table if not exists channelKnownLevel (forChannel INTEGER, identity BIGINT, fromChannel INTEGER, level INTEGER)");
         //        ResultSet executeQuery = stmt.executeQuery("SELECT * FROM information_schema.statistics");
         //
@@ -164,7 +164,7 @@ public class MysqlConnection {
             stmt.executeUpdate("CREATE INDEX peerMessagesIntroducedToHimIndexForMsgId ON peerMessagesIntroducedToHim(message_id)");
         } catch (SQLSyntaxErrorException e) {
         }
-        String[] keys = {"pubkey_id", "message_type", "message_id"};
+        String[] keys = {"pubkey_id", "message_type", "message_id", "timestamp"};
         String tableName = "channelmessage";
         for (String key : keys) {
             try {

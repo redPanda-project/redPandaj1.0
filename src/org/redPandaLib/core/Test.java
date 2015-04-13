@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.ConcurrentModificationException;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
@@ -56,6 +57,7 @@ import org.redPandaLib.services.LoadHistory;
 import org.redPandaLib.services.MessageDownloader;
 import org.redPandaLib.services.MessageVerifierHsqlDb;
 import org.redPandaLib.services.SearchLan;
+import org.redPandaLib.services.WatchDog;
 //import org.redPandaLib.upnp.Portforward;
 
 /**
@@ -87,7 +89,7 @@ public class Test {
     public static SaverInterface saver;
     private static long lastAllMsgsCleared = 0;
     public static LocalSettings localSettings;
-    private static ConnectionHandler connectionHandler;
+    public static ConnectionHandler connectionHandler;
     private static ConnectionHandlerConnect connectionHandlerConnect;
     public static boolean NAT_OPEN = false;
     public static ArrayList<PeerTrustData> peerTrusts = new ArrayList<PeerTrustData>();
@@ -465,7 +467,9 @@ public class Test {
                         if (peer.getPeerTrustData() == null) {
                             System.out.format("%50s %22d %12s %12s %7d %8s %10s %10d %10d %10d\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), "-", peer.sendBytes, peer.receivedBytes, peer.removedSendMessages.size());
                         } else {
-                            System.out.format("%50s %22d %12s %12s %7d %8s %10d %10d %10d %8s %10d %10d %10s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.removedSendMessages.size(), formatInterval(System.currentTimeMillis() - peer.peerTrustData.backSyncedTill));
+                            System.out.format("%50s %22d %12s %12s %7d %8s %10d %10d %10d %8s %10d %10d %10s %10s %10s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.removedSendMessages.size(),
+                                    peer.peerTrustData.backSyncedTill == Long.MAX_VALUE ? "-" : formatInterval(System.currentTimeMillis() - peer.peerTrustData.backSyncedTill),
+                                    peer.peerTrustData.pendingMessagesTimedOut.size(), peer.peerTrustData.pendingMessagesTimedOut.size());
                         }
 
 //                        while (c.length() < 15) {
@@ -747,7 +751,9 @@ public class Test {
                         System.out.println("Number not found, aborting...");
                         continue;
                     }
-                    ArrayList<TextMessageContent> messages = MessageHolder.getMessages(channel);
+                    //ArrayList<TextMessageContent> messages = MessageHolder.getMessages(channel);
+
+                    ArrayList<TextMessageContent> messages = Main.getMessages(channel, System.currentTimeMillis() - 1000 * 60 * 60 * 24 * 30L, System.currentTimeMillis());
 
                     for (TextMessageContent msg : messages) {
                         System.out.println("from me: " + msg.isFromMe() + " content: " + msg.getText());
@@ -1298,6 +1304,18 @@ public class Test {
                     continue;
                 }
 
+                if (readLine.equals("d14")) {
+                    Channel channel = Channel.getChannelById(-2);
+                    long a = System.currentTimeMillis();
+                    ArrayList<TextMessageContent> messages = Main.getMessages(channel, System.currentTimeMillis() - 1000 * 60 * 60 * 24 * 30L, System.currentTimeMillis());
+                    System.out.println("size: " + messages.size() + " - " + (System.currentTimeMillis() - a));
+                    System.out.println("go");
+                    Test.messageStore.moveChannelMessagesToHistory(System.currentTimeMillis() - 1000L * 60L * 60L * 24L * 30L * 2L);
+                    System.out.println(": " + (System.currentTimeMillis() - 1000L * 60L * 60L * 24L * 30L * 2L));
+                    System.out.println("done!!!");
+                    continue;
+                }
+
                 if (readLine.equals("ls")) {
 
                     ArrayList<Peer> clonedPeerList = getClonedPeerList();
@@ -1600,7 +1618,7 @@ public class Test {
                     bound = true;
                     try {
                         serverSocketChannel.socket().bind(new InetSocketAddress(MY_PORT));
-                    } catch (BindException e) {
+                    } catch (Throwable e) {
 
                         if (DEBUG) {
                             System.out.println("could not bound to port: " + MY_PORT);
@@ -1958,12 +1976,13 @@ public class Test {
         lastAddedKnownNodes = System.currentTimeMillis();
 
         for (String host : Settings.knownNodes) {
-            try {
-                //ToDo: eats up cpu if no internet is available?!?
-                findPeer(new Peer(InetAddress.getByName(host).getHostAddress(), Settings.STD_PORT));
-            } catch (UnknownHostException ex) {
-                System.out.println("Could not resolve hostname: " + host);
-            }
+            findPeer(new Peer(host, Settings.STD_PORT));
+//            try {
+//                //ToDo: eats up cpu if no internet is available?!?
+//                findPeer(new Peer(InetAddress.getByName(host).getHostAddress(), Settings.STD_PORT));
+//            } catch (UnknownHostException ex) {
+//                System.out.println("Could not resolve hostname: " + host);
+//            }
         }
 
     }
@@ -2275,6 +2294,8 @@ public class Test {
             }
 
         }.start();
+
+        WatchDog.start();
 
     }
 

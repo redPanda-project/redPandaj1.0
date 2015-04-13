@@ -88,14 +88,14 @@ public class HsqlConnection {
 
         Statement stmt = con.createStatement();
         if (Settings.lightClient) {
-            stmt.executeUpdate("SET FILES CACHE ROWS 10000");//rows
-            stmt.executeUpdate("SET FILES CACHE SIZE 10000");//kb
+            stmt.executeUpdate("SET FILES CACHE ROWS 50000");//rows
+            stmt.executeUpdate("SET FILES CACHE SIZE 50000");//kb
         } else if (Settings.SUPERNODE) {
             stmt.executeUpdate("SET FILES CACHE ROWS 50000");//rows
-            stmt.executeUpdate("SET FILES CACHE SIZE 50000");//kb
+            stmt.executeUpdate("SET FILES CACHE SIZE 70000");//kb
         } else {
             stmt.executeUpdate("SET FILES CACHE ROWS 50000");//rows
-            stmt.executeUpdate("SET FILES CACHE SIZE 50000");//kb
+            stmt.executeUpdate("SET FILES CACHE SIZE 70000");//kb
         }
         stmt.executeUpdate("SET AUTOCOMMIT TRUE");
         //ToDo: check that this doesnt cause any problems MVLOCKS = snapshot read!!
@@ -160,13 +160,14 @@ public class HsqlConnection {
         //stmt.executeUpdate("drop table if exists message");
         stmt.executeUpdate("create CACHED table if not exists message (message_id INTEGER PRIMARY KEY IDENTITY, pubkey_id INTEGER, public_type TINYINT, timestamp BIGINT, nonce INTEGER,  signature BINARY(72), content LONGVARBINARY, verified boolean)");
         stmt.executeUpdate("create CACHED table if not exists channelmessage (pubkey_id INTEGER, message_id INTEGER, message_type INTEGER, timestamp BIGINT, decryptedContent LONGVARBINARY, identity BIGINT, fromMe BOOLEAN, FOREIGN KEY (pubkey_id) REFERENCES pubkey(pubkey_id))");
+        stmt.executeUpdate("create CACHED table if not exists channelmessageHistory (pubkey_id INTEGER, message_id INTEGER, message_type INTEGER, timestamp BIGINT, decryptedContent LONGVARBINARY, identity BIGINT, fromMe BOOLEAN, FOREIGN KEY (pubkey_id) REFERENCES pubkey(pubkey_id))");
         //table for sticks
         stmt.executeUpdate("create CACHED table if not exists sticks (pubkey_id INTEGER, message_id INTEGER, difficulty DOUBLE, validTill BIGINT, FOREIGN KEY (pubkey_id) REFERENCES pubkey(pubkey_id))");
         stmt.executeUpdate("create CACHED table if not exists peerMessagesIntroducedToMe (peer_id BIGINT, message_id INTEGER)");
         stmt.executeUpdate("create CACHED table if not exists peerMessagesIntroducedToHim (peer_id BIGINT, message_id INTEGER, FOREIGN KEY (message_id) REFERENCES message(message_id) ON DELETE CASCADE)");
         stmt.executeUpdate("create CACHED table if not exists haveToSendMessageToPeer (peer_id BIGINT, message_id INTEGER, FOREIGN KEY (message_id) REFERENCES message(message_id) ON DELETE CASCADE)");
         stmt.executeUpdate("create CACHED table if not exists filterChannels (peer_id BIGINT, channel_id INTEGER)");//, FOREIGN KEY (channel_id) REFERENCES channel(channel_id) ON DELETE CASCADE
-        stmt.executeUpdate("create CACHED table if not exists notReadMessage (message_id INTEGER, FOREIGN KEY (message_id) REFERENCES message(message_id) ON DELETE CASCADE)");
+        stmt.executeUpdate("create CACHED table if not exists notReadMessage (message_id INTEGER, FOREIGN KEY (message_id) REFERENCES channelmessage(message_id) ON DELETE CASCADE)");
         stmt.executeUpdate("create CACHED table if not exists channelKnownLevel (forChannel INTEGER, identity BIGINT, fromChannel INTEGER, level INTEGER)");
 
         //        ResultSet executeQuery = stmt.executeQuery("SELECT * FROM information_schema.statistics");
@@ -208,7 +209,7 @@ public class HsqlConnection {
             stmt.executeUpdate("CREATE INDEX peerMessagesIntroducedToHimIndexForMsgId ON peerMessagesIntroducedToHim(message_id)");
         } catch (SQLSyntaxErrorException e) {
         }
-        String[] keys = {"pubkey_id", "message_type", "message_id"};
+        String[] keys = {"pubkey_id", "message_type", "message_id", "timestamp"};
         String tableName = "channelmessage";
         for (String key : keys) {
             try {

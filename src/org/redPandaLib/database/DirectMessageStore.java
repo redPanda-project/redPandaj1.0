@@ -515,13 +515,13 @@ public class DirectMessageStore implements MessageStore {
             //String query = "SELECT message_id,message_type,decryptedContent,channelmessage.timestamp,identity,fromMe,nonce from channelmessage LEFT JOIN message on (channelmessage.message_id = message.message_id) WHERE pubkey_id =? AND timestamp > 0 ORDER BY timestamp DESC";
 //WARNING added timestamp to channelmessage - old querys have to be edited!!!!
             //String query = "SELECT message_id,message_type,timestamp,decryptedContent,identity,fromMe from channelmessage WHERE pubkey_id =? AND timestamp > 0 ORDER BY timestamp DESC";
-            String query = "SELECT channelmessage.message_id,message_type,timestamp,decryptedContent,identity,fromMe, (notReadMessage.message_id is NULL) as markedAsRead from channelmessage LEFT JOIN notReadMessage on (channelmessage.message_id = notReadMessage.message_id) WHERE pubkey_id =? AND timestamp > 0 ORDER BY timestamp DESC";
+            String query = "SELECT channelmessage.message_id,message_type,timestamp,decryptedContent,identity,fromMe, (notReadMessage.message_id is NULL) as markedAsRead from channelmessage LEFT JOIN notReadMessage on (channelmessage.message_id = notReadMessage.message_id) WHERE pubkey_id =? AND timestamp > ? ORDER BY timestamp DESC";
             //System.out.println("QUERY: " + query);
 
             PreparedStatement pstmt = connection.prepareStatement(query);
             pstmt.setInt(1, pubkeyId);
+            pstmt.setLong(2, from);
             //pstmt.setLong(2, to);
-            //pstmt.setLong(3, from);
 
             //pstmt.setInt(4, pubkeyId);
             //pstmt.setLong(5, to);
@@ -1253,6 +1253,26 @@ public class DirectMessageStore implements MessageStore {
             Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
         }
         return list;
+    }
+
+    public void moveChannelMessagesToHistory(long olderThan) {
+        try {
+
+            String query = "INSERT INTO channelmessageHistory (pubkey_id,message_id,message_type,timestamp,decryptedContent,identity,fromMe) "
+                    + "SELECT pubkey_id,message_id,message_type,timestamp,decryptedContent,identity,fromMe FROM channelmessage WHERE timestamp < ?";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setLong(1, olderThan);
+            pstmt.execute();
+
+            query = "DELETE FROM channelmessage WHERE timestamp < ?";
+            pstmt = connection.prepareStatement(query);
+            pstmt.setLong(1, olderThan);
+            pstmt.execute();
+
+            pstmt.close();
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
 }
