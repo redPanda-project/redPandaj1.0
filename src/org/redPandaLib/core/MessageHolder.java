@@ -125,7 +125,7 @@ public class MessageHolder {
 
     public static ArrayList<TextMessageContent> getMessages(Channel channel, long from, long to) {
         ArrayList<TextMessageContent> list = Test.messageStore.getMessageContentsForPubkey(channel.getKey().getPubKey(),
-                from, to);
+                from, to); //ToDo: Nullpointer
         return list;
     }
 }

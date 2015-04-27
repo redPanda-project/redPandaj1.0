@@ -29,10 +29,7 @@ public class Settings {
     public static boolean SEND_DELIVERED_MSG = false; //only for non special channels
     public static boolean IPV6_ONLY = false;
     public static boolean IPV4_ONLY = false;
-    public static String[] knownNodes = {"redPanda.im", "91.250.113.186", "2a01:488:66:1000:523:f363:0:1", "fabulous.h4ck.me", "geeq.de", "redpanda.ignorelist.com", "redpanda.ip-v6.eu", "redpanda-ipv6only.allowed.org"};
-    //public static String[] knownNodes = {"2a01:488:66:1000:523:f363:0:1", "2a02:908:d51a:1880:3d54:128f:a4ea:f765"};
-    //"2a01:0488:0066:1000:0523:f363:0000:0001"
-    //public static String[] knownNodes = {"5.35.243.99", "fabulous.h4ck.me"};
+    public static String[] knownNodes = {"redPanda.im", "91.250.113.186", "2a01:488:66:1000:5bfa:71ba:0:1", "fabulous.h4ck.me", "geeq.de", "redpanda.ignorelist.com", "redpanda.ip-v6.eu", "redpanda-ipv6only.allowed.org"};
     public static int STARTPORT = 59558;//default value if not overwritten by general.dat
     public static int MAXPUBLICMSGS = 15000;//default value if not overwritten by general.dat
     public static boolean TESTNET = false;
