@@ -179,10 +179,10 @@ public class MysqlConnection {
         } catch (SQLSyntaxErrorException e) {
         }
 
-        try {
-            stmt.executeUpdate("CREATE INDEX syncHashchannel_idIndex ON syncHash(channel_id)");
-        } catch (SQLSyntaxErrorException e) {
-        }
+//        try {
+//            stmt.executeUpdate("CREATE INDEX syncHashchannel_idIndex ON syncHash(channel_id)");
+//        } catch (SQLSyntaxErrorException e) {
+//        }
         //        try {
         //            stmt.executeUpdate("CREATE INDEX syncHashFromIndex ON syncHash(from)");
         //        } catch (SQLSyntaxErrorException e) {

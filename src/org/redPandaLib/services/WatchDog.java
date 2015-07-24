@@ -36,17 +36,20 @@ public class WatchDog {
 
                     long delay = System.currentTimeMillis() - ConnectionHandler.lastRun;
 
-                    if (delay > 1000 * 60 * 15) {
+                    if (delay > 1000 * 60 * 1) {
 
                         StackTraceElement[] stackTrace = Test.connectionHandler.getStackTrace();
                         String ownStackTrace = "";
                         for (StackTraceElement a : stackTrace) {
                             ownStackTrace += a.toString() + "\n";
                         }
-
-                        Main.sendBroadCastMsg("Wuff! Wuff! ConnectionHandler didn't run for quite a while: " + delay + "\nState: " + Test.connectionHandler.getState() + "\nStackTrace: " + ownStackTrace);
-
-                        return;
+                        String lastLine = stackTrace[stackTrace.length - 1].toString();
+                        if (!lastLine.contains("ConnectionHandler.java:168") && !lastLine.contains("ConnectionHandler.java:215")) {
+                            Main.sendBroadCastMsg("Wuff! Wuff! ConnectionHandler didn't run for quite a while: " + delay + "\nState: " + Test.connectionHandler.getState() + "\nStackTrace: " + ownStackTrace);
+                            return;
+                        } else {
+                            //Main.sendBroadCastMsg("No Wuff!");
+                        }
 
                     }
 

@@ -331,6 +331,7 @@ public class ConnectionHandler extends Thread {
                             }
 
                             read = peer.getSocketChannel().read(peer.readBufferCrypted);
+                            //System.out.println("read bytes from socket " + read);
 
                             //check if this thread should exit!
                             if (interrupted()) {

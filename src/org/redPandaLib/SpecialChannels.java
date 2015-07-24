@@ -17,7 +17,7 @@ public class SpecialChannels {
     public static Channel SPAM;
 
     static {
-        MAIN = Channel.getInstaceByPrivateKey("4FqVp5sudGUqCjN39zXnopTpN9zSpuprdRhsyPdBHzJi", "Main Channel", -2);
+        MAIN = Channel.getInstaceByPrivateKey("7M8CsPkboJiVEe9P7gh6SDHqjemqnjPy3JyZur9duBwG", "Main Channel", -2);
         SPAM = Channel.getInstaceByPrivateKey("2c2s4jDb1ofJpd1JArVzxfWNYPtMb9aX7W8173X3sbs5", "Spam Channel", -3);
     }
 

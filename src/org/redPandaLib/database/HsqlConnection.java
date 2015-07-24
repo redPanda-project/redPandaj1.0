@@ -227,10 +227,10 @@ public class HsqlConnection {
             } catch (SQLSyntaxErrorException e) {
             }
         }
-        try {
-            stmt.executeUpdate("CREATE INDEX syncHashchannel_idIndex ON syncHash(channel_id)");
-        } catch (SQLSyntaxErrorException e) {
-        }
+//        try {
+//            stmt.executeUpdate("CREATE INDEX syncHashchannel_idIndex ON syncHash(channel_id)");
+//        } catch (SQLSyntaxErrorException e) {
+//        }
 
         try {
             stmt.executeUpdate("CREATE INDEX haveToSendMessageToPeerPeerIdIndex ON haveToSendMessageToPeer(peer_id)");

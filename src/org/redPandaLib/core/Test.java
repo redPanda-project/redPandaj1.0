@@ -120,6 +120,22 @@ public class Test {
                 System.out.println("uncaught exception!");
                 e.printStackTrace();
                 sendStacktrace(e);
+
+                new Thread() {
+
+                    @Override
+                    public void run() {
+                        try {
+                            Thread.sleep(1000 * 60 * 10);
+                        } catch (InterruptedException ex) {
+                            Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+
+                        System.exit(-1);
+                    }
+
+                }.start();
+
             }
         });
 
