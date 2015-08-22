@@ -27,7 +27,18 @@ Hit enter for stats.
 s - send Message and get keys
 M - add Main Channel, currenlty used for debug messages
 i - import Channel
-e - exit
+N - creates a new channel
+rc - remove a channel
+L - add all lan ips, still alpha
+B - back sync: syncs all messages the other peers has (only from superclients)
+xs - saves all private keys and identities to backup.xml using the given password (can be imported with 'xl')
+xl - loads all private keys and identities from backup.xml (see 'xs')
+R - removes all messages older than one week
+r - removes all peers + trust data (not recommended)
+speer - migrating to super peer (until restart, see general.dat for persistent settings)
+lpeer - migrating to light peer (until restart, see general.dat for persistent settings)
+c - close all connections
+e - exit / restart
 
 There are much more commands not documented here.
 You have to look in the code for more commands at this stage of development.
