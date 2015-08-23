@@ -187,6 +187,24 @@ public class HsqlConnection {
         //        executeQuery.close();
         //        stmt.executeUpdate("create CACHED table if not exists syncHash (channel_id integer, from BIGINT, to BIGINT, count INTEGER, hashcode INTEGER)");
         try {
+            stmt.executeUpdate("ALTER TABLE channelmessage ADD public_type TINYINT");
+        } catch (SQLSyntaxErrorException e) {
+        }
+        try {
+            stmt.executeUpdate("ALTER TABLE channelmessage ADD nonce INTEGER");
+        } catch (SQLSyntaxErrorException e) {
+        }
+        
+               try {
+            stmt.executeUpdate("ALTER TABLE channelmessageHistory ADD public_type TINYINT");
+        } catch (SQLSyntaxErrorException e) {
+        }
+        try {
+            stmt.executeUpdate("ALTER TABLE channelmessageHistory ADD nonce INTEGER");
+        } catch (SQLSyntaxErrorException e) {
+        }
+
+        try {
             stmt.executeUpdate("CREATE INDEX messagePubkeyIndex ON message(pubkey_id)");
         } catch (SQLSyntaxErrorException e) {
         }

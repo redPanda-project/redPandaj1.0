@@ -61,6 +61,21 @@ public class BlockMsg extends RawMsg {
         return wrap.getLong();
     }
 
+    public long getMessageCount() {
+        ByteBuffer wrap = ByteBuffer.wrap(decryptedContent);
+        wrap.get();
+        wrap.getLong();
+        return wrap.getInt();
+    }
+
+    public long getContentHash() {
+        ByteBuffer wrap = ByteBuffer.wrap(decryptedContent);
+        wrap.get();
+        wrap.getLong();
+        wrap.getInt();
+        return wrap.getInt();
+    }
+
     public HashMap<ECKey, Integer> getLevels() {
         throw new UnsupportedOperationException();
 //        HashMap<ECKey, Integer> map = new HashMap<ECKey, Integer>();

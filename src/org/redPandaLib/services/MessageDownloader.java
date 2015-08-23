@@ -163,7 +163,6 @@ public class MessageDownloader {
                     });
 
                     //System.out.println("top: " + clonedPeerList.get(0).getMessageLoadedCount() + " low: " + clonedPeerList.get(clonedPeerList.size() - 1).getMessageLoadedCount());
-
                     for (Peer p : clonedPeerList) {
 
                         //if (!p.isConnected() || System.currentTimeMillis() - p.connectedSince < 500) {
@@ -302,8 +301,8 @@ public class MessageDownloader {
                                 continue;
                             }
 
-                            //STICKS and msgs.
-                            if (m.public_type == 20 || m.public_type > 50) {
+                            //STICKS and msgs and blocks and images
+                            if (m.public_type == 0 || m.public_type == 20 || m.public_type == 21 || m.public_type > 50) {
 
                                 //normal message
                                 if (Settings.MAXPUBLICMSGS < publicMsgsLoaded || Settings.lightClient) {

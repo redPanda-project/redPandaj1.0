@@ -241,7 +241,7 @@ public class RawMsg implements Serializable, Comparable<RawMsg> {
 
         //check for block
         if (public_type == 0) {
-            return null;//ToDo:!
+            return new BlockMsg(key, timestamp, nonce, signature, content, decryptedContent, channel, verified, readable, database_Id);
         } else //Check for plain text
         if (decryptedContent[0] == TextMsg.BYTE) {
             TextMsg textMsg = new TextMsg(key, timestamp, nonce, signature, content, decryptedContent, channel, verified, readable, database_Id);

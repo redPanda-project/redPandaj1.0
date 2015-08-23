@@ -16,6 +16,7 @@ import java.util.logging.Logger;
 import org.redPandaLib.Main;
 import org.redPandaLib.core.Channel;
 import org.redPandaLib.core.Log;
+import org.redPandaLib.core.Settings;
 import org.redPandaLib.core.Test;
 import org.redPandaLib.core.messages.RawMsg;
 import org.redPandaLib.core.messages.TextMessageContent;
@@ -469,10 +470,10 @@ public class DirectMessageStore implements MessageStore {
         return list;
     }
 
-    public void addDecryptedContent(int pubkey_id, int message_id, int message_type, long timestamp, byte[] decryptedContent, long identity, boolean fromMe) {
+    public void addDecryptedContent(int pubkey_id, int message_id, int message_type, long timestamp, byte[] decryptedContent, long identity, boolean fromMe, int nonce, byte public_type) {
         try {
             //channelmessage (channel_id INTEGER, message_id INTEGER, message_type INTEGER, decryptedContent LONGVARBINARY);
-            String query = "INSERT into channelmessage (pubkey_id,message_id,message_type,timestamp,decryptedContent,identity,fromMe) VALUES (?,?,?,?,?,?,?)";
+            String query = "INSERT into channelmessage (pubkey_id,message_id,message_type,timestamp,decryptedContent,identity,fromMe,nonce,public_type) VALUES (?,?,?,?,?,?,?,?,?)";
             PreparedStatement pstmt = connection.prepareStatement(query);
             pstmt.setInt(1, pubkey_id);
             pstmt.setInt(2, message_id);
@@ -481,6 +482,8 @@ public class DirectMessageStore implements MessageStore {
             pstmt.setBytes(5, decryptedContent);
             pstmt.setLong(6, identity);
             pstmt.setBoolean(7, fromMe);
+            pstmt.setInt(8, nonce);
+            pstmt.setByte(9, public_type);
             pstmt.execute();
             pstmt.close();
         } catch (Throwable ex) {
@@ -729,6 +732,10 @@ public class DirectMessageStore implements MessageStore {
      * than timestamp
      */
     public int removeMessagesFromChannel(int pubkey_id, byte public_type, long timestamp) {
+
+        if (Settings.DONT_REMOVE_UNUSED_MESSAGES) {
+            return -1;
+        }
 
         int updateCount = 0;
 

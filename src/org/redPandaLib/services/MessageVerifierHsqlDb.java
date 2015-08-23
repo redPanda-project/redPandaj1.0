@@ -34,6 +34,7 @@ import org.redPandaLib.core.*;
 import org.redPandaLib.core.ImageInfos.Infos;
 import static org.redPandaLib.core.Test.NAT_OPEN;
 import static org.redPandaLib.core.Test.inBytes;
+import static org.redPandaLib.core.Test.messageStore;
 import static org.redPandaLib.core.Test.outBytes;
 import static org.redPandaLib.core.Test.peerList;
 import org.redPandaLib.core.messages.BlockMsg;
@@ -263,9 +264,29 @@ public class MessageVerifierHsqlDb {
                                         }
 
                                         if (message.public_type == BlockMsg.PUBLIC_TYPE) {
+                                            System.out.println("i found a block!!!");
 
-                                            
-                                            
+                                            System.out.println("hex: " + Utils.bytesToHexString(message.decryptedContent));
+
+                                            BlockMsg blockMsg = (BlockMsg) message;
+                                            String text = "New block generated with " + blockMsg.getMessageCount() + " msgs (" + blockMsg.content.length / 1024. + " kb).";
+                                            Test.messageStore.addDecryptedContent(blockMsg.getKey().database_id, (int) blockMsg.database_Id, BlockMsg.BYTE, blockMsg.timestamp, text.getBytes(), ((BlockMsg) blockMsg).getIdentity(), true, blockMsg.nonce, blockMsg.public_type);
+                                            TextMessageContent textMessageContent = new TextMessageContent(blockMsg.database_Id, blockMsg.key.database_id, blockMsg.public_type, TextMsg.BYTE, blockMsg.timestamp, blockMsg.decryptedContent, blockMsg.channel, blockMsg.getIdentity(), text, true);
+                                            textMessageContent.read = true;
+                                            for (NewMessageListener listener : Main.listeners) {
+                                                listener.newMessage(textMessageContent);
+                                            }
+
+                                            System.out.println("New block saved and send, doing cleanup...");
+
+                                            //remove old block:
+                                            int removeMessagesFromChannel = Test.messageStore.removeMessagesFromChannel(pubkey_id, BlockMsg.PUBLIC_TYPE, blockMsg.timestamp);
+                                            System.out.println("removed old blocks: " + removeMessagesFromChannel);
+
+                                            //remove old messages which are encrypted and now saved in the new block (only necessary data)...
+                                            removeMessagesFromChannel = Test.messageStore.removeMessagesFromChannel(pubkey_id, (byte) 20, blockMsg.timestamp);
+                                            System.out.println("removed old encrypted messages: " + removeMessagesFromChannel);
+
                                         } else // check for other msgs types with first byte of decrypted content
                                         if (message instanceof TextMsg) {
 
@@ -273,7 +294,7 @@ public class MessageVerifierHsqlDb {
                                             long identity = textMsg.getIdentity();
                                             boolean fromMe = (identity == Test.localSettings.identity);
 
-                                            Test.messageStore.addDecryptedContent(pubkey_id, message_id, TextMsg.BYTE, textMsg.timestamp, textMsg.getText(), textMsg.getIdentity(), fromMe);
+                                            Test.messageStore.addDecryptedContent(pubkey_id, message_id, TextMsg.BYTE, textMsg.timestamp, textMsg.getText(), textMsg.getIdentity(), fromMe, textMsg.nonce, textMsg.public_type);
                                             TextMessageContent fromTextMsg = TextMessageContent.fromTextMsg(textMsg, fromMe);
 
                                             for (NewMessageListener listener : Main.listeners) {
@@ -344,7 +365,7 @@ public class MessageVerifierHsqlDb {
                                             //System.out.println(deliveredMsg.getNick() + " in " + deliveredMsg.getChannel().name + " hat die Nachrich bekommen: " + deliveredMsg.timestamp + " " + deliveredMsg.nonce);
 
                                             //TextMsg build = TextMsg.build(deliveredMsg.getChannel(), deliveredMsg.getIdentity() + " in " + deliveredMsg.getChannel().getName() + " hat die Nachrich bekommen: " + formatTime(new Date(deliveredMsg.timestamp)) + " " + deliveredMsg.nonce);
-                                            Test.messageStore.addDecryptedContent(pubkey_id, message_id, DeliveredMsg.BYTE, deliveredMsg.timestamp, deliveredMsg.decryptedContent, deliveredMsg.getIdentity(), false);
+                                            Test.messageStore.addDecryptedContent(pubkey_id, message_id, DeliveredMsg.BYTE, deliveredMsg.timestamp, deliveredMsg.decryptedContent, deliveredMsg.getIdentity(), false, deliveredMsg.nonce, deliveredMsg.public_type);
                                             TextMessageContent fromTextMsg = TextMessageContent.fromDeliveredMsg(deliveredMsg, false);
 
                                             for (NewMessageListener listener : Main.listeners) {
@@ -421,7 +442,7 @@ public class MessageVerifierHsqlDb {
                                                             long identity = imageMsg.getIdentity();
                                                             boolean fromMe = (identity == Test.localSettings.identity);
 
-                                                            Test.messageStore.addDecryptedContent(pubkey_id, message_id, ImageMsg.BYTE, imageMsg.getTimestamp(), imageInfos.getBytes(), imageMsg.getIdentity(), fromMe);
+                                                            Test.messageStore.addDecryptedContent(pubkey_id, message_id, ImageMsg.BYTE, imageMsg.getTimestamp(), imageInfos.getBytes(), imageMsg.getIdentity(), fromMe, imageMsg.nonce, imageMsg.public_type);
                                                             TextMessageContent fromTextMsg = TextMessageContent.fromImageMsg(imageMsg, fromMe, imageInfos);
 
                                                             for (NewMessageListener listener : Main.listeners) {
@@ -582,7 +603,7 @@ public class MessageVerifierHsqlDb {
                                         }
 
                                         if (Settings.BROADCAST_MSGS_AFTER_VERIFICATION) {
-                                            if (timestamp > System.currentTimeMillis() - 1000 * 60 * 60 * 24 * 7) {
+                                            if (timestamp > System.currentTimeMillis() - 1000L * 60L * 60L * 24L * 7L) {
                                                 Runnable sendRunnable = new Runnable() {
                                                     @Override
                                                     public void run() {

@@ -38,6 +38,7 @@ public class Settings {
     public static boolean REMOVE_OLD_MESSAGES = false;
     public static String EXTERNAL_DATABASE_LOGIN_CREDENTIALS = null; //format: user,dbname,password
     public static boolean REDUCE_TRAFFIC = false; //This is currenlty only a hack. This allows to not load images when mobile internet is used. (Messages will be introduced from all peers every time they reconnect to us!!!)
+    public static boolean DONT_REMOVE_UNUSED_MESSAGES = false; //dont remove unused messages (messages which are doublicates within blocks)
 
     public static void readGeneralDotDat() {
         try {
@@ -112,6 +113,14 @@ public class Settings {
                             System.out.println("No mysql login data found, using internal database.");
                         }
                     }
+                }
+            }
+
+            readLine = bufferedReader.readLine();
+            if (readLine != null) {
+                if (readLine.equals("DontRemoveUnusedMessages=true")) {
+                    DONT_REMOVE_UNUSED_MESSAGES = true;
+                    System.out.println("dont remove unused messages (messages which are doublicates within blocks)");
                 }
             }
 

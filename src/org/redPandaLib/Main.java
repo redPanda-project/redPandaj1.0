@@ -167,7 +167,7 @@ public class Main {
         TextMsg build = TextMsg.build(channel, text);
         RawMsg addMessage = MessageHolder.addMessage(build);
         Test.broadcastMsg(addMessage);
-        Test.messageStore.addDecryptedContent(addMessage.getKey().database_id, (int) addMessage.database_Id, TextMsg.BYTE, addMessage.timestamp, ((TextMsg) addMessage).getText(), ((TextMsg) addMessage).getIdentity(), true);
+        Test.messageStore.addDecryptedContent(addMessage.getKey().database_id, (int) addMessage.database_Id, TextMsg.BYTE, addMessage.timestamp, ((TextMsg) addMessage).getText(), ((TextMsg) addMessage).getIdentity(), true, addMessage.nonce, addMessage.public_type);
         TextMessageContent textMessageContent = TextMessageContent.fromTextMsg((TextMsg) addMessage, true);
         textMessageContent.read = true;
         for (NewMessageListener listener : Main.listeners) {
@@ -210,7 +210,7 @@ public class Main {
             Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
         }
 
-        Test.messageStore.addDecryptedContent(addMessage.getKey().database_id, (int) addMessage.database_Id, ImageMsg.BYTE, addMessage.timestamp, imageInfos.getBytes(), ((ImageMsg) addMessage).getIdentity(), true);
+        Test.messageStore.addDecryptedContent(addMessage.getKey().database_id, (int) addMessage.database_Id, ImageMsg.BYTE, addMessage.timestamp, imageInfos.getBytes(), ((ImageMsg) addMessage).getIdentity(), true, addMessage.nonce, addMessage.public_type);
 
         TextMessageContent textMessageContent = TextMessageContent.fromImageMsg((ImageMsg) addMessage, true, imageInfos);
         textMessageContent.read = true;

@@ -53,6 +53,7 @@ import org.redPandaLib.core.messages.TextMsg;
 import org.redPandaLib.crypt.AddressFormatException;
 import org.redPandaLib.crypt.Base58;
 import org.redPandaLib.crypt.ECKey;
+import org.redPandaLib.crypt.Sha256Hash;
 import org.redPandaLib.crypt.Utils;
 import org.redPandaLib.database.DirectMessageStore;
 import org.redPandaLib.database.HsqlConnection;
@@ -1188,7 +1189,7 @@ public class Test {
                     try {
                         //get Key Id
                         //String query = "SELECT pubkey_id,message_id,content,public_type,timestamp,nonce from message WHERE timestamp > ? and verified = true AND pubkey_id = ?";
-                        String query = "SELECT channelmessage.message_id,message_type,timestamp,decryptedContent,identity,fromMe,nonce,public_type from channelmessage LEFT JOIN message on (channelmessage.message_id = message.message_id) WHERE pubkey_id =? AND timestamp > ? ORDER BY timestamp ASC";
+                        String query = "SELECT message_id,message_type,timestamp,decryptedContent,identity,fromMe,nonce,public_type from channelmessage WHERE pubkey_id =? AND timestamp > ? ORDER BY timestamp ASC";
                         PreparedStatement pstmt = Test.messageStore.getConnection().prepareStatement(query);
                         pstmt.setInt(1, pubkeyId);
                         long asd = System.currentTimeMillis() - 1000L * 60L * 60L * 24L * 7L * 4L * 1L;
@@ -1197,13 +1198,12 @@ public class Test {
 
                         ResultSet executeQuery = pstmt.executeQuery();
 
-                        long msgcount = 0;
+                        int msgcount = 0;
 
                         boolean breaked = false;
 
-                        ByteBuffer buffer = ByteBuffer.allocate(1024 * 200); //max size of a message!! should be regulated later!
-                        buffer.put(BlockMsg.BYTE); //cmd for block
-                        buffer.putLong(Test.localSettings.identity);//mark that i was the generator of the block
+                        byte[] dataArray = new byte[1024 * 200];
+                        ByteBuffer buffer = ByteBuffer.wrap(dataArray); //max size of a message!! should be regulated later!
 
                         //ToDo: add hash from all data and count of messages to get an easier sync!
                         //System.out.println("dwzdzwd " + executeQuery.next());
@@ -1226,7 +1226,7 @@ public class Test {
                                 if (message_type != TextMsg.BYTE) {
                                     continue;
                                 }
-                                if (buffer.remaining() < 8 + 8 + decryptedContent.length) {
+                                if (buffer.remaining() < 8 + 8 + 4 + 8 + 4 + decryptedContent.length) {
                                     System.out.println("buffer full, exit routine, dont know what to do atm");
                                     breaked = true;
                                     break;
@@ -1237,6 +1237,7 @@ public class Test {
                                 buffer.putLong(nonce);
                                 buffer.putInt(message_type);
                                 buffer.putLong(identity);
+                                buffer.putInt(decryptedContent.length);
                                 buffer.put(decryptedContent);
                                 msgcount++;
                             }
@@ -1253,17 +1254,34 @@ public class Test {
                         //System.out.println("Found - messages: " + msgCnt + "  with  " + textBytes / 1024. + " kb text and " + imageBytes / 1024. + " kb images");
                         //System.out.format("%30s %10s %10s %20s %10s %20s %10s %20s %10s %20s\n", "Channel", "pubkeyId", "rawCount", "textbytes", "imageCount", "imageBytes", "infoCount", "infoBytes", "deliveredCount", "deliveredBytes");
                         //System.out.format("%30s %10d %10d %20f %10d %20f %10d %20f %10d %20f\n", chan.getName(), pubkeyId, rawMessageCount, textBytes / 1024., imageMessageCount, imageBytes / 1024., infoMessageCount, infoBytes / 1024., deliveredMessageCount, deliveredBytes / 1024.);
-                        double kbs = buffer.position() / 1024.;
+                        ByteBuffer finalBuffer = ByteBuffer.allocate(buffer.position() + 1 + 8 + 4 + 4);
+
+                        System.out.println("size: " + buffer.position());
+
+                        ByteBuffer lel = ByteBuffer.allocate(buffer.position());
+                        lel.put(dataArray, 0, buffer.position());
+
+                        dataArray = lel.array();//shrinked to actual size
+
+                        finalBuffer.put(BlockMsg.BYTE); //cmd for block
+                        finalBuffer.putLong(Test.localSettings.identity);//mark that i was the generator of the block
+                        finalBuffer.putInt(msgcount);
+                        finalBuffer.putInt(Sha256Hash.create(dataArray).hashCode());
+                        finalBuffer.put(dataArray);
+
+                        double kbs = finalBuffer.position() / 1024.;
                         System.out.println("content block size: " + kbs + "  in " + msgcount + " messags.");
+
+                        System.out.println("hex: " + Utils.bytesToHexString(finalBuffer.array()));
 
                         long currentTime = System.currentTimeMillis() - 1000L * 60L * 5; // have to go back some time to overcome the problem with new messages
 
-                        BlockMsg build = BlockMsg.build(chan, currentTime, 45678, buffer.array());
+                        BlockMsg build = BlockMsg.build(chan, currentTime, 45678, finalBuffer.array());
 
                         BlockMsg addMessage = (BlockMsg) MessageHolder.addMessage(build);
                         Test.broadcastMsg(addMessage);
                         String text = "New block generated with " + msgcount + " msgs (" + kbs + " kb).";
-                        Test.messageStore.addDecryptedContent(addMessage.getKey().database_id, (int) addMessage.database_Id, BlockMsg.BYTE, addMessage.timestamp, text.getBytes(), ((BlockMsg) addMessage).getIdentity(), true);
+                        Test.messageStore.addDecryptedContent(addMessage.getKey().database_id, (int) addMessage.database_Id, BlockMsg.BYTE, addMessage.timestamp, text.getBytes(), ((BlockMsg) addMessage).getIdentity(), true, addMessage.nonce, addMessage.public_type);
                         TextMessageContent textMessageContent = new TextMessageContent(addMessage.database_Id, addMessage.key.database_id, addMessage.public_type, TextMsg.BYTE, addMessage.timestamp, addMessage.decryptedContent, addMessage.channel, addMessage.getIdentity(), text, true);
                         textMessageContent.read = true;
                         for (NewMessageListener listener : Main.listeners) {
