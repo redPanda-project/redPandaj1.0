@@ -25,8 +25,8 @@ Desktop/Console (Linux, Windows) client can be found on http://files.redPanda.im
 
 We are still in an early stage of development, meaning we are looking for people who are interessted in this project who wants to contribute to this project and want to set up a solid network for the peer-to-peer communication.
 
-As of now the system is not scaleable. So, at 200 user the peers will generate a lot of traffic and at 2000 users the supernodes will not be able to serve any messages at all. These numbers are just a brief estimate.
-We are currently fixing this by working on the first routing method for messages, which should be ready in a couple of weeks.
+As of now the system is not scaleable because we didn't implement a routing algorithm yet. So, at 200 user the peers will generate a lot of traffic and at 2000 users the supernodes will not be able to serve any messages at all. These numbers are just a brief estimate.
+We are currently fixing this by working on the first routing method for messages, which should be ready in a couple of month.
 
 
 
