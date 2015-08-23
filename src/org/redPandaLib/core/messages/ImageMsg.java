@@ -30,12 +30,12 @@ public class ImageMsg extends RawMsg {
 
     protected ImageMsg(ECKey key, long timestamp, int nonce) {
         super(key, timestamp, nonce);
-        public_type = 20;
+        public_type = 21; //message will be kept after each block
     }
 
     public ImageMsg(ECKey key, long timestamp, int nonce, byte[] signature, byte[] content, byte[] decryptedContent, Channel channel, boolean verified, boolean readable, int database_Id) {
         super(key, timestamp, nonce, signature, content, decryptedContent, channel, verified, readable, database_Id);
-        public_type = 20;
+        public_type = 21; //message will be kept after each block
     }
 
     public static ArrayList<ImageMsg> build(Channel channel, String pathToImage, boolean lowPriority) throws ImageTooLargeException {

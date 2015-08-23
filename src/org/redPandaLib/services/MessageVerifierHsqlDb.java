@@ -36,6 +36,7 @@ import static org.redPandaLib.core.Test.NAT_OPEN;
 import static org.redPandaLib.core.Test.inBytes;
 import static org.redPandaLib.core.Test.outBytes;
 import static org.redPandaLib.core.Test.peerList;
+import org.redPandaLib.core.messages.BlockMsg;
 import org.redPandaLib.core.messages.DeliveredMsg;
 import org.redPandaLib.core.messages.ImageMsg;
 import org.redPandaLib.core.messages.InfoMsg;
@@ -129,8 +130,8 @@ public class MessageVerifierHsqlDb {
                         Test.messageStore.removeOldMessages(System.currentTimeMillis() - 1000 * 60 * 60 * 24 * 7);
                     }
 
-                    Test.messageStore.moveChannelMessagesToHistory(System.currentTimeMillis() - 1000L * 60L * 60L * 24L * 30L * 2L);
-
+                    //currently buggy moves to many messages ?!?
+                    //Test.messageStore.moveChannelMessagesToHistory(System.currentTimeMillis() - 1000L * 60L * 60L * 24L * 30L * 2L);
                     if (Test.messageStore.getConnection() instanceof HsqlConnection) {
                         Test.messageStore.checkpoint();
                         System.out.println("checkpointed!!!!!");
@@ -261,6 +262,11 @@ public class MessageVerifierHsqlDb {
                                             }
                                         }
 
+                                        if (message.public_type == BlockMsg.PUBLIC_TYPE) {
+
+                                            
+                                            
+                                        } else // check for other msgs types with first byte of decrypted content
                                         if (message instanceof TextMsg) {
 
                                             TextMsg textMsg = (TextMsg) message;

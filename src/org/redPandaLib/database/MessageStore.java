@@ -104,6 +104,8 @@ public interface MessageStore {
     public void removeMessagesDecryptedContent(Channel channel);
 
     public void removeMessagesDecryptedContent(int pubkey_id);
-    
+
     public void moveChannelMessagesToHistory(long olderThan);
+
+    public int removeMessagesFromChannel(int pubkey_id, byte public_type, long timestamp);
 }

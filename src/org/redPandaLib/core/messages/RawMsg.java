@@ -37,7 +37,7 @@ public class RawMsg implements Serializable, Comparable<RawMsg> {
     //decrypted content
     public boolean readable = false;
     public byte[] decryptedContent;
-    protected Channel channel;
+    public Channel channel;
     public int database_Id = -1;
 
     public RawMsg(ECKey key, long timestamp, int nonce) {
@@ -239,7 +239,10 @@ public class RawMsg implements Serializable, Comparable<RawMsg> {
             //throw new RuntimeException("Wrong crypt key for channel");
         }
 
-        //Check for plain text
+        //check for block
+        if (public_type == 0) {
+            return null;//ToDo:!
+        } else //Check for plain text
         if (decryptedContent[0] == TextMsg.BYTE) {
             TextMsg textMsg = new TextMsg(key, timestamp, nonce, signature, content, decryptedContent, channel, verified, readable, database_Id);
             return textMsg;

@@ -120,7 +120,7 @@ public class MessageHolder {
     }
 
     public static ArrayList<TextMessageContent> getMessages(Channel channel) {
-        return getMessages(channel, System.currentTimeMillis() - 1000 * 60 * 60 * 24, System.currentTimeMillis());
+        return getMessages(channel, System.currentTimeMillis() - 1000L * 60L * 60L * 24L, System.currentTimeMillis());
     }
 
     public static ArrayList<TextMessageContent> getMessages(Channel channel, long from, long to) {

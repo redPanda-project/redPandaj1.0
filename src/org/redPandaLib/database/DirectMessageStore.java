@@ -723,15 +723,32 @@ public class DirectMessageStore implements MessageStore {
         return connection;
     }
 
-    private void removeMessagesFromChannel(Connection connection, int pubkey_id, byte pubkey_type, long timestamp) throws SQLException {
-        //get Key Id
-        //String query = "SELECT message_id from message WHERE pubkey_id = ? AND public_type = ? AND timestamp = ? AND nonce = ?";
-        String query = "DELETE FROM message WHERE pubkey_id = ? AND public_type = 20 AND timestamp < ?";
-        PreparedStatement pstmt = connection.prepareStatement(query);
-        pstmt.setInt(1, pubkey_id);
-        pstmt.setLong(2, timestamp);
-        pstmt.execute();
-        resetMessageCounter();
+    @Override
+    /**
+     * removes all messages with given pubkey and public_type which are older
+     * than timestamp
+     */
+    public int removeMessagesFromChannel(int pubkey_id, byte public_type, long timestamp) {
+
+        int updateCount = 0;
+
+        try {
+            //get Key Id
+            //String query = "SELECT message_id from message WHERE pubkey_id = ? AND public_type = ? AND timestamp = ? AND nonce = ?";
+            String query = "DELETE FROM message WHERE pubkey_id = ? AND public_type = ? AND timestamp < ?";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setInt(1, pubkey_id);
+            pstmt.setByte(2, public_type);
+            pstmt.setLong(3, timestamp);
+            pstmt.execute();
+            updateCount = pstmt.getUpdateCount();
+            pstmt.close();
+            resetMessageCounter();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return updateCount;
     }
 
     public void removeOldMessages(long timestamp) {

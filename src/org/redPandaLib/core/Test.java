@@ -16,6 +16,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.net.*;
+import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -40,8 +41,12 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.redPandaLib.ImageTooLargeException;
 import org.redPandaLib.Main;
+import org.redPandaLib.NewMessageListener;
 import org.redPandaLib.SpecialChannels;
+import org.redPandaLib.core.messages.BlockMsg;
+import org.redPandaLib.core.messages.DeliveredMsg;
 import org.redPandaLib.core.messages.ImageMsg;
+import org.redPandaLib.core.messages.InfoMsg;
 import org.redPandaLib.core.messages.RawMsg;
 import org.redPandaLib.core.messages.TextMessageContent;
 import org.redPandaLib.core.messages.TextMsg;
@@ -430,7 +435,7 @@ public class Test {
             int a = executeQuery.getInt(1);
 
             //ToDo: remove or raise later...
-            if (a > 100000) {
+            if (a > 200000) {
                 Main.sendBroadCastMsg("MessagesToSync too big, truncating both tables: " + a);
                 PreparedStatement prepareStatement2 = messageStore.getConnection().prepareStatement("TRUNCATE table haveToSendMessageToPeer");
                 prepareStatement2.execute();
@@ -769,7 +774,7 @@ public class Test {
                     }
                     //ArrayList<TextMessageContent> messages = MessageHolder.getMessages(channel);
 
-                    ArrayList<TextMessageContent> messages = Main.getMessages(channel, System.currentTimeMillis() - 1000 * 60 * 60 * 24 * 30L, System.currentTimeMillis());
+                    ArrayList<TextMessageContent> messages = Main.getMessages(channel, System.currentTimeMillis() - 1000L * 60L * 60L * 24L * 30L, System.currentTimeMillis());
 
                     for (TextMessageContent msg : messages) {
                         System.out.println("from me: " + msg.isFromMe() + " content: " + msg.getText());
@@ -1066,63 +1071,218 @@ public class Test {
                         System.out.println("nonce: " + ptd.nonce + " lastSeen: " + ptd.lastSeen + " trustlvl: " + ptd.trustLevel);
                     }
 
-                    long asdfbytes = 0;
-
-                    int chanId = 0;
                     ECKey ecKey = null;
+
+                    System.out.format("%30s %10s %10s %20s %10s %20s %10s %20s %10s %20s\n", "Channel", "pubkeyId", "rawCount", "textbytes", "imageCount", "imageBytes", "infoCount", "infoBytes", "deliveredCount", "deliveredBytes");
 
                     for (Channel c : channels) {
                         int pubkeyId = Test.messageStore.getPubkeyId(c.getKey());
-                        if (chanId == pubkeyId) {
-                            System.out.println("Chan: " + c.getName() + " id: " + pubkeyId);
-                            ecKey = c.getKey();
+
+                        long textBytes = 0;
+                        long imageBytes = 0;
+                        long otherBytes = 0;
+                        long infoBytes = 0;
+                        long deliveredBytes = 0;
+                        long rawMessageCount = 0;
+                        long imageMessageCount = 0;
+                        long otherMessageCount = 0;
+                        long infoMessageCount = 0;
+                        long deliveredMessageCount = 0;
+
+                        //System.out.println("Chan: " + c.getName() + " id: " + pubkeyId);
+                        ecKey = c.getKey();
+
+                        try {
+                            //get Key Id
+                            String query = "SELECT pubkey_id,message_id,content,public_type,timestamp,nonce from message WHERE timestamp > ? and verified = true AND pubkey_id = ?";
+                            PreparedStatement pstmt = Test.messageStore.getConnection().prepareStatement(query);
+                            pstmt.setLong(1, 0);//System.currentTimeMillis() - 1000L * 60L * 60L * 24L * 7L * 4L);
+                            pstmt.setInt(2, pubkeyId);
+                            ResultSet executeQuery = pstmt.executeQuery();
+
+                            //System.out.println("dwzdzwd " + executeQuery.next());
+                            while (executeQuery.next()) {
+
+                                int message_id = executeQuery.getInt("message_id");
+                                int pubkey_id = executeQuery.getInt("pubkey_id");
+                                //byte[] pubkeyBytes = executeQuery.getBytes("pubkey");
+                                //ECKey ecKey = new ECKey(null, pubkeyBytes);
+//                            ecKey.database_id = pubkey_id;
+//
+                                byte public_type = executeQuery.getByte("public_type");
+                                long timestamp = executeQuery.getLong("timestamp");
+                                int nonce = executeQuery.getInt("nonce");
+//                            byte[] signature = executeQuery.getBytes("signature");
+                                byte[] content = executeQuery.getBytes("content");
+//                            boolean verified = executeQuery.getBoolean("verified");
+                                RawMsg rawMsg = new RawMsg(timestamp, nonce, null, content, true);
+                                rawMsg.database_Id = message_id;
+                                rawMsg.key = ecKey;
+                                rawMsg.public_type = public_type;
+
+                                rawMsg = rawMsg.toSpecificMsgType();
+
+                                if (rawMsg instanceof TextMsg) {
+                                    textBytes += 8 + content.length;
+                                    rawMessageCount++;
+                                } else if (rawMsg instanceof ImageMsg) {
+                                    imageBytes += 8 + content.length;
+                                    imageMessageCount++;
+                                } else if (rawMsg instanceof InfoMsg) {
+                                    infoBytes += 8 + content.length;
+                                    infoMessageCount++;
+                                } else if (rawMsg instanceof DeliveredMsg) {
+                                    deliveredBytes += 8 + content.length;
+                                    deliveredMessageCount++;
+                                } else {
+                                    System.out.println("" + rawMsg.getClass());
+                                    //System.out.println("nope");
+                                    otherBytes += 8 + content.length;
+                                    otherMessageCount++;
+                                }
+
+                            }
+                            executeQuery.close();
+                            pstmt.close();
+                            //System.out.println("Found - messages: " + msgCnt + "  with  " + textBytes / 1024. + " kb text and " + imageBytes / 1024. + " kb images");
+                            if (rawMessageCount != 0) {
+                                System.out.format("%30s %10d %10d %20f %10d %20f %10d %20f %10d %20f\n", c.getName(), pubkeyId, rawMessageCount, textBytes / 1024., imageMessageCount, imageBytes / 1024., infoMessageCount, infoBytes / 1024., deliveredMessageCount, deliveredBytes / 1024.);
+                            }
+                        } catch (SQLException ex) {
+                            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
                         }
+
+                    }
+
+                    continue;
+                }
+
+                //generate one block
+                if (readLine.equals("b")) {
+                    System.out.println("generate block for channel number:");
+                    readLine = bufferedReader.readLine();
+
+                    int channelNumber;
+                    try {
+                        channelNumber = Integer.parseInt(readLine);
+                    } catch (NumberFormatException e) {
+                        System.out.println("No number, aborting...");
+                        continue;
+                    }
+
+                    int pubkeyId = -100;
+                    Channel chan = null;
+                    for (Channel c : channels) {
+                        if (c.getId() != channelNumber) {
+                            continue;
+                        }
+                        chan = c;
+                        pubkeyId = Test.messageStore.getPubkeyId(c.getKey());
+                    }
+
+                    if (pubkeyId == -100) {
+                        System.out.println("channel not found...");
+                        continue;
                     }
 
                     try {
                         //get Key Id
-                        String query = "SELECT pubkey_id,message_id,content,public_type,timestamp,nonce from message WHERE verified = true AND pubkey_id = ?";
+                        //String query = "SELECT pubkey_id,message_id,content,public_type,timestamp,nonce from message WHERE timestamp > ? and verified = true AND pubkey_id = ?";
+                        String query = "SELECT channelmessage.message_id,message_type,timestamp,decryptedContent,identity,fromMe,nonce,public_type from channelmessage LEFT JOIN message on (channelmessage.message_id = message.message_id) WHERE pubkey_id =? AND timestamp > ? ORDER BY timestamp ASC";
                         PreparedStatement pstmt = Test.messageStore.getConnection().prepareStatement(query);
-                        pstmt.setInt(1, chanId);
+                        pstmt.setInt(1, pubkeyId);
+                        long asd = System.currentTimeMillis() - 1000L * 60L * 60L * 24L * 7L * 4L * 1L;
+                        System.out.println("time: " + asd);
+                        pstmt.setLong(2, 0);
+
                         ResultSet executeQuery = pstmt.executeQuery();
 
-                        System.out.println("dwzdzwd " + executeQuery.next());
+                        long msgcount = 0;
 
+                        boolean breaked = false;
+
+                        ByteBuffer buffer = ByteBuffer.allocate(1024 * 200); //max size of a message!! should be regulated later!
+                        buffer.put(BlockMsg.BYTE); //cmd for block
+                        buffer.putLong(Test.localSettings.identity);//mark that i was the generator of the block
+
+                        //ToDo: add hash from all data and count of messages to get an easier sync!
+                        //System.out.println("dwzdzwd " + executeQuery.next());
                         while (executeQuery.next()) {
+
                             int message_id = executeQuery.getInt("message_id");
-                            int pubkey_id = executeQuery.getInt("pubkey_id");
-                            //byte[] pubkeyBytes = executeQuery.getBytes("pubkey");
-                            //ECKey ecKey = new ECKey(null, pubkeyBytes);
-//                            ecKey.database_id = pubkey_id;
-//
-                            byte public_type = executeQuery.getByte("public_type");
+                            int message_type = executeQuery.getInt("message_type");
+                            byte[] decryptedContent = executeQuery.getBytes("decryptedContent");
                             long timestamp = executeQuery.getLong("timestamp");
+                            long identity = executeQuery.getLong("identity");
+                            boolean fromMe = executeQuery.getBoolean("fromMe");
+
+                            byte public_type = executeQuery.getByte("public_type");
                             int nonce = executeQuery.getInt("nonce");
-//                            byte[] signature = executeQuery.getBytes("signature");
-                            byte[] content = executeQuery.getBytes("content");
-//                            boolean verified = executeQuery.getBoolean("verified");
-                            RawMsg rawMsg = new RawMsg(timestamp, nonce, null, content, true);
-                            rawMsg.database_Id = message_id;
-                            rawMsg.key = ecKey;
-                            rawMsg.public_type = public_type;
 
-                            rawMsg = rawMsg.toSpecificMsgType();
+                            //only pack a message into a block if the public_type is 20!
+                            if (public_type == 20) {
 
-                            if (rawMsg instanceof TextMsg || rawMsg instanceof ImageMsg) {
-                                System.out.println("asd: " + pubkey_id + " . " + message_id + "             - " + asdfbytes / 1024.);
+                                //skip content which will be generated regulary, image messages should not have public_type 20! (with new version, old imgs will be deleted)
+                                if (message_type != TextMsg.BYTE) {
+                                    continue;
+                                }
+                                if (buffer.remaining() < 8 + 8 + decryptedContent.length) {
+                                    System.out.println("buffer full, exit routine, dont know what to do atm");
+                                    breaked = true;
+                                    break;
+                                }
 
-                                asdfbytes += 8 + content.length;
-                            } else {
-                                System.out.println("nope");
+                                System.out.println("Data: msgtyp: " + message_type + " pubtyp: " + public_type + " " + new String(decryptedContent));
+                                buffer.putLong(timestamp);
+                                buffer.putLong(nonce);
+                                buffer.putInt(message_type);
+                                buffer.putLong(identity);
+                                buffer.put(decryptedContent);
+                                msgcount++;
                             }
 
                         }
                         executeQuery.close();
                         pstmt.close();
+
+                        if (breaked) {
+                            System.out.println("abort...");
+                            continue;
+                        }
+
+                        //System.out.println("Found - messages: " + msgCnt + "  with  " + textBytes / 1024. + " kb text and " + imageBytes / 1024. + " kb images");
+                        //System.out.format("%30s %10s %10s %20s %10s %20s %10s %20s %10s %20s\n", "Channel", "pubkeyId", "rawCount", "textbytes", "imageCount", "imageBytes", "infoCount", "infoBytes", "deliveredCount", "deliveredBytes");
+                        //System.out.format("%30s %10d %10d %20f %10d %20f %10d %20f %10d %20f\n", chan.getName(), pubkeyId, rawMessageCount, textBytes / 1024., imageMessageCount, imageBytes / 1024., infoMessageCount, infoBytes / 1024., deliveredMessageCount, deliveredBytes / 1024.);
+                        double kbs = buffer.position() / 1024.;
+                        System.out.println("content block size: " + kbs + "  in " + msgcount + " messags.");
+
+                        long currentTime = System.currentTimeMillis() - 1000L * 60L * 5; // have to go back some time to overcome the problem with new messages
+
+                        BlockMsg build = BlockMsg.build(chan, currentTime, 45678, buffer.array());
+
+                        BlockMsg addMessage = (BlockMsg) MessageHolder.addMessage(build);
+                        Test.broadcastMsg(addMessage);
+                        String text = "New block generated with " + msgcount + " msgs (" + kbs + " kb).";
+                        Test.messageStore.addDecryptedContent(addMessage.getKey().database_id, (int) addMessage.database_Id, BlockMsg.BYTE, addMessage.timestamp, text.getBytes(), ((BlockMsg) addMessage).getIdentity(), true);
+                        TextMessageContent textMessageContent = new TextMessageContent(addMessage.database_Id, addMessage.key.database_id, addMessage.public_type, TextMsg.BYTE, addMessage.timestamp, addMessage.decryptedContent, addMessage.channel, addMessage.getIdentity(), text, true);
+                        textMessageContent.read = true;
+                        for (NewMessageListener listener : Main.listeners) {
+                            listener.newMessage(textMessageContent);
+                        }
+
+                        System.out.println("New block saved and send, doing cleanup...");
+
+                        //remove old block:
+                        int removeMessagesFromChannel = messageStore.removeMessagesFromChannel(pubkeyId, BlockMsg.PUBLIC_TYPE, currentTime);
+                        System.out.println("removed old blocks: " + removeMessagesFromChannel);
+
+                        //remove old messages which are encrypted and now saved in the new block (only necessary data)...
+                        removeMessagesFromChannel = messageStore.removeMessagesFromChannel(pubkeyId, (byte) 20, currentTime);
+                        System.out.println("removed old encrypted messages: " + removeMessagesFromChannel);
+
                     } catch (SQLException ex) {
                         Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
                     }
-
                     continue;
                 }
 
@@ -1596,8 +1756,10 @@ public class Test {
             }
 
             pstmt.close();
+
         } catch (SQLException ex) {
-            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(DirectMessageStore.class
+                    .getName()).log(Level.SEVERE, null, ex);
         }
 
         //System.out.println("channel_id: " + rawMsg.key.database_id);
@@ -1689,6 +1851,7 @@ public class Test {
     public static void triggerOutboundthread() {
         if (outboundthread != null) {
             outboundthread.tryInterrupt();
+
         }
     }
 
@@ -2299,7 +2462,7 @@ public class Test {
                 } catch (InterruptedException ex) {
                 }
 
-                if (System.currentTimeMillis() - Test.localSettings.lastSendAllMyChannels > 1000 * 60 * 60 * 24 * 1) {
+                if (System.currentTimeMillis() - Test.localSettings.lastSendAllMyChannels > 1000 * 60 * 60 * 24 * 2) {
 
                     KnownChannels.sendAllKnownChannels();
 
@@ -2307,6 +2470,12 @@ public class Test {
                     Test.localSettings.save();
 
                 }
+
+                try {
+                    sleep(1000 * 60 * 60 * 4);
+                } catch (InterruptedException ex) {
+                }
+
             }
 
         }.start();
