@@ -18,6 +18,7 @@ import org.redPandaLib.core.Channel;
 import org.redPandaLib.core.Log;
 import org.redPandaLib.core.Settings;
 import org.redPandaLib.core.Test;
+import org.redPandaLib.core.messages.BlockMsg;
 import org.redPandaLib.core.messages.RawMsg;
 import org.redPandaLib.core.messages.TextMessageContent;
 import org.redPandaLib.crypt.ECKey;
@@ -1297,6 +1298,31 @@ public class DirectMessageStore implements MessageStore {
         } catch (SQLException ex) {
             Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
         }
+    }
+
+    public Long getLatestBlocktime(int pubkeyId) {
+
+        long timestamp = -1;
+
+        try {
+
+            String query = "SELECT timestamp from message WHERE pubkey_id =? AND public_type = ? ORDER BY timestamp DESC";
+
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setInt(1, pubkeyId);
+            pstmt.setLong(2, BlockMsg.PUBLIC_TYPE);
+            ResultSet executeQuery = pstmt.executeQuery();
+
+            while (executeQuery.next()) {
+                timestamp = executeQuery.getLong("timestamp");
+            }
+            executeQuery.close();
+            pstmt.close();
+
+        } catch (SQLException ex) {
+            Test.sendStacktrace(ex);
+        }
+        return timestamp;
     }
 
 }

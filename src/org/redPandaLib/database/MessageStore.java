@@ -108,4 +108,6 @@ public interface MessageStore {
     public void moveChannelMessagesToHistory(long olderThan);
 
     public int removeMessagesFromChannel(int pubkey_id, byte public_type, long timestamp);
+
+    public Long getLatestBlocktime(int pubkeyId);
 }

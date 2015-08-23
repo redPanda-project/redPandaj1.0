@@ -264,27 +264,36 @@ public class MessageVerifierHsqlDb {
                                         }
 
                                         if (message.public_type == BlockMsg.PUBLIC_TYPE) {
+
                                             System.out.println("i found a block!!!");
 
-                                            System.out.println("hex: " + Utils.bytesToHexString(message.decryptedContent));
+                                            MessageDownloader.channelIdToLatesttBlockTime.put(pubkey_id, message.timestamp);
 
-                                            BlockMsg blockMsg = (BlockMsg) message;
-                                            String text = "New block generated with " + blockMsg.getMessageCount() + " msgs (" + blockMsg.content.length / 1024. + " kb).";
-                                            Test.messageStore.addDecryptedContent(blockMsg.getKey().database_id, (int) blockMsg.database_Id, BlockMsg.BYTE, blockMsg.timestamp, text.getBytes(), ((BlockMsg) blockMsg).getIdentity(), true, blockMsg.nonce, blockMsg.public_type);
-                                            TextMessageContent textMessageContent = new TextMessageContent(blockMsg.database_Id, blockMsg.key.database_id, blockMsg.public_type, TextMsg.BYTE, blockMsg.timestamp, blockMsg.decryptedContent, blockMsg.channel, blockMsg.getIdentity(), text, true);
-                                            textMessageContent.read = true;
-                                            for (NewMessageListener listener : Main.listeners) {
-                                                listener.newMessage(textMessageContent);
+                                            if (message.readable) {
+
+                                                System.out.println("hex: " + Utils.bytesToHexString(message.decryptedContent));
+
+                                                BlockMsg blockMsg = (BlockMsg) message;
+                                                String text = "New block generated with " + blockMsg.getMessageCount() + " msgs (" + blockMsg.content.length / 1024. + " kb).";
+                                                Test.messageStore.addDecryptedContent(blockMsg.getKey().database_id, (int) blockMsg.database_Id, BlockMsg.BYTE, blockMsg.timestamp, text.getBytes(), ((BlockMsg) blockMsg).getIdentity(), true, blockMsg.nonce, blockMsg.public_type);
+                                                TextMessageContent textMessageContent = new TextMessageContent(blockMsg.database_Id, blockMsg.key.database_id, blockMsg.public_type, TextMsg.BYTE, blockMsg.timestamp, blockMsg.decryptedContent, blockMsg.channel, blockMsg.getIdentity(), text, true);
+                                                textMessageContent.read = true;
+                                                for (NewMessageListener listener : Main.listeners) {
+                                                    listener.newMessage(textMessageContent);
+                                                }
+
+                                            } else {
+                                                System.out.println("block not for me...");
                                             }
 
                                             System.out.println("New block saved and send, doing cleanup...");
 
                                             //remove old block:
-                                            int removeMessagesFromChannel = Test.messageStore.removeMessagesFromChannel(pubkey_id, BlockMsg.PUBLIC_TYPE, blockMsg.timestamp);
+                                            int removeMessagesFromChannel = Test.messageStore.removeMessagesFromChannel(pubkey_id, BlockMsg.PUBLIC_TYPE, message.timestamp);
                                             System.out.println("removed old blocks: " + removeMessagesFromChannel);
 
                                             //remove old messages which are encrypted and now saved in the new block (only necessary data)...
-                                            removeMessagesFromChannel = Test.messageStore.removeMessagesFromChannel(pubkey_id, (byte) 20, blockMsg.timestamp);
+                                            removeMessagesFromChannel = Test.messageStore.removeMessagesFromChannel(pubkey_id, (byte) 20, message.timestamp);
                                             System.out.println("removed old encrypted messages: " + removeMessagesFromChannel);
 
                                         } else // check for other msgs types with first byte of decrypted content

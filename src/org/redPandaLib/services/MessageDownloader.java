@@ -36,6 +36,7 @@ public class MessageDownloader {
     public static int messagesToVerify = 0;
     private static Random random = new Random();
     public static long lastRun = 0;
+    public static HashMap<Integer, Long> channelIdToLatesttBlockTime = new HashMap<Integer, Long>();
 
     public static void trigger() {
         syncInterrupt.lock();
@@ -298,6 +299,22 @@ public class MessageDownloader {
                                     p.getPendingMessages().remove(messageId);
                                 }
                                 Log.put("removed message, reduce traffic!!!", 40);
+                                continue;
+                            }
+
+                            Long latestBlockTime = channelIdToLatesttBlockTime.get(m.key.database_id);
+
+                            if (latestBlockTime == null) {
+                                System.out.println("search in db!");
+                                latestBlockTime = Test.messageStore.getLatestBlocktime(m.key.database_id);
+                                channelIdToLatesttBlockTime.put(m.key.database_id, latestBlockTime);
+                            }
+
+                            if (m.public_type == 20 && latestBlockTime > m.timestamp) {
+                                synchronized (p.getPendingMessages()) {
+                                    p.getPendingMessages().remove(messageId);
+                                }
+                                Log.put("removed message, already in block!!!", -30);
                                 continue;
                             }
 
