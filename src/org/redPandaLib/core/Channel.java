@@ -12,6 +12,7 @@ import java.io.Serializable;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.security.*;
+import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.redPandaLib.Main;
@@ -30,6 +31,7 @@ public class Channel implements Serializable, Comparable<Channel> {
     protected String name;
     protected double diffuculty = 0;
     public long displayPriority = 0;
+    public HashMap<PeerTrustData, Integer> rating = new HashMap<PeerTrustData, Integer>();
 
     public String getName() {
         return name;

@@ -471,7 +471,7 @@ public class Test {
                     Collections.sort(list);
 
 //                    System.out.println("IP:PORT \t\t\t\t\t\t Nonce \t\t\t Last Answer \t Alive \t retries \t LoadedMsgs \t Ping \t Authed \t PMSG\n");
-                    System.out.format("%50s %22s %12s %12s %7s %8s %10s %10s %10s %8s %10s %10s %10s\n", "[IP]:PORT", "nonce", "last answer", "conntected", "retries", "ping", "loaded Msg", "bytes out", "bytes in", "bad Msg", "ToSyncM", "RSM", "BackSyncdT");
+                    System.out.format("%50s %22s %12s %12s %7s %8s %10s %10s %10s %8s %10s %10s %10s\n", "[IP]:PORT", "nonce", "last answer", "conntected", "retries", "ping", "loaded Msg", "bytes out", "bytes in", "bad Msg", "ToSyncM", "RSM", "Rating");
                     for (Peer peer : list) {
 
                         if (peer.isConnected() && peer.authed && peer.writeBufferCrypted != null) {
@@ -490,7 +490,8 @@ public class Test {
                             System.out.format("%50s %22d %12s %12s %7d %8s %10s %10d %10d %10d\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), "-", peer.sendBytes, peer.receivedBytes, peer.removedSendMessages.size());
                         } else {
                             System.out.format("%50s %22d %12s %12s %7d %8s %10d %10d %10d %8s %10d %10d %10s %10s %10s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.removedSendMessages.size(),
-                                    peer.peerTrustData.backSyncedTill == Long.MAX_VALUE ? "-" : formatInterval(System.currentTimeMillis() - peer.peerTrustData.backSyncedTill),
+                                    //peer.peerTrustData.backSyncedTill == Long.MAX_VALUE ? "-" : formatInterval(System.currentTimeMillis() - peer.peerTrustData.backSyncedTill),
+                                    peer.peerTrustData.rating,
                                     peer.peerTrustData.pendingMessagesTimedOut.size(), peer.peerTrustData.pendingMessagesTimedOut.size());
                         }
 
@@ -1304,6 +1305,19 @@ public class Test {
                     continue;
                 }
 
+////                //generate one block
+////                if (readLine.equals("rate")) {
+////
+////                    for (ECKey key : ConnectionHandler.ratingData.keySet()) {
+////
+////                        for (HashMap<PeerTrustData,ArrayList<Long>>: ConnectionHandler.ratingData.get(key)) {
+////
+////                        }
+////
+////                    }
+////
+////                    continue;
+////                }
                 if (readLine.equals("d2")) {
 
                     for (Peer p : peerList) {

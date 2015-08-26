@@ -37,6 +37,7 @@ public class MessageDownloader {
     private static Random random = new Random();
     public static long lastRun = 0;
     public static HashMap<Integer, Long> channelIdToLatesttBlockTime = new HashMap<Integer, Long>();
+    public static int WAIT_FOR_OTHER_NODES_TO_INTRODUCE = 0;
 
     public static void trigger() {
         syncInterrupt.lock();
@@ -464,9 +465,11 @@ public class MessageDownloader {
                     }
 
                     //sleep, so we can wait for others nodes to introduce the same message (this reduces CPU usage, but delays messages a bit)
-                    try {
-                        sleep(500);
-                    } catch (InterruptedException ex) {
+                    if (WAIT_FOR_OTHER_NODES_TO_INTRODUCE != 0) {
+                        try {
+                            sleep(WAIT_FOR_OTHER_NODES_TO_INTRODUCE);
+                        } catch (InterruptedException ex) {
+                        }
                     }
                     //clear interrupted flag, might called twice, so writeBuffer would think it was interrupted...
                     interrupted();

@@ -49,6 +49,7 @@ public class ConnectionHandler extends Thread {
     ExecutorService threadPool = new ThreadPoolExecutor(1, 4, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());//Executors.newFixedThreadPool(4);
     private boolean exit = false;
     public static long lastRun = 0;
+    public static HashMap<ECKey, HashMap<PeerTrustData, Long>> ratingData = new HashMap<ECKey, HashMap<PeerTrustData, Long>>();
 
     public ConnectionHandler() {
         try {
@@ -920,6 +921,7 @@ public class ConnectionHandler extends Thread {
             int nonce = readBuffer.getInt();
             int messageId = readBuffer.getInt();
 
+            //peer.peerTrustData.introducedMessages++;
             ECKey id2KeyHis = peer.getId2KeyHis(pubkey_id_local);
 
             //System.out.println("Key for message: " + Channel.byte2String(id2KeyHis.getPubKey()));
@@ -980,6 +982,61 @@ public class ConnectionHandler extends Thread {
             }
 
             if (!dontAddMessage) {
+
+                HashMap<PeerTrustData, Long> perKey = ratingData.get(id2KeyHis);
+                if (perKey == null) {
+                    perKey = new HashMap<PeerTrustData, Long>();
+                    ratingData.put(id2KeyHis, perKey);
+                }
+
+                Long time = perKey.get(peer.peerTrustData);
+                if (time != null && time != 0L) {
+                    //there is already a time, we have to evaluate last round...
+                    System.out.println("there is already a time, we have to evaluate last round...");
+
+                    ArrayList<PeerTrustData> keySet = new ArrayList<PeerTrustData>(perKey.keySet());
+
+                    final HashMap<PeerTrustData, Long> perKeyFinal = perKey;
+                    Collections.sort(keySet, new Comparator<PeerTrustData>() {
+
+                        @Override
+                        public int compare(PeerTrustData t, PeerTrustData t1) {
+                            return (int) (perKeyFinal.get(t) - perKeyFinal.get(t1));
+                        }
+                    });
+
+                    int valueToAdd = 0;
+
+                    for (PeerTrustData ptd : keySet) {
+
+                        if (ptd == peer.peerTrustData) {
+                            continue;
+                        }
+
+                        long diff = peer.peerTrustData.rating - ptd.rating;
+                        double value1 = 1 / (1 + Math.pow(10, (float) diff / 8)) * 20;
+
+                        int value = (int) Math.floor(value1);
+
+                        if (value == 0) {
+                            value = 1;
+                        }
+
+                        ptd.rating += -value;
+                        valueToAdd += value;
+
+                        System.out.println(perKey.get(ptd) + " - value: " + (-value) + " -  " + ptd.rating + "    - " + ptd.ips);
+                        //reset round!
+                        perKey.put(ptd, 0L);
+                    }
+
+                    peer.peerTrustData.rating += valueToAdd;
+                    System.out.println(perKey.get(peer.peerTrustData) + " - Winner: " + (valueToAdd) + " -  " + peer.peerTrustData.rating + "    - " + peer.peerTrustData.ips);
+
+                }
+
+                perKey.put(peer.peerTrustData, System.currentTimeMillis());
+
                 peer.addPendingMessage(messageId, rawMsg);
                 //Test.messageStore.addMsgIntroducedToMe(peer.getPeerTrustData().internalId, messageId);
                 peer.getPeerTrustData().synchronizedMessages++;
