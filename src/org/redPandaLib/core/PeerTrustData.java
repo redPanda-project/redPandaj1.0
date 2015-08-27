@@ -37,7 +37,7 @@ public class PeerTrustData implements Serializable {
     public ArrayList<Integer> keyToIdMine = new ArrayList<Integer>();
     public HashMap<Integer, RawMsg> pendingMessages = new HashMap<Integer, RawMsg>();
     public HashMap<Integer, RawMsg> pendingMessagesTimedOut = new HashMap<Integer, RawMsg>();
-    public long rating = 1000;
+    public long rating = 10000;
 
     public HashMap<Integer, RawMsg> getPendingMessagesTimedOut() {
         return pendingMessagesTimedOut;

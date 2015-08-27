@@ -1014,7 +1014,7 @@ public class ConnectionHandler extends Thread {
                         }
 
                         long diff = peer.peerTrustData.rating - ptd.rating;
-                        double value1 = 1 / (1 + Math.pow(10, (float) diff / 8)) * 20;
+                        double value1 = 10 / (1 + Math.pow(10, (float) diff / 8)) * 20;
 
                         int value = (int) Math.floor(value1);
 
