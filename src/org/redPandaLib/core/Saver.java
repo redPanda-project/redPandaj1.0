@@ -372,4 +372,9 @@ public class Saver implements SaverInterface {
 
         return new ArrayList<PeerTrustData>();
     }
+
+    @Override
+    public String getPath() {
+        return SAVE_DIR;
+    }
 }

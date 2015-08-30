@@ -28,7 +28,7 @@ public class MessageDownloader {
     public static final ReentrantLock requestedMsgsLock = new ReentrantLock();
     private static boolean triggered = false;
     private static MyThread myThread = new MyThread();
-    public static int MAX_REQUEST_PER_PEER = 5;
+    public static int MAX_REQUEST_PER_PEER = 250;
     private static boolean allowInterrupt = false;
     private static final ReentrantLock syncInterrupt = new ReentrantLock();
     public static int publicMsgsLoaded = 0;

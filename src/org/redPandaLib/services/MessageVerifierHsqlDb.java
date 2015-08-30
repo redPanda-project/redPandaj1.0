@@ -372,7 +372,7 @@ public class MessageVerifierHsqlDb {
 
                                                             int cnt = 0;
 
-                                                            while (wrap.hasRemaining()) {
+                                                            while (wrap.remaining() >= 8 + 4 + 4 + 8 + 4) {
                                                                 cnt++;
                                                                 //System.out.println("cnt: " + cnt);
 
@@ -383,11 +383,20 @@ public class MessageVerifierHsqlDb {
                                                                 int contentLenght = wrap.getInt();
 
                                                                 //System.out.println("contentlen: " + contentLenght);
+                                                                if (contentLenght > 1024 * 200) {
+                                                                    System.out.println("Message content too big...");
+                                                                    continue;
+                                                                }
 
                                                                 byte[] content = null;
-                                                                if (contentLenght != 0) {
+                                                                if (contentLenght > 0) {
                                                                     content = new byte[contentLenght];
-                                                                    wrap.get(content);
+                                                                    try {
+                                                                        wrap.get(content);
+                                                                    } catch (Throwable e) {
+                                                                        System.out.println("Wrong length!!1 - invalid block");
+                                                                        break;
+                                                                    }
                                                                 }
 
                                                                 boolean fromMe = (identity == Test.localSettings.identity);
@@ -395,7 +404,7 @@ public class MessageVerifierHsqlDb {
                                                                 boolean added = Test.messageStore.addDecryptedContent(pubkey_id, TextMsg.BYTE, timestamp, content, identity, fromMe, nonce, (byte) 20);
                                                                 if (added) {
                                                                     String string = "";
-                                                                    if (contentLenght != 0) {
+                                                                    if (contentLenght > 0) {
                                                                         string = new String(content, "UTF-8");
                                                                     }
                                                                     TextMessageContent fromTextMsg = new TextMessageContent(-1, pubkey_id, (byte) 20, message_type, timestamp, content, blockMsg.channel, identity, string, fromMe);

@@ -61,7 +61,7 @@ public class Main {
         //check for old database versions
         try {
             boolean wrong = false;
-            File file = new File(Saver.SAVE_DIR + "/databaseversion.dat");
+            File file = new File(saver.getPath() + "/databaseversion.dat");
 
             if (!file.exists()) {
                 file.createNewFile();
@@ -75,8 +75,8 @@ public class Main {
 
             if (wrong || Integer.parseInt(readLine) != DirectMessageStore.DATABASE_VERSION) {
 
-                new File(Saver.SAVE_DIR + "/peers.dat").delete();
-                new File(Saver.SAVE_DIR + "/trustData.dat").delete();
+                new File(saver.getPath() + "/peers.dat").delete();
+                new File(saver.getPath() + "/trustData.dat").delete();
 
                 try {
                     Statement createStatement = Test.messageStore.getConnection().createStatement();
@@ -89,6 +89,12 @@ public class Main {
                 BufferedWriter writer = new BufferedWriter(new FileWriter(file));
                 writer.write(Integer.toString(DirectMessageStore.DATABASE_VERSION));
                 writer.close();
+
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+                }
 
                 System.exit(30);
 

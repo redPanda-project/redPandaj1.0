@@ -23,8 +23,10 @@ public interface SaverInterface {
     public void saveLocalSettings(LocalSettings localSettings);
 
     public LocalSettings loadLocalSettings();
-    
+
     public void saveTrustedPeers(ArrayList<PeerTrustData> peertrusts);
-    
+
     public ArrayList<PeerTrustData> loadTrustedPeers();
+
+    public String getPath();
 }

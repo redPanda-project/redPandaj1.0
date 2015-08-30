@@ -503,7 +503,7 @@ public class DirectMessageStore implements MessageStore {
             }
 
             System.out.println("message added ! #######################################");
-            
+
             //channelmessage (channel_id INTEGER, message_id INTEGER, message_type INTEGER, decryptedContent LONGVARBINARY);
             query = "INSERT into channelmessage (pubkey_id,message_type,timestamp,decryptedContent,identity,fromMe,nonce,public_type) VALUES (?,?,?,?,?,?,?,?)";
             pstmt = connection.prepareStatement(query);
@@ -559,7 +559,6 @@ public class DirectMessageStore implements MessageStore {
 ////                System.exit(0);
 ////
 ////            }
-
         }
 
     }
@@ -624,7 +623,7 @@ public class DirectMessageStore implements MessageStore {
                 TextMessageContent textMessageContent = new TextMessageContent();
                 textMessageContent.database_id = message_id;
                 textMessageContent.channel = instanceByPublicKey;
-                textMessageContent.text = new String(decryptedContent, "UTF-8");
+                textMessageContent.text = (decryptedContent == null ? "" : new String(decryptedContent, "UTF-8"));
                 textMessageContent.message_type = message_type;
                 textMessageContent.fromMe = fromMe;
                 textMessageContent.timestamp = timestamp;
