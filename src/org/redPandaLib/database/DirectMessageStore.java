@@ -33,6 +33,7 @@ public class DirectMessageStore implements MessageStore {
     private Integer messageCount = Integer.MIN_VALUE;
     private boolean resetMessageCount = true;
     private final ReentrantLock messageCountLock = new ReentrantLock();
+    public static final int DATABASE_VERSION = 1;
 
     public DirectMessageStore(Connection connection) throws SQLException {
         this.connection = connection;
@@ -471,6 +472,60 @@ public class DirectMessageStore implements MessageStore {
         return list;
     }
 
+    /**
+     * Checks also for containig...
+     *
+     * @param pubkey_id
+     * @param message_type
+     * @param timestamp
+     * @param decryptedContent
+     * @param identity
+     * @param fromMe
+     * @param nonce
+     * @param public_type
+     */
+    @Override
+    public boolean addDecryptedContent(int pubkey_id, int message_type, long timestamp, byte[] decryptedContent, long identity, boolean fromMe, int nonce, byte public_type) {
+        try {
+            String query = "SELECT message_id from channelmessage WHERE pubkey_id = ? AND timestamp = ? AND nonce = ? and public_type = ?";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setInt(1, pubkey_id);
+            pstmt.setLong(2, timestamp);
+            pstmt.setInt(3, nonce);
+            pstmt.setByte(4, public_type);
+            ResultSet executeQuery = pstmt.executeQuery();
+            boolean next = executeQuery.next();
+            pstmt.close();
+
+            if (next) {
+                //System.out.println("message already in db!");
+                return false;
+            }
+
+            System.out.println("message added ! #######################################");
+            
+            //channelmessage (channel_id INTEGER, message_id INTEGER, message_type INTEGER, decryptedContent LONGVARBINARY);
+            query = "INSERT into channelmessage (pubkey_id,message_type,timestamp,decryptedContent,identity,fromMe,nonce,public_type) VALUES (?,?,?,?,?,?,?,?)";
+            pstmt = connection.prepareStatement(query);
+            pstmt.setInt(1, pubkey_id);
+            pstmt.setInt(2, message_type);
+            pstmt.setLong(3, timestamp);
+            pstmt.setBytes(4, decryptedContent);
+            pstmt.setLong(5, identity);
+            pstmt.setBoolean(6, fromMe);
+            pstmt.setInt(7, nonce);
+            pstmt.setByte(8, public_type);
+            pstmt.execute();
+            pstmt.close();
+            return true;
+        } catch (Throwable ex) {
+            ex.printStackTrace();
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return false;
+
+    }
+
     public void addDecryptedContent(int pubkey_id, int message_id, int message_type, long timestamp, byte[] decryptedContent, long identity, boolean fromMe, int nonce, byte public_type) {
         try {
             //channelmessage (channel_id INTEGER, message_id INTEGER, message_type INTEGER, decryptedContent LONGVARBINARY);
@@ -489,7 +544,22 @@ public class DirectMessageStore implements MessageStore {
             pstmt.close();
         } catch (Throwable ex) {
             ex.printStackTrace();
-            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+
+            //To dangerous?
+////            if (ex instanceof java.sql.SQLIntegrityConstraintViolationException) {
+////                System.out.println("DATABASE IS WRONG.... suggesting an old version, create hole new database and erase all data");
+////
+////                try {
+////                    Statement createStatement = connection.createStatement();
+////                    HsqlConnection.dropAllTables(createStatement);
+////                } catch (Throwable ex2) {
+////                    ex2.printStackTrace();
+////                }
+////                //restart!!
+////                System.exit(0);
+////
+////            }
+
         }
 
     }

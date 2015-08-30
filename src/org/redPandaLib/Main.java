@@ -4,9 +4,16 @@
  */
 package org.redPandaLib;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.security.NoSuchAlgorithmException;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -49,6 +56,47 @@ public class Main {
         } catch (NoSuchAlgorithmException ex) {
             System.out.println("AES is not available on your jvm?!");
             System.exit(1314);
+        }
+
+        //check for old database versions
+        try {
+            boolean wrong = false;
+            File file = new File(Saver.SAVE_DIR + "/databaseversion.dat");
+
+            if (!file.exists()) {
+                file.createNewFile();
+                wrong = true;
+            }
+
+            FileInputStream fileInputStream = new FileInputStream(file);
+
+            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(fileInputStream));
+            String readLine = bufferedReader.readLine();
+
+            if (wrong || Integer.parseInt(readLine) != DirectMessageStore.DATABASE_VERSION) {
+
+                new File(Saver.SAVE_DIR + "/peers.dat").delete();
+                new File(Saver.SAVE_DIR + "/trustData.dat").delete();
+
+                try {
+                    Statement createStatement = Test.messageStore.getConnection().createStatement();
+                    HsqlConnection.dropAllTables(createStatement);
+                    System.out.println("\\\\\\\\\\\\\\\\\\\\ DATABASE WIPED //////////////////");
+                } catch (Throwable ex2) {
+                    ex2.printStackTrace();
+                }
+
+                BufferedWriter writer = new BufferedWriter(new FileWriter(file));
+                writer.write(Integer.toString(DirectMessageStore.DATABASE_VERSION));
+                writer.close();
+
+                System.exit(30);
+
+            }
+
+            bufferedReader.close();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
 
         Test.main(listenConsole, saver);
@@ -206,8 +254,10 @@ public class Main {
         try {
             ImageInfos.Infos infos = Test.imageInfos.getInfos(pathToFile);
             imageInfos = pathToFile + "\n" + infos.width + "\n" + infos.heigth;
+
         } catch (IOException ex) {
-            Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Main.class
+                    .getName()).log(Level.SEVERE, null, ex);
         }
 
         Test.messageStore.addDecryptedContent(addMessage.getKey().database_id, (int) addMessage.database_Id, ImageMsg.BYTE, addMessage.timestamp, imageInfos.getBytes(), ((ImageMsg) addMessage).getIdentity(), true, addMessage.nonce, addMessage.public_type);

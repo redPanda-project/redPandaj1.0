@@ -303,12 +303,16 @@ public class MessageDownloader {
                                 continue;
                             }
 
-                            Long latestBlockTime = channelIdToLatesttBlockTime.get(m.key.database_id);
-
-                            if (latestBlockTime == null) {
-                                System.out.println("search in db!");
-                                latestBlockTime = Test.messageStore.getLatestBlocktime(m.key.database_id);
-                                channelIdToLatesttBlockTime.put(m.key.database_id, latestBlockTime);
+                            Long latestBlockTime;
+                            if (Settings.DONT_REMOVE_UNUSED_MESSAGES) {
+                                latestBlockTime = Long.MIN_VALUE;
+                            } else {
+                                latestBlockTime = channelIdToLatesttBlockTime.get(m.key.database_id);
+                                if (latestBlockTime == null) {
+                                    System.out.println("search in db!");
+                                    latestBlockTime = Test.messageStore.getLatestBlocktime(m.key.database_id);
+                                    channelIdToLatesttBlockTime.put(m.key.database_id, latestBlockTime);
+                                }
                             }
 
                             if (m.public_type == 20 && latestBlockTime > m.timestamp) {

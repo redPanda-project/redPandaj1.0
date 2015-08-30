@@ -43,6 +43,8 @@ public interface MessageStore {
 
     public ArrayList<RawMsg> getMessagesForPubkey(byte[] pubKey, long from, int to);
 
+    public boolean addDecryptedContent(int pubkey_id, int message_type, long timestamp, byte[] decryptedContent, long identity, boolean fromMe, int nonce, byte public_type);
+
     public void addDecryptedContent(int pubkey_id, int message_id, int message_type, long timestamp, byte[] decryptedContent, long identity, boolean fromMe, int nonce, byte public_type);
 
     public void addStick(int pubkey_id, int message_id, double difficulty, long validTill);

@@ -1187,15 +1187,20 @@ public class Test {
                         continue;
                     }
 
+                    System.out.println("DB id key: " + pubkeyId);
+
+                    long currentTime = System.currentTimeMillis() - BlockMsg.BLOCK_SYNC_TO_TIME; // have to go back some time to overcome the problem with new messages
+
                     try {
                         //get Key Id
                         //String query = "SELECT pubkey_id,message_id,content,public_type,timestamp,nonce from message WHERE timestamp > ? and verified = true AND pubkey_id = ?";
-                        String query = "SELECT message_id,message_type,timestamp,decryptedContent,identity,fromMe,nonce,public_type from channelmessage WHERE pubkey_id =? AND timestamp > ? ORDER BY timestamp ASC";
+                        String query = "SELECT message_id,message_type,timestamp,decryptedContent,identity,fromMe,nonce,public_type from channelmessage WHERE pubkey_id =? AND timestamp > ? AND timestamp < ? ORDER BY timestamp ASC";
                         PreparedStatement pstmt = Test.messageStore.getConnection().prepareStatement(query);
                         pstmt.setInt(1, pubkeyId);
-                        long asd = System.currentTimeMillis() - 1000L * 60L * 60L * 24L * 7L * 4L * 1L;
+                        long asd = BlockMsg.TIME_TO_SYNC_BACK;
                         System.out.println("time: " + asd);
-                        pstmt.setLong(2, 0);
+                        pstmt.setLong(2, asd);
+                        pstmt.setLong(3, currentTime);
 
                         ResultSet executeQuery = pstmt.executeQuery();
 
@@ -1203,8 +1208,11 @@ public class Test {
 
                         boolean breaked = false;
 
-                        byte[] dataArray = new byte[1024 * 200];
-                        ByteBuffer buffer = ByteBuffer.wrap(dataArray); //max size of a message!! should be regulated later!
+                        byte[] dataArray = new byte[1024 * 200]; //max size of a message!! should be regulated later!
+                        ByteBuffer buffer = ByteBuffer.wrap(dataArray);
+
+                        byte[] dataArrayHash = new byte[1024 * 200];
+                        ByteBuffer bufferHash = ByteBuffer.wrap(dataArrayHash);
 
                         //ToDo: add hash from all data and count of messages to get an easier sync!
                         //System.out.println("dwzdzwd " + executeQuery.next());
@@ -1220,6 +1228,10 @@ public class Test {
                             byte public_type = executeQuery.getByte("public_type");
                             int nonce = executeQuery.getInt("nonce");
 
+                            if (decryptedContent == null) {
+                                decryptedContent = "".getBytes();
+                            }
+
                             //only pack a message into a block if the public_type is 20!
                             if (public_type == 20) {
 
@@ -1227,20 +1239,27 @@ public class Test {
                                 if (message_type != TextMsg.BYTE) {
                                     continue;
                                 }
-                                if (buffer.remaining() < 8 + 8 + 4 + 8 + 4 + decryptedContent.length) {
+                                if (buffer.remaining() < 8 + 4 + 4 + 8 + 4 + decryptedContent.length) {
                                     System.out.println("buffer full, exit routine, dont know what to do atm");
                                     breaked = true;
                                     break;
                                 }
 
-                                System.out.println("Data: msgtyp: " + message_type + " pubtyp: " + public_type + " " + new String(decryptedContent));
+                                //System.out.println("Data: msgtyp: " + message_type + " pubtyp: " + public_type + " " + new String(decryptedContent));
+                                System.out.println("len: " + decryptedContent.length);
                                 buffer.putLong(timestamp);
-                                buffer.putLong(nonce);
+                                buffer.putInt(nonce);
                                 buffer.putInt(message_type);
                                 buffer.putLong(identity);
                                 buffer.putInt(decryptedContent.length);
                                 buffer.put(decryptedContent);
+
                                 msgcount++;
+
+                                //add data to hash bytes:b (dont use all data because when syncing we only need to get these data types)
+                                bufferHash.putLong(timestamp);
+                                bufferHash.putInt(message_type);
+                                bufferHash.putInt(public_type);
                             }
 
                         }
@@ -1267,16 +1286,13 @@ public class Test {
                         finalBuffer.put(BlockMsg.BYTE); //cmd for block
                         finalBuffer.putLong(Test.localSettings.identity);//mark that i was the generator of the block
                         finalBuffer.putInt(msgcount);
-                        finalBuffer.putInt(Sha256Hash.create(dataArray).hashCode());
+                        finalBuffer.putInt(Sha256Hash.create(dataArrayHash).hashCode());
                         finalBuffer.put(dataArray);
 
                         double kbs = finalBuffer.position() / 1024.;
                         System.out.println("content block size: " + kbs + "  in " + msgcount + " messags.");
 
-                        System.out.println("hex: " + Utils.bytesToHexString(finalBuffer.array()));
-
-                        long currentTime = System.currentTimeMillis() - 1000L * 60L * 5; // have to go back some time to overcome the problem with new messages
-
+//                        System.out.println("hex: " + Utils.bytesToHexString(finalBuffer.array()));
                         BlockMsg build = BlockMsg.build(chan, currentTime, 45678, finalBuffer.array());
 
                         BlockMsg addMessage = (BlockMsg) MessageHolder.addMessage(build);
@@ -1524,6 +1540,11 @@ public class Test {
                     continue;
                 }
 
+                if (readLine.equals("d15")) {
+
+                    MessageVerifierHsqlDb.printStack();
+                    continue;
+                }
                 if (readLine.equals("ls")) {
 
                     ArrayList<Peer> clonedPeerList = getClonedPeerList();

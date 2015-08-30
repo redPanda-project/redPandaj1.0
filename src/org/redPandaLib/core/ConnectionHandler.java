@@ -989,54 +989,53 @@ public class ConnectionHandler extends Thread {
                     ratingData.put(id2KeyHis, perKey);
                 }
 
-                Long time = perKey.get(peer.peerTrustData);
-                if (time != null && time != 0L) {
-                    //there is already a time, we have to evaluate last round...
-                    System.out.println("there is already a time, we have to evaluate last round...");
-
-                    ArrayList<PeerTrustData> keySet = new ArrayList<PeerTrustData>(perKey.keySet());
-
-                    final HashMap<PeerTrustData, Long> perKeyFinal = perKey;
-                    Collections.sort(keySet, new Comparator<PeerTrustData>() {
-
-                        @Override
-                        public int compare(PeerTrustData t, PeerTrustData t1) {
-                            return (int) (perKeyFinal.get(t) - perKeyFinal.get(t1));
-                        }
-                    });
-
-                    int valueToAdd = 0;
-
-                    for (PeerTrustData ptd : keySet) {
-
-                        if (ptd == peer.peerTrustData) {
-                            continue;
-                        }
-
-                        long diff = peer.peerTrustData.rating - ptd.rating;
-                        double value1 = 10 / (1 + Math.pow(10, (float) diff / 8)) * 20;
-
-                        int value = (int) Math.floor(value1);
-
-                        if (value == 0) {
-                            value = 1;
-                        }
-
-                        ptd.rating += -value;
-                        valueToAdd += value;
-
-                        System.out.println(perKey.get(ptd) + " - value: " + (-value) + " -  " + ptd.rating + "    - " + ptd.ips);
-                        //reset round!
-                        perKey.put(ptd, 0L);
-                    }
-
-                    peer.peerTrustData.rating += valueToAdd;
-                    System.out.println(perKey.get(peer.peerTrustData) + " - Winner: " + (valueToAdd) + " -  " + peer.peerTrustData.rating + "    - " + peer.peerTrustData.ips);
-
-                }
-
-                perKey.put(peer.peerTrustData, System.currentTimeMillis());
-
+////                Long time = perKey.get(peer.peerTrustData);
+////                if (time != null && time != 0L) {
+////                    //there is already a time, we have to evaluate last round...
+////                    System.out.println("there is already a time, we have to evaluate last round...");
+////
+////                    ArrayList<PeerTrustData> keySet = new ArrayList<PeerTrustData>(perKey.keySet());
+////
+////                    final HashMap<PeerTrustData, Long> perKeyFinal = perKey;
+////                    Collections.sort(keySet, new Comparator<PeerTrustData>() {
+////
+////                        @Override
+////                        public int compare(PeerTrustData t, PeerTrustData t1) {
+////                            return (int) (perKeyFinal.get(t) - perKeyFinal.get(t1));
+////                        }
+////                    });
+////
+////                    int valueToAdd = 0;
+////
+////                    for (PeerTrustData ptd : keySet) {
+////
+////                        if (ptd == peer.peerTrustData) {
+////                            continue;
+////                        }
+////
+////                        long diff = peer.peerTrustData.rating - ptd.rating;
+////                        double value1 = 10 / (1 + Math.pow(10, (float) diff / 8)) * 20;
+////
+////                        int value = (int) Math.floor(value1);
+////
+////                        if (value == 0) {
+////                            value = 1;
+////                        }
+////
+////                        ptd.rating += -value;
+////                        valueToAdd += value;
+////
+////                        System.out.println(perKey.get(ptd) + " - value: " + (-value) + " -  " + ptd.rating + "    - " + ptd.ips);
+////                        //reset round!
+////                        perKey.put(ptd, 0L);
+////                    }
+////
+////                    peer.peerTrustData.rating += valueToAdd;
+////                    System.out.println(perKey.get(peer.peerTrustData) + " - Winner: " + (valueToAdd) + " -  " + peer.peerTrustData.rating + "    - " + peer.peerTrustData.ips);
+////
+////                }
+////
+////                perKey.put(peer.peerTrustData, System.currentTimeMillis());
                 peer.addPendingMessage(messageId, rawMsg);
                 //Test.messageStore.addMsgIntroducedToMe(peer.getPeerTrustData().internalId, messageId);
                 peer.getPeerTrustData().synchronizedMessages++;
@@ -1917,7 +1916,7 @@ public class ConnectionHandler extends Thread {
         }
 
         System.out.println(
-                "Wrong protocol, disconnecting + removing peer, Command was: " + command + " next byte: " + nextByte + " remaining: " + readBuffer.remaining() + " crypt-Stauts: out: " + (peer.writeBufferCrypted != null) + ", in: " + (peer.readBufferCrypted != null));
+                "Wrong protocol, disconnecting + removing peer, nonce: " + peer.nonce +   " Command was: " + command + " next byte: " + nextByte + " remaining: " + readBuffer.remaining() + " crypt-Stauts: out: " + (peer.writeBufferCrypted != null) + ", in: " + (peer.readBufferCrypted != null));
         ByteBuffer a = ByteBuffer.allocate(1);
 
         a.put(
@@ -1932,9 +1931,9 @@ public class ConnectionHandler extends Thread {
         }
         //System.out.println("closing, got panic command...");
         peer.disconnect(
-                "NotYetConnectedException");
+                "WRONG BYTE!");
         //TODO add again
-        //Test.removePeer(peer);
+        Test.removePeer(peer);
 
         return 0;
 
@@ -1994,7 +1993,7 @@ public class ConnectionHandler extends Thread {
                             peer.writeBufferLock.lock();
                             size = peer.writeBuffer.position();
                             peer.writeBufferLock.unlock();
-                            if (size > 500) {
+                            if (size > 1500) {
                                 System.out.println("writeBuffer position: " + size + " ip: " + peer.ip);
                                 //peer.setWriteBufferFilled();
                                 try {

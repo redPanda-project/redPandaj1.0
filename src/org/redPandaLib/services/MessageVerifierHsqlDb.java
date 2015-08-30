@@ -10,12 +10,15 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import static java.lang.Thread.sleep;
+import java.nio.ByteBuffer;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLIntegrityConstraintViolationException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -45,7 +48,9 @@ import org.redPandaLib.core.messages.RawMsg;
 import org.redPandaLib.core.messages.TextMessageContent;
 import org.redPandaLib.core.messages.TextMsg;
 import org.redPandaLib.crypt.ECKey;
+import org.redPandaLib.crypt.Sha256Hash;
 import org.redPandaLib.crypt.Utils;
+import org.redPandaLib.database.DirectMessageStore;
 import org.redPandaLib.database.HsqlConnection;
 
 /**
@@ -56,7 +61,7 @@ import org.redPandaLib.database.HsqlConnection;
 public class MessageVerifierHsqlDb {
 
     private static final int loadMsgsPerQuery = 200;
-    private static final MyThread myThread = new MyThread();
+    public static final MyThread myThread = new MyThread();
     static ExecutorService threadPool = Executors.newFixedThreadPool(4);
     private static int runningThreads = 0;
     public static boolean PAUSE = false;
@@ -68,6 +73,8 @@ public class MessageVerifierHsqlDb {
     public static Semaphore sem = new Semaphore(MAX_PERMITS);
     public static boolean USES_UNREAD_STATUS = false;
     public static long lastRun = 0;
+
+    private static Thread lastThread = null;
 
     public static final ReentrantLock filesSystemLockForImages = new ReentrantLock(); //Need this lock because if check for all blocks then one might not be finished.
 
@@ -216,277 +223,413 @@ public class MessageVerifierHsqlDb {
 
                         final RawMsg rawMsg = tempRawMsg;
 
-                        Runnable runnable = new Runnable() {
+                        Runnable runnable;
+                        runnable = new Runnable() {
 
                             @Override
                             public void run() {
 
-                                setPriority(Thread.MIN_PRIORITY);
-
-                                final String orgName = Thread.currentThread().getName();
-                                if (orgName.length() < 20) {
-                                    Thread.currentThread().setName(orgName + " - verify and broadcast thread");
-                                }
-
-                                boolean verify = rawMsg.verify();
-
-                                if (Main.shutdown) {
-                                    return;
-                                }
-
                                 try {
-                                    if (verify) {
+                                    setPriority(Thread.MIN_PRIORITY);
 
-                                        final RawMsg message = rawMsg.toSpecificMsgType();
+                                    final String orgName = Thread.currentThread().getName();
+                                    if (orgName.length() < 20) {
+                                        Thread.currentThread().setName(orgName + " - verify and broadcast thread");
+                                    }
 
-                                        //nur damit es auch wirklich da ist... bugsuche...
-                                        message.database_Id = message_id;
-                                        message.key.database_id = pubkey_id;
+                                    boolean verify = rawMsg.verify();
+
+                                    if (Main.shutdown) {
+                                        return;
+                                    }
+
+                                    try {
+                                        if (verify) {
+
+                                            final RawMsg message = rawMsg.toSpecificMsgType();
+
+                                            //nur damit es auch wirklich da ist... bugsuche...
+                                            message.database_Id = message_id;
+                                            message.key.database_id = pubkey_id;
 
 //                            synchronized (MessageHolder.msgs) {
 //                                int index = MessageHolder.msgs.indexOf(m);
 //                                MessageHolder.msgs.set(index, message);
 //                            }
-                                        boolean succesfullCommited = false;
-                                        while (!succesfullCommited) {
-                                            PreparedStatement stmt = null;
-                                            try {
-                                                //System.out.println("signature richtig...");
-                                                stmt = connection.prepareStatement("update message SET verified = true WHERE message_id = ?");
-                                                stmt.setInt(1, message_id);
-                                                stmt.executeUpdate();
-                                                stmt.close();
-                                                succesfullCommited = true;
-                                            } catch (SQLIntegrityConstraintViolationException e) {
-                                                Log.put("Could not update verified status of message, have to try again....", 150);
-                                                stmt.close();
-                                            }
-                                        }
-
-                                        if (message.public_type == BlockMsg.PUBLIC_TYPE) {
-
-                                            System.out.println("i found a block!!!");
-
-                                            MessageDownloader.channelIdToLatesttBlockTime.put(pubkey_id, message.timestamp);
-
-                                            if (message.readable) {
-
-                                                System.out.println("hex: " + Utils.bytesToHexString(message.decryptedContent));
-
-                                                BlockMsg blockMsg = (BlockMsg) message;
-                                                String text = "New block generated with " + blockMsg.getMessageCount() + " msgs (" + blockMsg.content.length / 1024. + " kb).";
-                                                Test.messageStore.addDecryptedContent(blockMsg.getKey().database_id, (int) blockMsg.database_Id, BlockMsg.BYTE, blockMsg.timestamp, text.getBytes(), ((BlockMsg) blockMsg).getIdentity(), true, blockMsg.nonce, blockMsg.public_type);
-                                                TextMessageContent textMessageContent = new TextMessageContent(blockMsg.database_Id, blockMsg.key.database_id, blockMsg.public_type, TextMsg.BYTE, blockMsg.timestamp, blockMsg.decryptedContent, blockMsg.channel, blockMsg.getIdentity(), text, true);
-                                                textMessageContent.read = true;
-                                                for (NewMessageListener listener : Main.listeners) {
-                                                    listener.newMessage(textMessageContent);
+                                            boolean succesfullCommited = false;
+                                            while (!succesfullCommited) {
+                                                PreparedStatement stmt = null;
+                                                try {
+                                                    //System.out.println("signature richtig...");
+                                                    stmt = connection.prepareStatement("update message SET verified = true WHERE message_id = ?");
+                                                    stmt.setInt(1, message_id);
+                                                    stmt.executeUpdate();
+                                                    stmt.close();
+                                                    succesfullCommited = true;
+                                                } catch (SQLIntegrityConstraintViolationException e) {
+                                                    Log.put("Could not update verified status of message, have to try again....", 150);
+                                                    stmt.close();
                                                 }
-
-                                            } else {
-                                                System.out.println("block not for me...");
                                             }
 
-                                            System.out.println("New block saved and send, doing cleanup...");
+                                            if (message.public_type == BlockMsg.PUBLIC_TYPE) {
 
-                                            //remove old block:
-                                            int removeMessagesFromChannel = Test.messageStore.removeMessagesFromChannel(pubkey_id, BlockMsg.PUBLIC_TYPE, message.timestamp);
-                                            System.out.println("removed old blocks: " + removeMessagesFromChannel);
+                                                System.out.println("i found a block!!!");
 
-                                            //remove old messages which are encrypted and now saved in the new block (only necessary data)...
-                                            removeMessagesFromChannel = Test.messageStore.removeMessagesFromChannel(pubkey_id, (byte) 20, message.timestamp);
-                                            System.out.println("removed old encrypted messages: " + removeMessagesFromChannel);
+                                                MessageDownloader.channelIdToLatesttBlockTime.put(pubkey_id, message.timestamp);
 
-                                        } else // check for other msgs types with first byte of decrypted content
-                                        if (message instanceof TextMsg) {
+                                                if (message.readable) {
 
-                                            TextMsg textMsg = (TextMsg) message;
-                                            long identity = textMsg.getIdentity();
-                                            boolean fromMe = (identity == Test.localSettings.identity);
-
-                                            Test.messageStore.addDecryptedContent(pubkey_id, message_id, TextMsg.BYTE, textMsg.timestamp, textMsg.getText(), textMsg.getIdentity(), fromMe, textMsg.nonce, textMsg.public_type);
-                                            TextMessageContent fromTextMsg = TextMessageContent.fromTextMsg(textMsg, fromMe);
-
-                                            for (NewMessageListener listener : Main.listeners) {
-                                                listener.newMessage(fromTextMsg);
-                                            }
-
-                                            if (USES_UNREAD_STATUS && !fromMe) {
-                                                Test.messageStore.addUnreadMessage(message_id);
-                                            }
-
-                                            //send delivered msg
-                                            if (Settings.SEND_DELIVERED_MSG && SpecialChannels.isSpecial(pubkey) == null) {
-
-                                                sendDeliveredMessage(message);
-
-                                            }
-
-                                            //TODO: REMOVE WHEN NOT NEEDED ANYMORE, generating stats for debugging and send to MainChannel.
-                                            if (SpecialChannels.isSpecial(pubkey) != null) {
-                                                //System.out.println("Special channel text: " + fromTextMsg.text);
-                                                if (fromTextMsg.text.equals("status")) {
-
-                                                    System.out.println("sending status");
-
-                                                    String out = "Messages in db: ";
-
-                                                    out += Test.messageStore.getMessageCount() + " - to verify: " + Test.messageStore.getMessageCountToVerify();
-
-                                                    out += "\n\n";
-
-                                                    int actCons = 0;
-
-                                                    ArrayList<Peer> list = (ArrayList<Peer>) peerList.clone();
-                                                    Collections.sort(list);
-
-                                                    for (Peer peer : list) {
-
-                                                        if (peer.isConnected()) {
-                                                            actCons++;
-                                                        }
-
+//                                                System.out.println("hex: " + Utils.bytesToHexString(message.decryptedContent));
+                                                    BlockMsg blockMsg = (BlockMsg) message;
+                                                    String text = "New block generated with " + blockMsg.getMessageCount() + " msgs (" + blockMsg.content.length / 1024. + " kb).";
+                                                    Test.messageStore.addDecryptedContent(blockMsg.getKey().database_id, (int) blockMsg.database_Id, BlockMsg.BYTE, blockMsg.timestamp, text.getBytes(), ((BlockMsg) blockMsg).getIdentity(), true, blockMsg.nonce, blockMsg.public_type);
+                                                    TextMessageContent textMessageContent = new TextMessageContent(blockMsg.database_Id, blockMsg.key.database_id, blockMsg.public_type, TextMsg.BYTE, blockMsg.timestamp, blockMsg.decryptedContent, blockMsg.channel, blockMsg.getIdentity(), text, true);
+                                                    textMessageContent.read = true;
+                                                    for (NewMessageListener listener : Main.listeners) {
+                                                        listener.newMessage(textMessageContent);
                                                     }
 
-                                                    out += "\nConnected to " + actCons + "/" + list.size() + " peers. (NAT type: " + (NAT_OPEN ? "open" : "closed") + ")";
-                                                    out += "\nTraffic: " + inBytes / 1024. + " kb / " + outBytes / 1024. + " kb.";
-
-                                                    Main.sendBroadCastMsg(out);
-
-                                                } else if (fromTextMsg.text.equals("knownTrigger")) {
-
-                                                    System.out.println("trigger knwon channels by main channel...");
-
-                                                    new Thread() {
-
-                                                        @Override
-                                                        public void run() {
-                                                            KnownChannels.updateMyChannels();
-                                                            KnownChannels.sendAllKnownChannels();
-                                                        }
-
-                                                    }.start();
-
-                                                }
-                                            }
-
-                                        } else if (message instanceof DeliveredMsg) {
-                                            DeliveredMsg deliveredMsg = (DeliveredMsg) message;
-                                            //System.out.println(deliveredMsg.getNick() + " in " + deliveredMsg.getChannel().name + " hat die Nachrich bekommen: " + deliveredMsg.timestamp + " " + deliveredMsg.nonce);
-
-                                            //TextMsg build = TextMsg.build(deliveredMsg.getChannel(), deliveredMsg.getIdentity() + " in " + deliveredMsg.getChannel().getName() + " hat die Nachrich bekommen: " + formatTime(new Date(deliveredMsg.timestamp)) + " " + deliveredMsg.nonce);
-                                            Test.messageStore.addDecryptedContent(pubkey_id, message_id, DeliveredMsg.BYTE, deliveredMsg.timestamp, deliveredMsg.decryptedContent, deliveredMsg.getIdentity(), false, deliveredMsg.nonce, deliveredMsg.public_type);
-                                            TextMessageContent fromTextMsg = TextMessageContent.fromDeliveredMsg(deliveredMsg, false);
-
-                                            for (NewMessageListener listener : Main.listeners) {
-                                                listener.newMessage(fromTextMsg);
-                                            }
-
-                                        } else if (message instanceof ImageMsg) {
-
-                                            System.out.println("Found a IMAGE!");
-
-                                            ImageMsg imageMsg = (ImageMsg) message;
-
-                                            int partsForImage = imageMsg.getParts();
-                                            int partNumber = imageMsg.getPartCount();
-
-                                            filesSystemLockForImages.lock();
-
-                                            try {
-
-                                                String partFileName = "imgpart-" + imageMsg.getTimestamp() + "-" + imageMsg.getIdentity() + "-" + partNumber + "-" + partsForImage + ".part";
-                                                writeBytesToFile(imageMsg.getImageBytes(), Test.imageStoreFolder + partFileName);
-
-                                                System.out.println("wrote bytes into part file");
-
-                                                System.out.println("check for all exiting parts...");
-
-                                                boolean missing = false;
-
-                                                for (int i = 0; i < partsForImage; i++) {
-                                                    File file = new File(Test.imageStoreFolder + "imgpart-" + imageMsg.getTimestamp() + "-" + imageMsg.getIdentity() + "-" + i + "-" + partsForImage + ".part");
-                                                    if (!file.exists()) {
-                                                        missing = true;
-                                                        break;
-                                                    }
-                                                }
-
-                                                System.out.println("part missing: " + missing);
-
-                                                if (!missing) {
-
-                                                    String pathToFile = Test.imageStoreFolder + "img-" + imageMsg.getChannel().getName() + "-" + imageMsg.getTimestamp() + ".jpg";
-                                                    File outFile = new File(pathToFile);
+                                                    //generate Count and Hash!
                                                     try {
-                                                        FileOutputStream fileOutputStream = new FileOutputStream(outFile);
-                                                        try {
+                                                        //get Key Id
+                                                        //String query = "SELECT pubkey_id,message_id,content,public_type,timestamp,nonce from message WHERE timestamp > ? and verified = true AND pubkey_id = ?";
+                                                        String query = "SELECT timestamp,message_type,public_type from channelmessage WHERE pubkey_id =? AND timestamp > ? AND timestamp < ? ORDER BY timestamp ASC";
+                                                        PreparedStatement pstmt = Test.messageStore.getConnection().prepareStatement(query);
+                                                        pstmt.setInt(1, message.channel.getKey().database_id);
+                                                        long asd = BlockMsg.TIME_TO_SYNC_BACK;
+                                                        System.out.println("time: " + asd);
+                                                        pstmt.setLong(2, asd);
+                                                        pstmt.setLong(3, blockMsg.timestamp);
 
-                                                            for (int i = 0; i < partsForImage; i++) {
-                                                                File readFile = new File(Test.imageStoreFolder + "imgpart-" + imageMsg.getTimestamp() + "-" + imageMsg.getIdentity() + "-" + i + "-" + partsForImage + ".part");
+                                                        ResultSet executeQuery = pstmt.executeQuery();
 
-                                                                byte[] buffer = new byte[1024 * 50];
-                                                                InputStream ios = null;
-                                                                int readBytes = 0;
-                                                                try {
-                                                                    ios = new FileInputStream(readFile); //ToDoE: file not found exception ?!?, THREADED!!! need to sync that all are finished
-                                                                    while ((readBytes = ios.read(buffer)) != -1) {
-                                                                        fileOutputStream.write(buffer, 0, readBytes);
+                                                        int msgcount = 0;
+
+                                                        boolean breaked = false;
+
+                                                        byte[] dataArray = new byte[1024 * 200];
+                                                        ByteBuffer buffer = ByteBuffer.wrap(dataArray); //max size of a message!! should be regulated later!
+
+                                                        //ToDo: add hash from all data and count of messages to get an easier sync!
+                                                        //System.out.println("dwzdzwd " + executeQuery.next());
+                                                        while (executeQuery.next()) {
+
+                                                            int message_type = executeQuery.getInt("message_type");
+                                                            long timestamp = executeQuery.getLong("timestamp");
+                                                            byte public_type = executeQuery.getByte("public_type");
+
+                                                            //only pack a message into a block if the public_type is 20!
+                                                            if (public_type == 20) {
+
+                                                                //skip content which will be generated regulary, image messages should not have public_type 20! (with new version, old imgs will be deleted)
+                                                                if (message_type != TextMsg.BYTE) {
+                                                                    continue;
+                                                                }
+                                                                if (buffer.remaining() < 8 + 4 + 4) {
+                                                                    System.out.println("buffer full, exit routine, dont know what to do atm");
+                                                                    breaked = true;
+                                                                    return;
+                                                                }
+
+                                                                //System.out.println("Data: msgtyp: " + message_type + " pubtyp: " + public_type);
+                                                                buffer.putLong(timestamp);
+                                                                buffer.putInt(message_type);
+                                                                buffer.putInt(public_type);
+                                                                msgcount++;
+                                                            }
+
+                                                        }
+                                                        executeQuery.close();
+                                                        pstmt.close();
+
+                                                        if (breaked) {
+                                                            System.out.println("abort...");
+                                                            return;
+                                                        }
+
+                                                        //generated msgcount and hash:
+                                                        int hash = Sha256Hash.create(dataArray).hashCode();
+
+                                                        System.out.println("MyCnt: " + msgcount);
+                                                        System.out.println("BlockCnt: " + blockMsg.getMessageCount());
+                                                        System.out.println("Hashes: " + hash + " - " + blockMsg.getContentHash());
+
+                                                        //compare cnt and hash:
+                                                        if (blockMsg.getMessageCount() < msgcount) {
+                                                            System.out.println("I have more messages than the block!");
+                                                        } else if (blockMsg.getMessageCount() > msgcount) {
+                                                            System.out.println("There are more messages in the block than I have!");
+
+                                                            ByteBuffer wrap = ByteBuffer.wrap(blockMsg.decryptedContent);
+                                                        //read block!
+
+                                                            //skip header
+                                                            wrap.get(); //BlockMsg.BYTE); //cmd for block
+                                                            wrap.getLong();//indenity who generated the block
+                                                            wrap.getInt();//msgcount
+                                                            wrap.getInt();//hash
+
+                                                            int cnt = 0;
+
+                                                            while (wrap.hasRemaining()) {
+                                                                cnt++;
+                                                                //System.out.println("cnt: " + cnt);
+
+                                                                long timestamp = wrap.getLong();
+                                                                int nonce = wrap.getInt();
+                                                                int message_type = wrap.getInt();
+                                                                long identity = wrap.getLong();
+                                                                int contentLenght = wrap.getInt();
+
+                                                                //System.out.println("contentlen: " + contentLenght);
+
+                                                                byte[] content = null;
+                                                                if (contentLenght != 0) {
+                                                                    content = new byte[contentLenght];
+                                                                    wrap.get(content);
+                                                                }
+
+                                                                boolean fromMe = (identity == Test.localSettings.identity);
+
+                                                                boolean added = Test.messageStore.addDecryptedContent(pubkey_id, TextMsg.BYTE, timestamp, content, identity, fromMe, nonce, (byte) 20);
+                                                                if (added) {
+                                                                    String string = "";
+                                                                    if (contentLenght != 0) {
+                                                                        string = new String(content, "UTF-8");
                                                                     }
-                                                                } finally {
-                                                                    try {
-                                                                        if (ios != null) {
-                                                                            ios.close();
-                                                                        }
-                                                                    } catch (IOException e) {
+                                                                    TextMessageContent fromTextMsg = new TextMessageContent(-1, pubkey_id, (byte) 20, message_type, timestamp, content, blockMsg.channel, identity, string, fromMe);
+
+                                                                    for (NewMessageListener listener : Main.listeners) {
+                                                                        listener.newMessage(fromTextMsg);
+                                                                    }
+
+                                                                    if (USES_UNREAD_STATUS && !fromMe) {
+                                                                        Test.messageStore.addUnreadMessage(message_id);
                                                                     }
                                                                 }
 
-                                                                readFile.delete();
-
                                                             }
 
-                                                            Infos infos = Test.imageInfos.getInfos(pathToFile);
-                                                            String imageInfos = pathToFile + "\n" + infos.width + "\n" + infos.heigth;
+                                                            System.out.println("rdy!!! #################");
+                                                        } else if (blockMsg.getContentHash() != hash) {
+                                                            System.out.println("Hash isnt the same!");
+                                                        } else {
 
-                                                            long identity = imageMsg.getIdentity();
-                                                            boolean fromMe = (identity == Test.localSettings.identity);
-
-                                                            Test.messageStore.addDecryptedContent(pubkey_id, message_id, ImageMsg.BYTE, imageMsg.getTimestamp(), imageInfos.getBytes(), imageMsg.getIdentity(), fromMe, imageMsg.nonce, imageMsg.public_type);
-                                                            TextMessageContent fromTextMsg = TextMessageContent.fromImageMsg(imageMsg, fromMe, imageInfos);
-
-                                                            for (NewMessageListener listener : Main.listeners) {
-                                                                listener.newMessage(fromTextMsg);
-                                                            }
-
-                                                            if (USES_UNREAD_STATUS && !fromMe) {
-                                                                Test.messageStore.addUnreadMessage(message_id);
-                                                            }
-
-                                                            //send delivered msg
-                                                            if (Settings.SEND_DELIVERED_MSG && SpecialChannels.isSpecial(pubkey) == null) {
-                                                                sendDeliveredMessage(message);
-                                                            }
-
-                                                        } catch (IOException ex) {
-                                                            Logger.getLogger(ImageSaver.class.getName()).log(Level.SEVERE, null, ex);
-                                                        } finally {
-                                                            try {
-                                                                fileOutputStream.close();
-                                                            } catch (IOException ex) {
-                                                                Logger.getLogger(MessageVerifierHsqlDb.class.getName()).log(Level.SEVERE, null, ex);
-                                                            }
+                                                            System.out.println("block and my database are the same!!! yeah!");
                                                         }
-                                                    } catch (FileNotFoundException ex) {
-                                                        Logger.getLogger(ImageSaver.class.getName()).log(Level.SEVERE, null, ex);
+
+                                                    } catch (SQLException ex) {
+                                                        Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+                                                    } catch (UnsupportedEncodingException ex) {
+                                                        Logger.getLogger(MessageVerifierHsqlDb.class.getName()).log(Level.SEVERE, null, ex);
                                                     }
+
+                                                } else {
+                                                    System.out.println("block not for me...");
+                                                }
+
+                                                System.out.println("New block saved and send, doing cleanup...");
+
+                                                //remove old block:
+                                                int removeMessagesFromChannel = Test.messageStore.removeMessagesFromChannel(pubkey_id, BlockMsg.PUBLIC_TYPE, message.timestamp);
+                                                System.out.println("removed old blocks: " + removeMessagesFromChannel);
+
+                                                //remove old messages which are encrypted and now saved in the new block (only necessary data)...
+                                                removeMessagesFromChannel = Test.messageStore.removeMessagesFromChannel(pubkey_id, (byte) 20, message.timestamp);
+                                                System.out.println("removed old encrypted messages: " + removeMessagesFromChannel);
+
+                                            } else // check for other msgs types with first byte of decrypted content
+                                            if (message instanceof TextMsg) {
+
+                                                TextMsg textMsg = (TextMsg) message;
+                                                long identity = textMsg.getIdentity();
+                                                boolean fromMe = (identity == Test.localSettings.identity);
+
+                                                Test.messageStore.addDecryptedContent(pubkey_id, message_id, TextMsg.BYTE, textMsg.timestamp, textMsg.getText(), textMsg.getIdentity(), fromMe, textMsg.nonce, textMsg.public_type);
+                                                TextMessageContent fromTextMsg = TextMessageContent.fromTextMsg(textMsg, fromMe);
+
+                                                for (NewMessageListener listener : Main.listeners) {
+                                                    listener.newMessage(fromTextMsg);
+                                                }
+
+                                                if (USES_UNREAD_STATUS && !fromMe) {
+                                                    Test.messageStore.addUnreadMessage(message_id);
+                                                }
+
+                                                //send delivered msg
+                                                if (Settings.SEND_DELIVERED_MSG && SpecialChannels.isSpecial(pubkey) == null) {
+
+                                                    sendDeliveredMessage(message);
 
                                                 }
 
-                                            } catch (Throwable e) {
-                                                Test.sendStacktrace(e);
-                                            } finally {
-                                                filesSystemLockForImages.unlock();
-                                            }
+                                                //TODO: REMOVE WHEN NOT NEEDED ANYMORE, generating stats for debugging and send to MainChannel.
+                                                if (SpecialChannels.isSpecial(pubkey) != null) {
+                                                    //System.out.println("Special channel text: " + fromTextMsg.text);
+                                                    if (fromTextMsg.text.equals("status")) {
+
+                                                        System.out.println("sending status");
+
+                                                        String out = "Messages in db: ";
+
+                                                        out += Test.messageStore.getMessageCount() + " - to verify: " + Test.messageStore.getMessageCountToVerify();
+
+                                                        out += "\n\n";
+
+                                                        int actCons = 0;
+
+                                                        ArrayList<Peer> list = (ArrayList<Peer>) peerList.clone();
+                                                        Collections.sort(list);
+
+                                                        for (Peer peer : list) {
+
+                                                            if (peer.isConnected()) {
+                                                                actCons++;
+                                                            }
+
+                                                        }
+
+                                                        out += "\nConnected to " + actCons + "/" + list.size() + " peers. (NAT type: " + (NAT_OPEN ? "open" : "closed") + ")";
+                                                        out += "\nTraffic: " + inBytes / 1024. + " kb / " + outBytes / 1024. + " kb.";
+
+                                                        Main.sendBroadCastMsg(out);
+
+                                                    } else if (fromTextMsg.text.equals("knownTrigger")) {
+
+                                                        System.out.println("trigger knwon channels by main channel...");
+
+                                                        new Thread() {
+
+                                                            @Override
+                                                            public void run() {
+                                                                KnownChannels.updateMyChannels();
+                                                                KnownChannels.sendAllKnownChannels();
+                                                            }
+
+                                                        }.start();
+
+                                                    }
+                                                }
+
+                                            } else if (message instanceof DeliveredMsg) {
+                                                DeliveredMsg deliveredMsg = (DeliveredMsg) message;
+                                                //System.out.println(deliveredMsg.getNick() + " in " + deliveredMsg.getChannel().name + " hat die Nachrich bekommen: " + deliveredMsg.timestamp + " " + deliveredMsg.nonce);
+
+                                                //TextMsg build = TextMsg.build(deliveredMsg.getChannel(), deliveredMsg.getIdentity() + " in " + deliveredMsg.getChannel().getName() + " hat die Nachrich bekommen: " + formatTime(new Date(deliveredMsg.timestamp)) + " " + deliveredMsg.nonce);
+                                                Test.messageStore.addDecryptedContent(pubkey_id, message_id, DeliveredMsg.BYTE, deliveredMsg.timestamp, deliveredMsg.decryptedContent, deliveredMsg.getIdentity(), false, deliveredMsg.nonce, deliveredMsg.public_type);
+                                                TextMessageContent fromTextMsg = TextMessageContent.fromDeliveredMsg(deliveredMsg, false);
+
+                                                for (NewMessageListener listener : Main.listeners) {
+                                                    listener.newMessage(fromTextMsg);
+                                                }
+
+                                            } else if (message instanceof ImageMsg) {
+
+                                                System.out.println("Found a IMAGE!");
+
+                                                ImageMsg imageMsg = (ImageMsg) message;
+
+                                                int partsForImage = imageMsg.getParts();
+                                                int partNumber = imageMsg.getPartCount();
+
+                                                filesSystemLockForImages.lock();
+
+                                                try {
+
+                                                    String partFileName = "imgpart-" + imageMsg.getTimestamp() + "-" + imageMsg.getIdentity() + "-" + partNumber + "-" + partsForImage + ".part";
+                                                    writeBytesToFile(imageMsg.getImageBytes(), Test.imageStoreFolder + partFileName);
+
+                                                    System.out.println("wrote bytes into part file");
+
+                                                    System.out.println("check for all exiting parts...");
+
+                                                    boolean missing = false;
+
+                                                    for (int i = 0; i < partsForImage; i++) {
+                                                        File file = new File(Test.imageStoreFolder + "imgpart-" + imageMsg.getTimestamp() + "-" + imageMsg.getIdentity() + "-" + i + "-" + partsForImage + ".part");
+                                                        if (!file.exists()) {
+                                                            missing = true;
+                                                            break;
+                                                        }
+                                                    }
+
+                                                    System.out.println("part missing: " + missing);
+
+                                                    if (!missing) {
+
+                                                        String pathToFile = Test.imageStoreFolder + "img-" + imageMsg.getChannel().getName() + "-" + imageMsg.getTimestamp() + ".jpg";
+                                                        File outFile = new File(pathToFile);
+                                                        try {
+                                                            FileOutputStream fileOutputStream = new FileOutputStream(outFile);
+                                                            try {
+
+                                                                for (int i = 0; i < partsForImage; i++) {
+                                                                    File readFile = new File(Test.imageStoreFolder + "imgpart-" + imageMsg.getTimestamp() + "-" + imageMsg.getIdentity() + "-" + i + "-" + partsForImage + ".part");
+
+                                                                    byte[] buffer = new byte[1024 * 50];
+                                                                    InputStream ios = null;
+                                                                    int readBytes = 0;
+                                                                    try {
+                                                                        ios = new FileInputStream(readFile); //ToDoE: file not found exception ?!?, THREADED!!! need to sync that all are finished
+                                                                        while ((readBytes = ios.read(buffer)) != -1) {
+                                                                            fileOutputStream.write(buffer, 0, readBytes);
+                                                                        }
+                                                                    } finally {
+                                                                        try {
+                                                                            if (ios != null) {
+                                                                                ios.close();
+                                                                            }
+                                                                        } catch (IOException e) {
+                                                                        }
+                                                                    }
+
+                                                                    readFile.delete();
+
+                                                                }
+
+                                                                Infos infos = Test.imageInfos.getInfos(pathToFile);
+                                                                String imageInfos = pathToFile + "\n" + infos.width + "\n" + infos.heigth;
+
+                                                                long identity = imageMsg.getIdentity();
+                                                                boolean fromMe = (identity == Test.localSettings.identity);
+
+                                                                Test.messageStore.addDecryptedContent(pubkey_id, message_id, ImageMsg.BYTE, imageMsg.getTimestamp(), imageInfos.getBytes(), imageMsg.getIdentity(), fromMe, imageMsg.nonce, imageMsg.public_type);
+                                                                TextMessageContent fromTextMsg = TextMessageContent.fromImageMsg(imageMsg, fromMe, imageInfos);
+
+                                                                for (NewMessageListener listener : Main.listeners) {
+                                                                    listener.newMessage(fromTextMsg);
+                                                                }
+
+                                                                if (USES_UNREAD_STATUS && !fromMe) {
+                                                                    Test.messageStore.addUnreadMessage(message_id);
+                                                                }
+
+                                                                //send delivered msg
+                                                                if (Settings.SEND_DELIVERED_MSG && SpecialChannels.isSpecial(pubkey) == null) {
+                                                                    sendDeliveredMessage(message);
+                                                                }
+
+                                                            } catch (IOException ex) {
+                                                                Logger.getLogger(ImageSaver.class.getName()).log(Level.SEVERE, null, ex);
+                                                            } finally {
+                                                                try {
+                                                                    fileOutputStream.close();
+                                                                } catch (IOException ex) {
+                                                                    Logger.getLogger(MessageVerifierHsqlDb.class.getName()).log(Level.SEVERE, null, ex);
+                                                                }
+                                                            }
+                                                        } catch (FileNotFoundException ex) {
+                                                            Logger.getLogger(ImageSaver.class.getName()).log(Level.SEVERE, null, ex);
+                                                        }
+
+                                                    }
+
+                                                } catch (Throwable e) {
+                                                    Test.sendStacktrace(e);
+                                                } finally {
+                                                    filesSystemLockForImages.unlock();
+                                                }
 //                                imageMsgs.add((ImageMsg) message);
 //
 //                                System.out.println("in ram: " + imageMsgs.size());
@@ -577,117 +720,122 @@ public class MessageVerifierHsqlDb {
 //                                    RawMsg addMessage = MessageHolder.addMessage(build);
 //                                    Test.broadcastMsg(addMessage);
 //                                }
-                                            // }
-                                            // }
-                                            //new ImageSaver("").saveImage("", "loaded.jpg");
-                                        } else if (message instanceof InfoMsg) {
+                                                // }
+                                                // }
+                                                //new ImageSaver("").saveImage("", "loaded.jpg");
+                                            } else if (message instanceof InfoMsg) {
 
-                                            try {
+                                                try {
 
-                                                InfoMsg infoMsg = (InfoMsg) message;
-                                                long identity = infoMsg.getIdentity();
+                                                    InfoMsg infoMsg = (InfoMsg) message;
+                                                    long identity = infoMsg.getIdentity();
 
-                                                HashMap<ECKey, Integer> levels = infoMsg.getLevels();
+                                                    HashMap<ECKey, Integer> levels = infoMsg.getLevels();
 
-                                                int pubKeyIdFrom = Test.messageStore.getPubkeyId(infoMsg.getKey());
+                                                    int pubKeyIdFrom = Test.messageStore.getPubkeyId(infoMsg.getKey());
 
-                                                for (ECKey channel : levels.keySet()) {
+                                                    for (ECKey channel : levels.keySet()) {
 
-                                                    int pubKeyIdfor = Test.messageStore.getPubkeyId(channel);
+                                                        int pubKeyIdfor = Test.messageStore.getPubkeyId(channel);
 
-                                                    int level = levels.get(channel) + 1;
+                                                        int level = levels.get(channel) + 1;
 
-                                                    Test.messageStore.addKnownChannel(pubKeyIdfor, identity, pubKeyIdFrom, level);
+                                                        Test.messageStore.addKnownChannel(pubKeyIdfor, identity, pubKeyIdFrom, level);
 
-                                                    Log.put("add from other node channelLevels: " + Utils.bytesToHexString(channel.getPubKey()) + " lvel: " + level + " from: " + pubKeyIdFrom, 0);
+                                                        Log.put("add from other node channelLevels: " + Utils.bytesToHexString(channel.getPubKey()) + " lvel: " + level + " from: " + pubKeyIdFrom, 0);
 
+                                                    }
+
+                                                } catch (Throwable e) {
+                                                    e.printStackTrace();
                                                 }
 
-                                            } catch (Throwable e) {
-                                                e.printStackTrace();
+                                            } else {
+                                                //System.out.println("No textmsg?");
+                                            }
+
+                                            if (Settings.BROADCAST_MSGS_AFTER_VERIFICATION) {
+                                                if (timestamp > System.currentTimeMillis() - 1000L * 60L * 60L * 24L * 7L) {
+                                                    Runnable sendRunnable = new Runnable() {
+                                                        @Override
+                                                        public void run() {
+                                                            final String orgName = Thread.currentThread().getName();
+                                                            if (orgName.length() < 20) {
+                                                                Thread.currentThread().setName(orgName + " - broadCastMsg");
+                                                            }
+                                                            Test.broadcastMsg(message);
+
+                                                        }
+                                                    };
+                                                    sendDeliveredMsgsThreads.submit(sendRunnable);
+                                                }
                                             }
 
                                         } else {
-                                            //System.out.println("No textmsg?");
-                                        }
 
-                                        if (Settings.BROADCAST_MSGS_AFTER_VERIFICATION) {
-                                            if (timestamp > System.currentTimeMillis() - 1000L * 60L * 60L * 24L * 7L) {
-                                                Runnable sendRunnable = new Runnable() {
-                                                    @Override
-                                                    public void run() {
-                                                        final String orgName = Thread.currentThread().getName();
-                                                        if (orgName.length() < 20) {
-                                                            Thread.currentThread().setName(orgName + " - broadCastMsg");
+                                            try {
+                                                System.out.println("falsche signature...");
+                                                System.out.println("pubkey bytes    : " + Channel.byte2String(rawMsg.key.getPubKey()));
+                                                System.out.println("signature bytes : " + Utils.bytesToHexString(rawMsg.signature));
+                                                System.out.println("len : " + rawMsg.signature.length);
+
+                                                Peer loadedFrom = null;
+                                                for (Peer peer : Test.getClonedPeerList()) {
+                                                    if (peer.getPeerTrustData() == null || peer.getLoadedMsgs() == null) {
+                                                        continue;
+                                                    }
+                                                    ArrayList<Integer> loadedMsgs = (ArrayList<Integer>) peer.getLoadedMsgs().clone();
+
+                                                    for (int i : loadedMsgs) {
+                                                        if (i == message_id) {
+                                                            loadedFrom = peer;
+                                                            System.out.println("loaded from peer: " + peer.getIp() + ":" + peer.getPort());
+                                                            peer.getPeerTrustData().badMessages++;
+                                                            peer.disconnect("bad signature!!!");
+                                                            System.out.println("disconnect...");
+                                                            //Test.peerTrusts.remove(peer.peerTrustData);
+                                                            //System.out.println("REMOVED PEER TRUST!");
                                                         }
-                                                        Test.broadcastMsg(message);
-
                                                     }
-                                                };
-                                                sendDeliveredMsgsThreads.submit(sendRunnable);
-                                            }
-                                        }
 
-                                    } else {
-
-                                        try {
-                                            System.out.println("falsche signature...");
-                                            System.out.println("pubkey bytes    : " + Channel.byte2String(rawMsg.key.getPubKey()));
-                                            System.out.println("signature bytes : " + Utils.bytesToHexString(rawMsg.signature));
-                                            System.out.println("len : " + rawMsg.signature.length);
-
-                                            Peer loadedFrom = null;
-                                            for (Peer peer : Test.getClonedPeerList()) {
-                                                if (peer.getPeerTrustData() == null || peer.getLoadedMsgs() == null) {
-                                                    continue;
                                                 }
-                                                ArrayList<Integer> loadedMsgs = (ArrayList<Integer>) peer.getLoadedMsgs().clone();
 
-                                                for (int i : loadedMsgs) {
-                                                    if (i == message_id) {
-                                                        loadedFrom = peer;
-                                                        System.out.println("loaded from peer: " + peer.getIp() + ":" + peer.getPort());
-                                                        peer.getPeerTrustData().badMessages++;
-                                                        peer.disconnect("bad signature!!!");
-                                                        System.out.println("disconnect...");
-                                                        //Test.peerTrusts.remove(peer.peerTrustData);
-                                                        //System.out.println("REMOVED PEER TRUST!");
+                                                if (loadedFrom != null && loadedFrom.getPeerTrustData() != null) {
+                                                    for (Entry<Integer, ECKey> a : loadedFrom.getKeyToIdHis().entrySet()) {
+                                                        System.out.println("keyToId - id: " + a.getKey() + " key: " + Channel.byte2String(a.getValue().getPubKey()));
                                                     }
                                                 }
+                                            } catch (Exception e) {
+
+                                                System.out.println("fignature wrong, data could not be displayed, exception thrown");
 
                                             }
 
-                                            if (loadedFrom != null && loadedFrom.getPeerTrustData() != null) {
-                                                for (Entry<Integer, ECKey> a : loadedFrom.getKeyToIdHis().entrySet()) {
-                                                    System.out.println("keyToId - id: " + a.getKey() + " key: " + Channel.byte2String(a.getValue().getPubKey()));
-                                                }
-                                            }
-                                        } catch (Exception e) {
+                                            PreparedStatement stmt = connection.prepareStatement("delete FROM peerMessagesIntroducedToHim WHERE message_id = ?");
+                                            stmt.setInt(1, message_id);
+                                            stmt.executeUpdate();
+                                            stmt.close();
 
-                                            System.out.println("fignature wrong, data could not be displayed, exception thrown");
-
+                                            PreparedStatement stmt2 = connection.prepareStatement("delete FROM message WHERE message_id = ?");
+                                            stmt2.setInt(1, message_id);
+                                            stmt2.executeUpdate();
+                                            stmt2.close();
+                                            Test.messageStore.resetMessageCounter();
                                         }
 
-                                        PreparedStatement stmt = connection.prepareStatement("delete FROM peerMessagesIntroducedToHim WHERE message_id = ?");
-                                        stmt.setInt(1, message_id);
-                                        stmt.executeUpdate();
-                                        stmt.close();
-
-                                        PreparedStatement stmt2 = connection.prepareStatement("delete FROM message WHERE message_id = ?");
-                                        stmt2.setInt(1, message_id);
-                                        stmt2.executeUpdate();
-                                        stmt2.close();
-                                        Test.messageStore.resetMessageCounter();
+                                    } catch (SQLException ex) {
+                                        Logger.getLogger(MessageVerifierHsqlDb.class.getName()).log(Level.SEVERE, null, ex);
                                     }
 
-                                } catch (SQLException ex) {
-                                    Logger.getLogger(MessageVerifierHsqlDb.class.getName()).log(Level.SEVERE, null, ex);
-                                }
+                                    //if (sem.availablePermits() < MAX_PERMITS) {
+                                    sem.release();
+                                    Log.put("Available permits after release: " + sem.availablePermits(), 20);
+                                    //}
 
-                                //if (sem.availablePermits() < MAX_PERMITS) {
-                                sem.release();
-                                Log.put("Available permits after release: " + sem.availablePermits(), 20);
-                                //}
+                                } catch (Throwable e) {
+                                    e.printStackTrace();
+                                    Test.sendStacktrace(e);
+                                }
                             }
                         };
 
@@ -827,6 +975,16 @@ public class MessageVerifierHsqlDb {
         } catch (FileNotFoundException ex) {
             Logger.getLogger(ImageSaver.class.getName()).log(Level.SEVERE, null, ex);
         }
+
+    }
+
+    public static void printStack() {
+        StackTraceElement[] stackTrace = MessageVerifierHsqlDb.myThread.getStackTrace();
+        String ownStackTrace = "";
+        for (StackTraceElement a : stackTrace) {
+            ownStackTrace += a.toString() + "\n";
+        }
+        System.out.println("MessageVerifierHsqlDb:" + ownStackTrace);
 
     }
 }
