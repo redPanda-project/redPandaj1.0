@@ -276,7 +276,11 @@ public class MessageVerifierHsqlDb {
 
                                                 System.out.println("i found a block!!!");
 
-                                                MessageDownloader.channelIdToLatesttBlockTime.put(pubkey_id, message.timestamp);
+                                                MessageDownloader.channelIdToLatestBlockTimeLock.lock();
+                                                if (MessageDownloader.channelIdToLatestBlockTime.get(pubkey_id) == null || MessageDownloader.channelIdToLatestBlockTime.get(pubkey_id) < message.timestamp) {
+                                                    MessageDownloader.channelIdToLatestBlockTime.put(pubkey_id, message.timestamp);
+                                                }
+                                                MessageDownloader.channelIdToLatestBlockTimeLock.unlock();
 
                                                 if (message.readable) {
 

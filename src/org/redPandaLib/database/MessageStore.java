@@ -112,4 +112,8 @@ public interface MessageStore {
     public int removeMessagesFromChannel(int pubkey_id, byte public_type, long timestamp);
 
     public Long getLatestBlocktime(int pubkeyId);
+
+    public int getNextMessageId();
+
+    public int getNextChannelMessageId();
 }

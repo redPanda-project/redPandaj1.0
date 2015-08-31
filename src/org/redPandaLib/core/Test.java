@@ -1292,6 +1292,10 @@ public class Test {
                         double kbs = finalBuffer.position() / 1024.;
                         System.out.println("content block size: " + kbs + "  in " + msgcount + " messags.");
 
+                        MessageDownloader.channelIdToLatestBlockTimeLock.lock();
+                        MessageDownloader.channelIdToLatestBlockTime.put(pubkeyId, currentTime);
+                        MessageDownloader.channelIdToLatestBlockTimeLock.unlock();
+
 //                        System.out.println("hex: " + Utils.bytesToHexString(finalBuffer.array()));
                         BlockMsg build = BlockMsg.build(chan, currentTime, 45678, finalBuffer.array());
 
@@ -1545,6 +1549,11 @@ public class Test {
                     MessageVerifierHsqlDb.printStack();
                     continue;
                 }
+                if (readLine.equals("d16")) {
+                    System.out.println("msgid: " + messageStore.getNextMessageId());
+                    continue;
+                }
+
                 if (readLine.equals("ls")) {
 
                     ArrayList<Peer> clonedPeerList = getClonedPeerList();

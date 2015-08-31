@@ -278,8 +278,9 @@ public class Peer implements Comparable<Peer> {
     public void removeRequestedMsgs() {
 
         if (peerTrustData != null) {
+            boolean tryLock = false;
             try {
-                boolean tryLock = MessageDownloader.requestedMsgsLock.tryLock(2, TimeUnit.SECONDS);
+                tryLock = MessageDownloader.requestedMsgsLock.tryLock(2, TimeUnit.SECONDS);
                 if (!tryLock) {
                     return;
                 }
@@ -292,7 +293,9 @@ public class Peer implements Comparable<Peer> {
 
             } catch (InterruptedException ex) {
             } finally {
-                MessageDownloader.requestedMsgsLock.unlock();
+                if (tryLock) {
+                    MessageDownloader.requestedMsgsLock.unlock();
+                }
             }
         }
     }
@@ -682,7 +685,8 @@ public class Peer implements Comparable<Peer> {
 
     /**
      * peer trust data have to be set, otherwise NULLPOINTER!
-     * @return 
+     *
+     * @return
      */
     public ArrayList<Integer> getLoadedMsgs() {
         return getPeerTrustData().loadedMsgs;

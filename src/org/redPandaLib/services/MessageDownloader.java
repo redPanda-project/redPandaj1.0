@@ -36,7 +36,8 @@ public class MessageDownloader {
     public static int messagesToVerify = 0;
     private static Random random = new Random();
     public static long lastRun = 0;
-    public static HashMap<Integer, Long> channelIdToLatesttBlockTime = new HashMap<Integer, Long>();
+    public static HashMap<Integer, Long> channelIdToLatestBlockTime = new HashMap<Integer, Long>();
+    public static ReentrantLock channelIdToLatestBlockTimeLock = new ReentrantLock();
     public static int WAIT_FOR_OTHER_NODES_TO_INTRODUCE = 0;
 
     public static void trigger() {
@@ -307,18 +308,45 @@ public class MessageDownloader {
                             if (Settings.DONT_REMOVE_UNUSED_MESSAGES) {
                                 latestBlockTime = Long.MIN_VALUE;
                             } else {
-                                latestBlockTime = channelIdToLatesttBlockTime.get(m.key.database_id);
+                                channelIdToLatestBlockTimeLock.lock();
+                                latestBlockTime = channelIdToLatestBlockTime.get(m.key.database_id);
                                 if (latestBlockTime == null) {
-                                    System.out.println("search in db!");
+                                    System.out.println("search in db: " + m.key.database_id);
                                     latestBlockTime = Test.messageStore.getLatestBlocktime(m.key.database_id);
-                                    channelIdToLatesttBlockTime.put(m.key.database_id, latestBlockTime);
+                                    channelIdToLatestBlockTime.put(m.key.database_id, latestBlockTime);
                                 }
+                                channelIdToLatestBlockTimeLock.unlock();
                             }
 
                             if (m.public_type == 20 && latestBlockTime > m.timestamp) {
                                 synchronized (p.getPendingMessages()) {
                                     p.getPendingMessages().remove(messageId);
                                 }
+
+                                p.writeBufferLock.lock();
+                                if (p.writeBuffer == null) {
+                                    p.writeBufferLock.unlock();
+                                    return;
+                                }
+                                //m.database_Id = messageId;
+                                //m.key.database_id = Test.messageStore.getPubkeyId(m.key);
+                                if (p.writeBuffer.remaining() < 1 + 4 + 1 + 8 + 4 + 4) {
+                                    ByteBuffer oldbuffer = p.writeBuffer;
+                                    p.writeBuffer = ByteBuffer.allocate(p.writeBuffer.capacity() + 50);
+                                    p.writeBuffer.put(oldbuffer.array());
+                                    p.writeBuffer.position(oldbuffer.position());
+                                    System.out.println("writebuffer was raised...");
+                                }
+
+                                p.writeBuffer.put((byte) 5);
+                                p.writeBuffer.putInt(m.key.database_id);
+                                p.writeBuffer.put(m.public_type);
+                                p.writeBuffer.putLong(m.timestamp);
+                                p.writeBuffer.putInt(m.nonce);
+                                p.writeBuffer.putInt(m.database_Id);//TODO long zu int machen mit offset falls db zu gross!!
+
+                                p.writeBufferLock.unlock();
+
                                 Log.put("removed message, already in block!!!", -30);
                                 continue;
                             }
@@ -388,7 +416,7 @@ public class MessageDownloader {
                                 asEntryMsg.requestedWhen = System.currentTimeMillis();
                                 asEntryMsg.requestedFromPeer = p;
 
-                                ByteBuffer writeBuffer = p.writeBuffer;
+//                                ByteBuffer writeBuffer = p.writeBuffer;
                                 p.writeBufferLock.lock();
                                 p.writeBuffer.put((byte) 6);
                                 p.writeBuffer.putInt(messageId);

@@ -60,47 +60,59 @@ public class Main {
 
         //check for old database versions
         try {
-            boolean wrong = false;
-            File file = new File(saver.getPath() + "/databaseversion.dat");
 
-            if (!file.exists()) {
-                file.createNewFile();
-                wrong = true;
-            }
+            File file2 = new File(saver.getPath() + "/peers.dat");
+            File file3 = new File(saver.getPath() + "/trustData.dat");
 
-            FileInputStream fileInputStream = new FileInputStream(file);
+            if (file2.exists() || file3.exists()) {
 
-            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(fileInputStream));
-            String readLine = bufferedReader.readLine();
+                boolean wrong = false;
+                File file = new File(saver.getPath() + "/databaseversion.dat");
 
-            if (wrong || Integer.parseInt(readLine) != DirectMessageStore.DATABASE_VERSION) {
-
-                new File(saver.getPath() + "/peers.dat").delete();
-                new File(saver.getPath() + "/trustData.dat").delete();
-
-                try {
-                    Statement createStatement = Test.messageStore.getConnection().createStatement();
-                    HsqlConnection.dropAllTables(createStatement);
-                    System.out.println("\\\\\\\\\\\\\\\\\\\\ DATABASE WIPED //////////////////");
-                } catch (Throwable ex2) {
-                    ex2.printStackTrace();
+                if (!file.exists()) {
+                    file.createNewFile();
+                    wrong = true;
                 }
 
-                BufferedWriter writer = new BufferedWriter(new FileWriter(file));
+                FileInputStream fileInputStream = new FileInputStream(file);
+
+                BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(fileInputStream));
+                String readLine = bufferedReader.readLine();
+
+                if (wrong || Integer.parseInt(readLine) != DirectMessageStore.DATABASE_VERSION) {
+
+                    new File(saver.getPath() + "/peers.dat").delete();
+                    new File(saver.getPath() + "/trustData.dat").delete();
+
+                    try {
+                        Statement createStatement = Test.messageStore.getConnection().createStatement();
+                        HsqlConnection.dropAllTables(createStatement);
+                        System.out.println("\\\\\\\\\\\\\\\\\\\\ DATABASE WIPED //////////////////");
+                    } catch (Throwable ex2) {
+                        ex2.printStackTrace();
+                    }
+
+                    BufferedWriter writer = new BufferedWriter(new FileWriter(file));
+                    writer.write(Integer.toString(DirectMessageStore.DATABASE_VERSION));
+                    writer.close();
+
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+
+                    System.exit(30);
+
+                }
+
+                bufferedReader.close();
+            } else {
+                BufferedWriter writer = new BufferedWriter(new FileWriter(new File(saver.getPath() + "/databaseversion.dat")));
                 writer.write(Integer.toString(DirectMessageStore.DATABASE_VERSION));
                 writer.close();
-
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException ex) {
-                    Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
-                }
-
-                System.exit(30);
-
             }
 
-            bufferedReader.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -221,6 +233,9 @@ public class Main {
         TextMsg build = TextMsg.build(channel, text);
         RawMsg addMessage = MessageHolder.addMessage(build);
         Test.broadcastMsg(addMessage);
+
+        System.out.println(" " + addMessage.database_Id);
+
         Test.messageStore.addDecryptedContent(addMessage.getKey().database_id, (int) addMessage.database_Id, TextMsg.BYTE, addMessage.timestamp, ((TextMsg) addMessage).getText(), ((TextMsg) addMessage).getIdentity(), true, addMessage.nonce, addMessage.public_type);
         TextMessageContent textMessageContent = TextMessageContent.fromTextMsg((TextMsg) addMessage, true);
         textMessageContent.read = true;

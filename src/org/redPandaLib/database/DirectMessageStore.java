@@ -33,7 +33,7 @@ public class DirectMessageStore implements MessageStore {
     private Integer messageCount = Integer.MIN_VALUE;
     private boolean resetMessageCount = true;
     private final ReentrantLock messageCountLock = new ReentrantLock();
-    public static final int DATABASE_VERSION = 1;
+    public static final int DATABASE_VERSION = 2;
 
     public DirectMessageStore(Connection connection) throws SQLException {
         this.connection = connection;
@@ -84,7 +84,7 @@ public class DirectMessageStore implements MessageStore {
             int messageIdWithInsert = getMessageIdWithInsert(connection, pubkeyIdWithInsert, msg.public_type, msg.timestamp, msg.nonce, msg.signature, msg.content, msg.verified);
             //System.out.println("Message ID: " + messageIdWithInsert);
         } catch (SQLException ex) {
-            Logger.getLogger(Wrapper.class.getName()).log(Level.SEVERE, null, ex);
+            ex.printStackTrace();
         }
 //        try {
 //            hsqlConnection.getConnection().commit();
@@ -213,6 +213,9 @@ public class DirectMessageStore implements MessageStore {
     }
 
     private int getMessageIdWithInsert(Connection connection, int pubkey_id, byte pubkey_type, long timestamp, int nonce, byte[] signature, byte[] content, boolean verified) throws SQLException {
+
+        int messageId = -1;
+
         //get Key Id
         String query = "SELECT message_id from message WHERE pubkey_id = ? AND public_type = ? AND timestamp = ? AND nonce = ?";
         PreparedStatement pstmt = connection.prepareStatement(query);
@@ -231,12 +234,14 @@ public class DirectMessageStore implements MessageStore {
 //        }
         if (!executeQuery.next()) {
             //System.out.println("noch nicht in der db");
+            messageId = getNextMessageId();
+            System.out.println("nextmsgid: " + messageId);
 
             //System.out.println("id: " + pubkey_id + " timestamp: " + timestamp + " nonce: " + nonce);
             executeQuery.close();
             pstmt.close();
             //message_id INTEGER PRIMARY KEY IDENTITY, pubkey_id INTEGER, timestamp BIGINT, nonce INTEGER,  signature BINARY(72), content LONGVARBINARY, verified boolean
-            query = "INSERT into message (pubkey_id,public_type,timestamp,nonce,signature,content,verified) VALUES (?,?,?,?,?,?,?)";
+            query = "INSERT into message (pubkey_id,public_type,timestamp,nonce,signature,content,verified,message_id) VALUES (?,?,?,?,?,?,?,?)";
             pstmt = connection.prepareStatement(query);
             pstmt.setInt(1, pubkey_id);
             pstmt.setByte(2, pubkey_type);
@@ -245,6 +250,7 @@ public class DirectMessageStore implements MessageStore {
             pstmt.setBytes(5, signature);
             pstmt.setBytes(6, content);
             pstmt.setBoolean(7, verified);
+            pstmt.setInt(8, messageId);
             boolean execute = pstmt.execute();
             boolean tryLock = messageCountLock.tryLock();
             if (!tryLock) {
@@ -256,24 +262,22 @@ public class DirectMessageStore implements MessageStore {
 
             pstmt.close();
 
-            //get Key Id
-            query = "SELECT message_id from message WHERE pubkey_id = ? AND public_type = ? AND timestamp = ? AND nonce = ?";
-            pstmt = connection.prepareStatement(query);
-            pstmt.setInt(1, pubkey_id);
-            pstmt.setByte(2, pubkey_type);
-            pstmt.setLong(3, timestamp);
-            pstmt.setInt(4, nonce);
-            executeQuery = pstmt.executeQuery();
-            executeQuery.next();//braucht man das?
-
+//            //get Key Id
+//            query = "SELECT message_id from message WHERE pubkey_id = ? AND public_type = ? AND timestamp = ? AND nonce = ?";
+//            pstmt = connection.prepareStatement(query);
+//            pstmt.setInt(1, pubkey_id);
+//            pstmt.setByte(2, pubkey_type);
+//            pstmt.setLong(3, timestamp);
+//            pstmt.setInt(4, nonce);
+//            executeQuery = pstmt.executeQuery();
+//            executeQuery.next();//braucht man das?
+        } else {
+            messageId = executeQuery.getInt("message_id");
+            executeQuery.close();
+            pstmt.close();
         }
 
-        int aInt = executeQuery.getInt("message_id");
-
-        executeQuery.close();
-        pstmt.close();
-
-        return aInt;
+        return messageId;
 
     }
 
@@ -504,19 +508,31 @@ public class DirectMessageStore implements MessageStore {
 
             System.out.println("message added ! #######################################");
 
-            //channelmessage (channel_id INTEGER, message_id INTEGER, message_type INTEGER, decryptedContent LONGVARBINARY);
-            query = "INSERT into channelmessage (pubkey_id,message_type,timestamp,decryptedContent,identity,fromMe,nonce,public_type) VALUES (?,?,?,?,?,?,?,?)";
-            pstmt = connection.prepareStatement(query);
-            pstmt.setInt(1, pubkey_id);
-            pstmt.setInt(2, message_type);
-            pstmt.setLong(3, timestamp);
-            pstmt.setBytes(4, decryptedContent);
-            pstmt.setLong(5, identity);
-            pstmt.setBoolean(6, fromMe);
-            pstmt.setInt(7, nonce);
-            pstmt.setByte(8, public_type);
-            pstmt.execute();
-            pstmt.close();
+            boolean failed = true;
+
+            while (failed) {
+                failed = false;
+
+                //channelmessage (channel_id INTEGER, message_id INTEGER, message_type INTEGER, decryptedContent LONGVARBINARY);
+                query = "INSERT into channelmessage (pubkey_id,message_id,message_type,timestamp,decryptedContent,identity,fromMe,nonce,public_type) VALUES (?,?,?,?,?,?,?,?,?)";
+                pstmt = connection.prepareStatement(query);
+                pstmt.setInt(1, pubkey_id);
+                pstmt.setInt(2, getNextChannelMessageId());
+                pstmt.setInt(3, message_type);
+                pstmt.setLong(4, timestamp);
+                pstmt.setBytes(5, decryptedContent);
+                pstmt.setLong(6, identity);
+                pstmt.setBoolean(7, fromMe);
+                pstmt.setInt(8, nonce);
+                pstmt.setByte(9, public_type);
+                try {
+                    pstmt.execute();
+                } catch (java.sql.SQLIntegrityConstraintViolationException e) {
+                    System.out.println("failed message_id, try again...");
+                    failed = true;
+                }
+                pstmt.close();
+            }
             return true;
         } catch (Throwable ex) {
             ex.printStackTrace();
@@ -526,8 +542,10 @@ public class DirectMessageStore implements MessageStore {
 
     }
 
+    @Override
     public void addDecryptedContent(int pubkey_id, int message_id, int message_type, long timestamp, byte[] decryptedContent, long identity, boolean fromMe, int nonce, byte public_type) {
         try {
+
             //channelmessage (channel_id INTEGER, message_id INTEGER, message_type INTEGER, decryptedContent LONGVARBINARY);
             String query = "INSERT into channelmessage (pubkey_id,message_id,message_type,timestamp,decryptedContent,identity,fromMe,nonce,public_type) VALUES (?,?,?,?,?,?,?,?,?)";
             PreparedStatement pstmt = connection.prepareStatement(query);
@@ -542,9 +560,10 @@ public class DirectMessageStore implements MessageStore {
             pstmt.setByte(9, public_type);
             pstmt.execute();
             pstmt.close();
+            System.out.println("done...");
         } catch (Throwable ex) {
             ex.printStackTrace();
-
+            System.out.println("error");
             //To dangerous?
 ////            if (ex instanceof java.sql.SQLIntegrityConstraintViolationException) {
 ////                System.out.println("DATABASE IS WRONG.... suggesting an old version, create hole new database and erase all data");
@@ -1392,6 +1411,54 @@ public class DirectMessageStore implements MessageStore {
             Test.sendStacktrace(ex);
         }
         return timestamp;
+    }
+
+    /**
+     * not threadsafe, you have to check if this value was correct at add time.
+     *
+     * @return
+     */
+    @Override
+    public int getNextMessageId() {
+        try {
+            String query = "UPDATE msgcounter SET id=id+2";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.execute();
+            pstmt.close();
+            query = "SELECT id from msgcounter";
+            pstmt = connection.prepareStatement(query);
+            ResultSet executeQuery = pstmt.executeQuery();
+            executeQuery.next();
+            return executeQuery.getInt(1);
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return -1;
+    }
+
+    /**
+     * not threadsafe, you have to check if this value was correct at add time.
+     *
+     * @return
+     */
+    @Override
+    public int getNextChannelMessageId() {
+        try {
+            String query = "UPDATE msgcounterchannel SET id=id+2";
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.execute();
+            pstmt.close();
+            query = "SELECT id from msgcounterchannel";
+            pstmt = connection.prepareStatement(query);
+            ResultSet executeQuery = pstmt.executeQuery();
+            executeQuery.next();
+            return executeQuery.getInt(1);
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return -1;
     }
 
 }
