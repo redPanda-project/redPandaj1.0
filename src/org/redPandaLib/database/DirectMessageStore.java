@@ -535,8 +535,8 @@ public class DirectMessageStore implements MessageStore {
             }
             return true;
         } catch (Throwable ex) {
+            Test.sendStacktrace(ex);
             ex.printStackTrace();
-            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
         }
         return false;
 
@@ -562,6 +562,7 @@ public class DirectMessageStore implements MessageStore {
             pstmt.close();
             System.out.println("done...");
         } catch (Throwable ex) {
+            Test.sendStacktrace(ex);
             ex.printStackTrace();
             System.out.println("error");
             //To dangerous?
