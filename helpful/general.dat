@@ -4,5 +4,5 @@ testnet=false
 supernode=false
 lightClient=false
 removeOldMessages=true
-external_database_login=false (otherwise set equal to loginUser'comma symbol'loginPassword)
+external_database_login=false (otherwise set equal to loginUser'comma symbol'databaseName'comma symbol'loginPassword)
 DontRemoveUnusedMessages=false
