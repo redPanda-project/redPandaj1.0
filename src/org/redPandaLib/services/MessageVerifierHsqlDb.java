@@ -237,7 +237,12 @@ public class MessageVerifierHsqlDb {
                                         Thread.currentThread().setName(orgName + " - verify and broadcast thread");
                                     }
 
-                                    boolean verify = rawMsg.verify();
+                                    boolean verify = false;
+                                    try {
+                                        verify = rawMsg.verify();
+                                    } catch (NullPointerException ex) {
+                                        Test.sendStacktrace(ex);
+                                    }
 
                                     if (Main.shutdown) {
                                         return;
@@ -287,12 +292,13 @@ public class MessageVerifierHsqlDb {
 //                                                System.out.println("hex: " + Utils.bytesToHexString(message.decryptedContent));
                                                     BlockMsg blockMsg = (BlockMsg) message;
                                                     String text = "New block generated with " + blockMsg.getMessageCount() + " msgs (" + blockMsg.content.length / 1024. + " kb).";
-                                                    Test.messageStore.addDecryptedContent(blockMsg.getKey().database_id, (int) blockMsg.database_Id, BlockMsg.BYTE, blockMsg.timestamp, text.getBytes(), ((BlockMsg) blockMsg).getIdentity(), true, blockMsg.nonce, blockMsg.public_type);
-                                                    TextMessageContent textMessageContent = new TextMessageContent(blockMsg.database_Id, blockMsg.key.database_id, blockMsg.public_type, TextMsg.BYTE, blockMsg.timestamp, blockMsg.decryptedContent, blockMsg.channel, blockMsg.getIdentity(), text, true);
-                                                    textMessageContent.read = true;
-                                                    for (NewMessageListener listener : Main.listeners) {
-                                                        listener.newMessage(textMessageContent);
-                                                    }
+                                                    boolean fromMe = (blockMsg.getIdentity() == Test.localSettings.identity);
+                                                    Test.messageStore.addDecryptedContent(blockMsg.getKey().database_id, (int) blockMsg.database_Id, BlockMsg.BYTE, blockMsg.timestamp, text.getBytes(), ((BlockMsg) blockMsg).getIdentity(), fromMe, blockMsg.nonce, blockMsg.public_type);
+//                                                    TextMessageContent textMessageContent = new TextMessageContent(blockMsg.database_Id, blockMsg.key.database_id, blockMsg.public_type, TextMsg.BYTE, blockMsg.timestamp, blockMsg.decryptedContent, blockMsg.channel, blockMsg.getIdentity(), text, true);
+//                                                    textMessageContent.read = true;
+//                                                    for (NewMessageListener listener : Main.listeners) {
+//                                                        listener.newMessage(textMessageContent);
+//                                                    }
 
                                                     //generate Count and Hash!
                                                     try {
@@ -403,7 +409,7 @@ public class MessageVerifierHsqlDb {
                                                                     }
                                                                 }
 
-                                                                boolean fromMe = (identity == Test.localSettings.identity);
+                                                                fromMe = (identity == Test.localSettings.identity);
 
                                                                 boolean added = Test.messageStore.addDecryptedContent(pubkey_id, TextMsg.BYTE, timestamp, content, identity, fromMe, nonce, (byte) 20);
                                                                 if (added) {
@@ -411,10 +417,10 @@ public class MessageVerifierHsqlDb {
                                                                     if (contentLenght > 0) {
                                                                         string = new String(content, "UTF-8");
                                                                     }
-                                                                    TextMessageContent fromTextMsg = new TextMessageContent(-1, pubkey_id, (byte) 20, message_type, timestamp, content, blockMsg.channel, identity, string, fromMe);
+                                                                    TextMessageContent textmsgcontent = new TextMessageContent(-1, pubkey_id, (byte) 20, message_type, timestamp, content, blockMsg.channel, identity, string, fromMe);
 
                                                                     for (NewMessageListener listener : Main.listeners) {
-                                                                        listener.newMessage(fromTextMsg);
+                                                                        listener.newMessage(textmsgcontent);
                                                                     }
 
                                                                     if (USES_UNREAD_STATUS && !fromMe) {
@@ -787,7 +793,7 @@ public class MessageVerifierHsqlDb {
                                         } else {
 
                                             try {
-                                                System.out.println("falsche signature...");
+                                                System.out.println("wrong signature...");
                                                 System.out.println("pubkey bytes    : " + Channel.byte2String(rawMsg.key.getPubKey()));
                                                 System.out.println("signature bytes : " + Utils.bytesToHexString(rawMsg.signature));
                                                 System.out.println("len : " + rawMsg.signature.length);

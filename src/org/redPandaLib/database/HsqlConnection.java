@@ -134,44 +134,18 @@ public class HsqlConnection {
 
         stmt.executeUpdate("drop table if exists peerMessagesIntroducedToMe");
         stmt.executeUpdate("drop table if exists peerMessagesIntroducedToHim");
-        //stmt.executeUpdate("drop table if exists filterChannels");
-        //stmt.executeUpdate("drop table if exists haveToSendMessageToPeer");
         stmt.executeUpdate("create CACHED table if not exists pubkey (pubkey_id integer PRIMARY KEY IDENTITY, pubkey BINARY(33) UNIQUE)");
-        //Channel
-        //id INTEGER
-        //pubkey_id INTEGER
-        //private_key BINARY(32)
-        //name LONGVARBINARY
         stmt.executeUpdate("create CACHED table if not exists channel (channel_id integer PRIMARY KEY IDENTITY, pubkey_id INTEGER UNIQUE, private_key BINARY(32) UNIQUE, name LONGVARBINARY)");
-        //Message
-        //id INTEGER
-        //key_id INTEGER
-        //channel_id integer
-        //timestamp BIGINT
-        //nonce INTEGER
-        //signature BINARY(72)
-        //content LONGVARBINARY
-        //verified boolean
-        //readable boolean
-        //decrypted_content LONGVARBINARY
-        //stmt.executeUpdate("drop table if exists message");
+        
         stmt.executeUpdate("create CACHED table if not exists message (message_id INTEGER IDENTITY PRIMARY KEY, pubkey_id INTEGER, public_type TINYINT, timestamp BIGINT, nonce INTEGER,  signature BINARY(72), content LONGVARBINARY, verified boolean)");
         stmt.executeUpdate("create CACHED table if not exists channelmessage (pubkey_id INTEGER, message_id INTEGER IDENTITY PRIMARY KEY, message_type INTEGER, public_type TINYINT, timestamp BIGINT, nonce INTEGER, decryptedContent LONGVARBINARY, identity BIGINT, fromMe BOOLEAN, FOREIGN KEY (pubkey_id) REFERENCES pubkey(pubkey_id))");
-        //new colums usw...//stmt.executeUpdate("create CACHED table if not exists channelmessageHistory (pubkey_id INTEGER, message_id INTEGER PRIMARY KEY IDENTITY, message_type INTEGER, timestamp BIGINT, decryptedContent LONGVARBINARY, identity BIGINT, fromMe BOOLEAN, FOREIGN KEY (pubkey_id) REFERENCES pubkey(pubkey_id))");
-        //table for sticks
+
         stmt.executeUpdate("create CACHED table if not exists sticks (pubkey_id INTEGER, message_id INTEGER, difficulty DOUBLE, validTill BIGINT, FOREIGN KEY (pubkey_id) REFERENCES pubkey(pubkey_id))");
         stmt.executeUpdate("create CACHED table if not exists peerMessagesIntroducedToMe (peer_id BIGINT, message_id INTEGER)");
         stmt.executeUpdate("create CACHED table if not exists peerMessagesIntroducedToHim (peer_id BIGINT, message_id INTEGER, FOREIGN KEY (message_id) REFERENCES message(message_id) ON DELETE CASCADE)");
         stmt.executeUpdate("create CACHED table if not exists haveToSendMessageToPeer (peer_id BIGINT, message_id INTEGER, FOREIGN KEY (message_id) REFERENCES message(message_id) ON DELETE CASCADE)");
         stmt.executeUpdate("create CACHED table if not exists filterChannels (peer_id BIGINT, channel_id INTEGER)");//, FOREIGN KEY (channel_id) REFERENCES channel(channel_id) ON DELETE CASCADE
 
-////        //create counter db and counters
-////        stmt.executeUpdate("create MEMORY table if not exists counters (id INTEGER PRIMARY KEY IDENTITY, value INTEGER)");
-////        try {
-////            stmt.execute("INSERT INTO counters VALUES(1,-1)");//counter for message_id in channelmessage - negative values to not get the same values as message table.
-////        } catch (SQLException e) {
-////            //already exists
-////        }
         stmt.executeUpdate("create CACHED table if not exists notReadMessage (message_id INTEGER, FOREIGN KEY (message_id) REFERENCES channelmessage(message_id) ON DELETE CASCADE)");
 
         stmt.executeUpdate("create CACHED table if not exists channelKnownLevel (forChannel INTEGER, identity BIGINT, fromChannel INTEGER, level INTEGER)");

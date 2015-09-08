@@ -28,7 +28,7 @@ public class MessageDownloader {
     public static final ReentrantLock requestedMsgsLock = new ReentrantLock();
     private static boolean triggered = false;
     private static MyThread myThread = new MyThread();
-    public static int MAX_REQUEST_PER_PEER = 250;
+    public static int MAX_REQUEST_PER_PEER = 10;
     private static boolean allowInterrupt = false;
     private static final ReentrantLock syncInterrupt = new ReentrantLock();
     public static int publicMsgsLoaded = 0;
@@ -161,10 +161,11 @@ public class MessageDownloader {
 
                         @Override
                         public int compare(Peer t, Peer t1) {
-                            return (t.getMessageLoadedCount() - t1.getMessageLoadedCount());
+                            return (t1.getMessageLoadedCount() - t.getMessageLoadedCount());
                         }
                     });
 
+//                    System.out.println("loaded: " + clonedPeerList.get(0).getMessageLoadedCount());
                     //System.out.println("top: " + clonedPeerList.get(0).getMessageLoadedCount() + " low: " + clonedPeerList.get(clonedPeerList.size() - 1).getMessageLoadedCount());
                     for (Peer p : clonedPeerList) {
 

@@ -32,6 +32,7 @@ public class Channel implements Serializable, Comparable<Channel> {
     protected double diffuculty = 0;
     public long displayPriority = 0;
     public HashMap<PeerTrustData, Integer> rating = new HashMap<PeerTrustData, Integer>();
+    public boolean useForContactExchange = false;
 
     public String getName() {
         return name;

@@ -221,7 +221,10 @@ public class StatsGUI {
                     }
                 });
 
-        org.redPandaLib.Main.useHsqlDatabase();
+        Settings.readGeneralDotDat();
+
+        org.redPandaLib.Main.useMysqlDatabase();
+        //org.redPandaLib.Main.useHsqlDatabase();
 
         Log.LEVEL = -1;
         Settings.lightClient = false;

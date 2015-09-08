@@ -235,7 +235,7 @@ public class DirectMessageStore implements MessageStore {
         if (!executeQuery.next()) {
             //System.out.println("noch nicht in der db");
             messageId = getNextMessageId();
-            System.out.println("nextmsgid: " + messageId);
+//            System.out.println("nextmsgid: " + messageId);
 
             //System.out.println("id: " + pubkey_id + " timestamp: " + timestamp + " nonce: " + nonce);
             executeQuery.close();
@@ -377,7 +377,7 @@ public class DirectMessageStore implements MessageStore {
             prepareStatement.execute();
             connection.close();
         } catch (SQLException ex) {
-            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+            System.out.println("Database could not be shutted down.");
         }
 
     }
