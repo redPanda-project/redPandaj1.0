@@ -1303,7 +1303,7 @@ public class Test {
                         Test.broadcastMsg(addMessage);
                         String text = "New block generated with " + msgcount + " msgs (" + kbs + " kb).";
                         Test.messageStore.addDecryptedContent(addMessage.getKey().database_id, (int) addMessage.database_Id, BlockMsg.BYTE, addMessage.timestamp, text.getBytes(), ((BlockMsg) addMessage).getIdentity(), true, addMessage.nonce, addMessage.public_type);
-                        TextMessageContent textMessageContent = new TextMessageContent(addMessage.database_Id, addMessage.key.database_id, addMessage.public_type, TextMsg.BYTE, addMessage.timestamp, addMessage.decryptedContent, addMessage.channel, addMessage.getIdentity(), text, true);
+                        TextMessageContent textMessageContent = new TextMessageContent(addMessage.database_Id, addMessage.key.database_id, addMessage.public_type, BlockMsg.BYTE, addMessage.timestamp, addMessage.decryptedContent, addMessage.channel, addMessage.getIdentity(), text, true);
                         textMessageContent.read = true;
                         for (NewMessageListener listener : Main.listeners) {
                             listener.newMessage(textMessageContent);
@@ -1949,9 +1949,12 @@ public class Test {
 
                 if (Settings.connectToNewClientsTill < System.currentTimeMillis()) {
                     try {
-                        sleep(2000);
+                        allowInterrupt = true;
+                        sleep(60000);
                     } catch (InterruptedException ex) {
                         Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                    } finally {
+                        allowInterrupt = false;
                     }
                     continue;
                 }

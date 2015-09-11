@@ -73,6 +73,7 @@ public class MessageVerifierHsqlDb {
     public static Semaphore sem = new Semaphore(MAX_PERMITS);
     public static boolean USES_UNREAD_STATUS = false;
     public static long lastRun = 0;
+    public static long LAST_AUTO_GENERATED_BLOCK = 0;
 
     private static Thread lastThread = null;
 
@@ -291,7 +292,7 @@ public class MessageVerifierHsqlDb {
 
 //                                                System.out.println("hex: " + Utils.bytesToHexString(message.decryptedContent));
                                                     BlockMsg blockMsg = (BlockMsg) message;
-                                                    String text = "New block generated with " + blockMsg.getMessageCount() + " msgs (" + blockMsg.content.length / 1024. + " kb).";
+                                                    String text = "Block: " + blockMsg.getMessageCount() + " msgs (" + blockMsg.content.length / 1024. + " kb).";
                                                     boolean fromMe = (blockMsg.getIdentity() == Test.localSettings.identity);
                                                     Test.messageStore.addDecryptedContent(blockMsg.getKey().database_id, (int) blockMsg.database_Id, BlockMsg.BYTE, blockMsg.timestamp, text.getBytes(), ((BlockMsg) blockMsg).getIdentity(), fromMe, blockMsg.nonce, blockMsg.public_type);
 //                                                    TextMessageContent textMessageContent = new TextMessageContent(blockMsg.database_Id, blockMsg.key.database_id, blockMsg.public_type, TextMsg.BYTE, blockMsg.timestamp, blockMsg.decryptedContent, blockMsg.channel, blockMsg.getIdentity(), text, true);
@@ -302,73 +303,22 @@ public class MessageVerifierHsqlDb {
 
                                                     //generate Count and Hash!
                                                     try {
-                                                        //get Key Id
-                                                        //String query = "SELECT pubkey_id,message_id,content,public_type,timestamp,nonce from message WHERE timestamp > ? and verified = true AND pubkey_id = ?";
-                                                        String query = "SELECT timestamp,message_type,public_type from channelmessage WHERE pubkey_id =? AND timestamp > ? AND timestamp < ? ORDER BY timestamp ASC";
-                                                        PreparedStatement pstmt = Test.messageStore.getConnection().prepareStatement(query);
-                                                        pstmt.setInt(1, message.channel.getKey().database_id);
-                                                        long asd = BlockMsg.TIME_TO_SYNC_BACK;
-                                                        System.out.println("time: " + asd);
-                                                        pstmt.setLong(2, asd);
-                                                        pstmt.setLong(3, blockMsg.timestamp);
 
-                                                        ResultSet executeQuery = pstmt.executeQuery();
+                                                        HashAndCount generateMyHashAndMsgCount = generateMyHashAndMsgCount(blockMsg);
 
-                                                        int msgcount = 0;
-
-                                                        boolean breaked = false;
-
-                                                        byte[] dataArray = new byte[1024 * 200];
-                                                        ByteBuffer buffer = ByteBuffer.wrap(dataArray); //max size of a message!! should be regulated later!
-
-                                                        //ToDo: add hash from all data and count of messages to get an easier sync!
-                                                        //System.out.println("dwzdzwd " + executeQuery.next());
-                                                        while (executeQuery.next()) {
-
-                                                            int message_type = executeQuery.getInt("message_type");
-                                                            long timestamp = executeQuery.getLong("timestamp");
-                                                            byte public_type = executeQuery.getByte("public_type");
-
-                                                            //only pack a message into a block if the public_type is 20!
-                                                            if (public_type == 20) {
-
-                                                                //skip content which will be generated regulary, image messages should not have public_type 20! (with new version, old imgs will be deleted)
-                                                                if (message_type != TextMsg.BYTE) {
-                                                                    continue;
-                                                                }
-                                                                if (buffer.remaining() < 8 + 4 + 4) {
-                                                                    System.out.println("buffer full, exit routine, dont know what to do atm");
-                                                                    breaked = true;
-                                                                    return;
-                                                                }
-
-                                                                //System.out.println("Data: msgtyp: " + message_type + " pubtyp: " + public_type);
-                                                                buffer.putLong(timestamp);
-                                                                buffer.putInt(message_type);
-                                                                buffer.putInt(public_type);
-                                                                msgcount++;
-                                                            }
-
-                                                        }
-                                                        executeQuery.close();
-                                                        pstmt.close();
-
-                                                        if (breaked) {
-                                                            System.out.println("abort...");
+                                                        if (generateMyHashAndMsgCount == null) {
                                                             return;
                                                         }
 
-                                                        //generated msgcount and hash:
-                                                        int hash = Sha256Hash.create(dataArray).hashCode();
+                                                        int msgcount = generateMyHashAndMsgCount.cnt;
+                                                        int hash = generateMyHashAndMsgCount.hash;
 
                                                         System.out.println("MyCnt: " + msgcount);
                                                         System.out.println("BlockCnt: " + blockMsg.getMessageCount());
                                                         System.out.println("Hashes: " + hash + " - " + blockMsg.getContentHash());
 
                                                         //compare cnt and hash:
-                                                        if (blockMsg.getMessageCount() < msgcount) {
-                                                            System.out.println("I have more messages than the block!");
-                                                        } else if (blockMsg.getMessageCount() > msgcount) {
+                                                        if (blockMsg.getMessageCount() != msgcount || blockMsg.getContentHash() != hash) {
                                                             System.out.println("There are more messages in the block than I have!");
 
                                                             ByteBuffer wrap = ByteBuffer.wrap(blockMsg.decryptedContent);
@@ -431,8 +381,29 @@ public class MessageVerifierHsqlDb {
                                                             }
 
                                                             System.out.println("rdy!!! #################");
-                                                        } else if (blockMsg.getContentHash() != hash) {
-                                                            System.out.println("Hash isnt the same!");
+
+                                                            //we have to look if the block and my msgs are now the same:
+                                                            generateMyHashAndMsgCount = generateMyHashAndMsgCount(blockMsg);
+
+                                                            if (generateMyHashAndMsgCount == null) {
+                                                                return;
+                                                            }
+
+                                                            msgcount = generateMyHashAndMsgCount.cnt;
+                                                            hash = generateMyHashAndMsgCount.hash;
+
+                                                            if (blockMsg.getMessageCount() != msgcount || blockMsg.getContentHash() != hash) {
+                                                                System.out.println("i have to generate a new block");
+
+                                                                if (System.currentTimeMillis() - LAST_AUTO_GENERATED_BLOCK > 1000 * 60 * 60 * 4) {
+                                                                    Blocks.generate(blockMsg.channel);
+                                                                    LAST_AUTO_GENERATED_BLOCK = System.currentTimeMillis();
+                                                                }
+
+                                                            } else {
+                                                                System.out.println("all fine");
+                                                            }
+
                                                         } else {
 
                                                             System.out.println("block and my database are the same!!! yeah!");
@@ -856,6 +827,7 @@ public class MessageVerifierHsqlDb {
                                     Test.sendStacktrace(e);
                                 }
                             }
+
                         };
 
                         threadPool.submit(runnable);
@@ -1004,6 +976,82 @@ public class MessageVerifierHsqlDb {
             ownStackTrace += a.toString() + "\n";
         }
         System.out.println("MessageVerifierHsqlDb:" + ownStackTrace);
+
+    }
+
+    private static HashAndCount generateMyHashAndMsgCount(BlockMsg blockMsg) throws SQLException {
+        //get Key Id
+        //String query = "SELECT pubkey_id,message_id,content,public_type,timestamp,nonce from message WHERE timestamp > ? and verified = true AND pubkey_id = ?";
+        String query = "SELECT timestamp,message_type,public_type from channelmessage WHERE pubkey_id =? AND timestamp > ? AND timestamp < ? ORDER BY timestamp ASC";
+        PreparedStatement pstmt = Test.messageStore.getConnection().prepareStatement(query);
+        pstmt.setInt(1, blockMsg.channel.getKey().database_id);
+        long asd = BlockMsg.TIME_TO_SYNC_BACK;
+        System.out.println("time: " + asd);
+        pstmt.setLong(2, asd);
+        pstmt.setLong(3, blockMsg.timestamp);
+
+        ResultSet executeQuery = pstmt.executeQuery();
+
+        int msgcount = 0;
+
+        boolean breaked = false;
+
+        byte[] dataArray = new byte[1024 * 200];
+        ByteBuffer buffer = ByteBuffer.wrap(dataArray); //max size of a message!! should be regulated later!
+
+        //ToDo: add hash from all data and count of messages to get an easier sync!
+        //System.out.println("dwzdzwd " + executeQuery.next());
+        while (executeQuery.next()) {
+
+            int message_type = executeQuery.getInt("message_type");
+            long timestamp = executeQuery.getLong("timestamp");
+            byte public_type = executeQuery.getByte("public_type");
+
+            //only pack a message into a block if the public_type is 20!
+            if (public_type == 20) {
+
+                //skip content which will be generated regulary, image messages should not have public_type 20! (with new version, old imgs will be deleted)
+                if (message_type != TextMsg.BYTE) {
+                    continue;
+                }
+                if (buffer.remaining() < 8 + 4 + 4) {
+                    System.out.println("buffer full, exit routine, dont know what to do atm");
+                    breaked = true;
+                    return null;
+                }
+
+                //System.out.println("Data: msgtyp: " + message_type + " pubtyp: " + public_type);
+                buffer.putLong(timestamp);
+                buffer.putInt(message_type);
+                buffer.putInt(public_type);
+                msgcount++;
+            }
+
+        }
+        executeQuery.close();
+        pstmt.close();
+
+        if (breaked) {
+            System.out.println("abort...");
+            return null;
+        }
+
+        //generated msgcount and hash:
+        int hash = Sha256Hash.create(dataArray).hashCode();
+
+        return new HashAndCount(msgcount, hash);
+
+    }
+
+    private static class HashAndCount {
+
+        int cnt;
+        int hash;
+
+        public HashAndCount(int cnt, int hash) {
+            this.cnt = cnt;
+            this.hash = hash;
+        }
 
     }
 }

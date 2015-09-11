@@ -144,7 +144,7 @@ public class Blocks {
 
             BlockMsg addMessage = (BlockMsg) MessageHolder.addMessage(build);
             Test.broadcastMsg(addMessage);
-            String text = "New block generated with " + msgcount + " msgs (" + kbs + " kb).";
+            String text = "Block: " + msgcount + " msgs (" + kbs + " kb).";
             Test.messageStore.addDecryptedContent(addMessage.getKey().database_id, (int) addMessage.database_Id, BlockMsg.BYTE, addMessage.timestamp, text.getBytes(), ((BlockMsg) addMessage).getIdentity(), true, addMessage.nonce, addMessage.public_type);
             TextMessageContent textMessageContent = new TextMessageContent(addMessage.database_Id, addMessage.key.database_id, addMessage.public_type, TextMsg.BYTE, addMessage.timestamp, addMessage.decryptedContent, addMessage.channel, addMessage.getIdentity(), text, true);
             textMessageContent.read = true;
