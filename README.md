@@ -17,8 +17,7 @@ Status
 
 There is currently a version for android and a desktop client for windows and linux based on java. The android version is functional at the moment and close to stable - so chatting should work. The client for linux and windows have an auto update system included.
 
-Compiled apks for android can be found on https://play.google.com/store/apps/details?id=org.redPanda
-or http://files.redpanda.im/android/redPanda-release.apk, which are builds of https://github.com/redPanda-project/android .
+Compiled apks for android can be found on https://play.google.com/store/apps/details?id=org.redPanda which is a build of https://github.com/redPanda-project/android.
 
 Hint: Long press on name to change it. Small names in a new line indicate delivered messages.
 
