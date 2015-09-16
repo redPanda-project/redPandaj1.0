@@ -10,7 +10,7 @@ The white paper will be up in a couple of weeks. There we explain our decisions 
 
 You can finde some stats about the network on http://redPanda.im.
 
-FAQ and answers are located in the wiki (https://github.com/redPanda-project/redPandaj/wiki/FAQ-for-the-android-application).
+FAQ and answers are located in the wiki (http://git.io/vZpQY).
 
 Status
 =========
