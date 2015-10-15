@@ -19,8 +19,8 @@ public class Settings {
     public static int STD_PORT = 59558;
     public static int MIN_CONNECTIONS = 20;
     public static int MAX_CONNECTIONS = 50;
-    public static int pingTimeout = 60*10; //time in sec
-    public static int pingDelay = 60*9; //time in sec
+    public static int pingTimeout = 60 * 10; //time in sec
+    public static int pingDelay = 60 * 9; //time in sec
     public static int peerListRequestDelay = 60 * 60;//time in sec
     public static long till = 0;//1397836192756L;
     public static boolean lightClient = false;
@@ -142,6 +142,6 @@ public class Settings {
     }
 
     public static int getStartPort() {
-        return STD_PORT;
+        return STARTPORT;
     }
 }
