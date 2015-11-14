@@ -1197,7 +1197,7 @@ public class Test {
                         String query = "SELECT message_id,message_type,timestamp,decryptedContent,identity,fromMe,nonce,public_type from channelmessage WHERE pubkey_id =? AND timestamp > ? AND timestamp < ? ORDER BY timestamp ASC";
                         PreparedStatement pstmt = Test.messageStore.getConnection().prepareStatement(query);
                         pstmt.setInt(1, pubkeyId);
-                        long asd = BlockMsg.TIME_TO_SYNC_BACK;
+                        long asd = currentTime - BlockMsg.TIME_TO_SYNC_BACK;
                         System.out.println("time: " + asd);
                         pstmt.setLong(2, asd);
                         pstmt.setLong(3, currentTime);
@@ -1946,11 +1946,12 @@ public class Test {
             while (!Main.shutdown) {
 
                 loopCount++;
+                System.out.println("loop: " + loopCount);
 
                 if (Settings.connectToNewClientsTill < System.currentTimeMillis()) {
                     try {
                         allowInterrupt = true;
-                        sleep(60000);
+                        sleep(1000*60*15);
                     } catch (InterruptedException ex) {
                         Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
                     } finally {
@@ -1981,7 +1982,7 @@ public class Test {
 
                 if (peerList == null || NONCE == 0) {
                     try {
-                        sleep(100);
+                        sleep(200);
                     } catch (InterruptedException ex) {
                         Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
                     }
@@ -1999,7 +2000,7 @@ public class Test {
                     Collections.sort(clonedPeerList);
                 } catch (java.lang.IllegalArgumentException e) {
                     try {
-                        sleep(100);
+                        sleep(200);
                     } catch (InterruptedException ex) {
                         Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
                     }
@@ -2011,14 +2012,14 @@ public class Test {
                 for (Peer peer : clonedPeerList) {
                     if (peer.getLastAnswered() < Settings.pingTimeout * 1000 && peer.isConnected() && peer.isAuthed() && peer.isCryptedConnection()) {
 
-                        String[] split = peer.ip.split("\\.");
-                        if (split.length == 4 && split[0].equals("192")) {
-                            //hack: is lan ip...
-                        } else {
-                            actCons++;
-                        }
-                    }
-                    if (peer.isConnecting) {
+//                        String[] split = peer.ip.split("\\.");
+//                        if (split.length == 4 && split[0].equals("192")) {
+//                            //hack: is lan ip...
+//                        } else {
+//                            actCons++;
+//                        }
+                        actCons++;
+                    } else if (peer.isConnecting) {
                         connectingCons++;
                     }
                 }
@@ -2035,6 +2036,8 @@ public class Test {
 //                if (DEBUG) {
 //                    System.out.println("search new peers....");
 //                }
+                actCons += connectingCons;
+
                 int cnt = 0;
                 for (Peer peer : clonedPeerList) {
 
@@ -2067,9 +2070,6 @@ public class Test {
                     }
 
                     if (peer.isConnected()) {
-                        if (DEBUG) {
-                            //System.out.println("already connected: " + peer.ip + ":" + peer.port);
-                        }
                         continue;
                     }
 
@@ -2087,7 +2087,7 @@ public class Test {
 //                        }
                         continue;
                     }
-                    if (peer.ip.length() <= 15 && Settings.IPV6_ONLY) {
+                    if (Settings.IPV6_ONLY && peer.ip.length() <= 15) {
                         peerList.remove(peer);
                         if (DEBUG) {
                             System.out.println("removed peer from peerList, no ipv6 address: " + peer.ip + ":" + peer.port);
@@ -2095,7 +2095,7 @@ public class Test {
                         continue;
                     }
 
-                    if (peer.ip.length() > 15 && Settings.IPV4_ONLY) {
+                    if (Settings.IPV4_ONLY && peer.ip.length() > 15) {
                         peerList.remove(peer);
                         if (DEBUG) {
                             System.out.println("removed peer from peerList, no ipv4 address: " + peer.ip + ":" + peer.port);

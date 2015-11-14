@@ -40,7 +40,7 @@ public class Blocks {
             String query = "SELECT message_id,message_type,timestamp,decryptedContent,identity,fromMe,nonce,public_type from channelmessage WHERE pubkey_id =? AND timestamp > ? AND timestamp < ? ORDER BY timestamp ASC";
             PreparedStatement pstmt = Test.messageStore.getConnection().prepareStatement(query);
             pstmt.setInt(1, pubkeyId);
-            long asd = BlockMsg.TIME_TO_SYNC_BACK;
+            long asd = currentTime - BlockMsg.TIME_TO_SYNC_BACK;
             System.out.println("time: " + asd);
             pstmt.setLong(2, asd);
             pstmt.setLong(3, currentTime);

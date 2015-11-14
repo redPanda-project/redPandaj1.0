@@ -20,7 +20,7 @@ public class BlockMsg extends RawMsg {
 
     public static final byte PUBLIC_TYPE = 0;
     public static final byte BYTE = (byte) 1;
-    public static final long TIME_TO_SYNC_BACK = System.currentTimeMillis() - 1000L * 60L * 60L * 24L * 7L * 4L * 1L;
+    public static final long TIME_TO_SYNC_BACK = 1000L * 60L * 60L * 24L * 7L * 4L * 1L;
     public static final long BLOCK_SYNC_TO_TIME = 1000L * 60L * 5L;
 
     protected BlockMsg(ECKey key, long timestamp, int nonce, byte[] signature, byte[] content, byte[] decryptedContent, Channel channel, boolean verified, boolean readable, int database_Id) {

@@ -176,6 +176,7 @@ public class MessageDownloader {
 
                         if (p.requestedMsgs > MAX_REQUEST_PER_PEER || p.requestedMsgs > p.maxSimultaneousRequests || System.currentTimeMillis() - p.connectedSince < 1000 * 10) {
                             shortWait = true;
+                            //System.out.println("shortwait...");
                             continue;
                         }
 
@@ -220,6 +221,7 @@ public class MessageDownloader {
                             //so not all MAX_REQUEST_PER_PEER are loaded from one peer.
                             if (msgsRequestedThisCycle > 10) {
                                 shortWait = true;
+                                //System.out.println("shortwait: msgsRequestedThisCycle");
                                 break;
                             }
 
@@ -485,7 +487,7 @@ public class MessageDownloader {
 
                             //System.out.println("wait");
                             if (shortWait) {
-                                sleep(100);
+                                sleep(500);
                             } else {
                                 sleep(1000 * 60 * 5);
                             }

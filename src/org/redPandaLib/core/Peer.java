@@ -398,14 +398,18 @@ public class Peer implements Comparable<Peer> {
 ////            System.out.println("writeBuffer voll, wurde verdoppelt...");
 //        }
 //        System.out.println("Writing stucked...");
-        try {
-            getSelectionKey().selector().wakeup();
-            getSelectionKey().interestOps(getSelectionKey().interestOps() | SelectionKey.OP_WRITE);
-            getSelectionKey().selector().wakeup();
-            //System.out.println("added op_write...");
-        } catch (CancelledKeyException e) {
-            //disconnect();
-            System.out.println("cancelled key exception");
+        if (getSelectionKey().isValid()) {
+            try {
+                getSelectionKey().selector().wakeup();
+                getSelectionKey().interestOps(getSelectionKey().interestOps() | SelectionKey.OP_WRITE);
+                getSelectionKey().selector().wakeup();
+                //System.out.println("added op_write...");
+            } catch (CancelledKeyException e) {
+                //disconnect();
+                System.out.println("cancelled key exception");
+            }
+        } else {
+            System.out.println("key is not valid");
         }
 
         return false;

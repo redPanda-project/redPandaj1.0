@@ -506,7 +506,7 @@ public class DirectMessageStore implements MessageStore {
                 return false;
             }
 
-            System.out.println("message added ! #######################################");
+            System.out.println("message will be added ! #######################################");
 
             boolean failed = true;
 

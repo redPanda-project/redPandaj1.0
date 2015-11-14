@@ -319,7 +319,7 @@ public class MessageVerifierHsqlDb {
 
                                                         //compare cnt and hash:
                                                         if (blockMsg.getMessageCount() != msgcount || blockMsg.getContentHash() != hash) {
-                                                            System.out.println("There are more messages in the block than I have!");
+                                                            System.out.println("Count or hash not equal, syncing block with my database!");
 
                                                             ByteBuffer wrap = ByteBuffer.wrap(blockMsg.decryptedContent);
                                                         //read block!
@@ -985,7 +985,7 @@ public class MessageVerifierHsqlDb {
         String query = "SELECT timestamp,message_type,public_type from channelmessage WHERE pubkey_id =? AND timestamp > ? AND timestamp < ? ORDER BY timestamp ASC";
         PreparedStatement pstmt = Test.messageStore.getConnection().prepareStatement(query);
         pstmt.setInt(1, blockMsg.channel.getKey().database_id);
-        long asd = BlockMsg.TIME_TO_SYNC_BACK;
+        long asd = blockMsg.timestamp - BlockMsg.TIME_TO_SYNC_BACK;
         System.out.println("time: " + asd);
         pstmt.setLong(2, asd);
         pstmt.setLong(3, blockMsg.timestamp);
