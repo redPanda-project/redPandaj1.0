@@ -6,6 +6,7 @@ package org.redPandaLib.database;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.SQLTransactionRollbackException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import org.redPandaLib.core.Channel;
@@ -19,7 +20,7 @@ import org.redPandaLib.crypt.ECKey;
  */
 public interface MessageStore {
 
-    public void saveMsg(RawMsg msg);
+    public void saveMsg(RawMsg msg) throws SQLTransactionRollbackException;
 
     public void quit();
 

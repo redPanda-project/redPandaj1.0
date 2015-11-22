@@ -6,6 +6,7 @@ package org.redPandaLib.core;
 
 import java.math.BigInteger;
 import java.sql.ResultSet;
+import java.sql.SQLTransactionRollbackException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.redPandaLib.core.messages.RawMsg;
@@ -33,42 +34,55 @@ public class MessageHolder {
 //        if (from < Settings.till) {
 //            from = Settings.till;
 //        }
-
         //return (ArrayList<RawMsg>) msgs.clone();
         ResultSet allMessagesForSync = Test.messageStore.getAllMessagesForSync(from, to, peer_id);
 
         //System.out.println("NACHRICHTEN GEFUNDEN: " + allMessagesForSync.);
-
         return allMessagesForSync;
     }
 
-        public static ResultSet getMessagesForBackSync(long time,int cnt) {
-        ResultSet allMessagesForSync = Test.messageStore.getMessagesForBackSync(time,cnt);
+    public static ResultSet getMessagesForBackSync(long time, int cnt) {
+        ResultSet allMessagesForSync = Test.messageStore.getMessagesForBackSync(time, cnt);
         return allMessagesForSync;
     }
-    
+
+    /**
+     * Stores a new RawMsg into the database and sets all nessesary values to
+     * the key and message object to work with.
+     * !!WARNING!!: this method will block the calling thread if there is a transaction
+     * rollback exeption due to the locks in the database.
+     * @param m
+     * @return 
+     */
     public static RawMsg addMessage(RawMsg m) {
-//        synchronized (MessageHolder.msgs) {
+
+        //        synchronized (MessageHolder.msgs) {
 //            if (!msgs.contains(m)) {
 //                msgs.add(m);
 //            }
 //        }
+        boolean done = false;
+        while (!done) {
+            try {
+                Test.messageStore.saveMsg(m);
+                done = true;
+            } catch (SQLTransactionRollbackException ex) {
+                ex.printStackTrace();
+            }
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException ex) {
+                ex.printStackTrace();
+            }
+        }
 
-
-
-
-        Test.messageStore.saveMsg(m);
         int msgId = Test.messageStore.getMsgId(m);
 
         int pubkey_id = Test.messageStore.getPubkeyId(m.getKey());
 
         //System.out.println("IDIDIDID: " + pubkey_id);
-
-
-
         ECKey key = new ECKey(null, m.getKey().getPubKey(), m.getKey().isCompressed());
         key.database_id = pubkey_id;
-
 
         m.key = key;
         m.database_Id = msgId;
@@ -109,9 +123,7 @@ public class MessageHolder {
     }
 
     public static int getMessageCount() {
-        
-        
-        
+
         return Test.messageStore.getMessageCount();
     }
 

@@ -20,6 +20,7 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
 import java.security.SecureRandom;
+import java.sql.SQLTransactionRollbackException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -144,7 +145,6 @@ public class ConnectionHandler extends Thread {
             selector.wakeup();
             //System.out.println("added con");
         } catch (IOException ex) {
-            Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
             peer.disconnect("could not init connection....");
             return;
         }
@@ -1211,6 +1211,7 @@ public class ConnectionHandler extends Thread {
 //                                peer.getPendingMessages().remove(msgId);
 //                            }
                             MessageDownloader.removeRequestedMessage(getFinal);
+                            Log.put("" + getFinal.timestamp + " " + getFinal.nonce, 100);
 
                             if (addMessage.getChannel() == null) {
                                 //isPublic...
@@ -1227,6 +1228,7 @@ public class ConnectionHandler extends Thread {
 
                             if (addMessage.key.database_id == -1) {
                                 addMessage = MessageHolder.addMessage(addMessage);
+                                System.out.println("woooot");
                             }
 
                             if (addMessage.key.database_id == -1) {
@@ -1916,7 +1918,7 @@ public class ConnectionHandler extends Thread {
         }
 
         System.out.println(
-                "Wrong protocol, disconnecting + removing peer, nonce: " + peer.nonce +   " Command was: " + command + " next byte: " + nextByte + " remaining: " + readBuffer.remaining() + " crypt-Stauts: out: " + (peer.writeBufferCrypted != null) + ", in: " + (peer.readBufferCrypted != null));
+                "Wrong protocol, disconnecting + removing peer, nonce: " + peer.nonce + " Command was: " + command + " next byte: " + nextByte + " remaining: " + readBuffer.remaining() + " crypt-Stauts: out: " + (peer.writeBufferCrypted != null) + ", in: " + (peer.readBufferCrypted != null));
         ByteBuffer a = ByteBuffer.allocate(1);
 
         a.put(

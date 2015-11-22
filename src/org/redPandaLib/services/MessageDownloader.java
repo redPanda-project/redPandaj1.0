@@ -174,9 +174,9 @@ public class MessageDownloader {
                             continue;
                         }
 
-                        if (p.requestedMsgs > MAX_REQUEST_PER_PEER || p.requestedMsgs > p.maxSimultaneousRequests || System.currentTimeMillis() - p.connectedSince < 1000 * 10) {
+                        if (p.requestedMsgs > MAX_REQUEST_PER_PEER || p.requestedMsgs > p.maxSimultaneousRequests || System.currentTimeMillis() - p.connectedSince < 1000 * 2) {
                             shortWait = true;
-                            //System.out.println("shortwait...");
+                            System.out.println("shortwait... reason: " + (p.requestedMsgs > MAX_REQUEST_PER_PEER) + " " + (p.requestedMsgs > p.maxSimultaneousRequests) + " " + (System.currentTimeMillis() - p.connectedSince < 1000 * 10));
                             continue;
                         }
 
@@ -434,7 +434,7 @@ public class MessageDownloader {
                                 }
 
                                 msgsRequestedThisCycle++;
-                                System.out.print(" " + p.requestedMsgs + " ");
+                                System.out.print(" " + p.requestedMsgs + " (" + p.ip + "-" + messageId + ") ");
                                 //System.out.println("requested... " + p.requestedMsgs);
 //                        
 

@@ -755,6 +755,9 @@ public class Test {
 
                     System.out.println("ChannelList: ");
                     for (Channel c : channels) {
+                        if (c == null) {
+                            System.out.println("dhuweghnueiwnru");
+                        }
                         System.out.println("#" + c.getId() + " \t " + c.getName() + " \t - " + c.exportForHumans() + " (pub: " + Channel.byte2String(c.getKey().getPubKey()) + " - " + Utils.bytesToHexString(c.getKey().getPubKey()) + "priv: " + Channel.byte2String(c.getKey().getPrivKeyBytes()) + ")");
                     }
                     System.out.println("send message to channel number:");
@@ -1059,6 +1062,16 @@ public class Test {
                     }
                     triggerOutboundthread();
                     continue;
+                }
+
+                if (readLine.equals("cp")) {
+                    try {
+                        PreparedStatement pstmt = messageStore.getConnection().prepareStatement("CHECKPOINT DEFRAG");
+                        pstmt.execute();
+                        continue;
+                    } catch (SQLException ex) {
+                        Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
 
                 if (readLine.equals("C")) {
@@ -1951,7 +1964,7 @@ public class Test {
                 if (Settings.connectToNewClientsTill < System.currentTimeMillis()) {
                     try {
                         allowInterrupt = true;
-                        sleep(1000*60*15);
+                        sleep(1000 * 60 * 15);
                     } catch (InterruptedException ex) {
                         Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
                     } finally {

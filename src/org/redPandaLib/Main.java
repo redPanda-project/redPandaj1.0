@@ -217,6 +217,10 @@ public class Main {
             return null;
         }
         //channels.add(SpecialChannels.MAIN);
+
+        channels = (ArrayList<Channel>) channels.clone();
+        channels.remove(0);
+
         return channels;
     }
 
@@ -443,6 +447,7 @@ public class Main {
             Test.localSettings.save();
             Test.saver.saveIdentities(Test.channels);
         } catch (Exception e) {
+            e.printStackTrace();
             return false;
         }
         return true;

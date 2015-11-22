@@ -223,8 +223,8 @@ public class StatsGUI {
 
         Settings.readGeneralDotDat();
 
-        org.redPandaLib.Main.useMysqlDatabase();
-        //org.redPandaLib.Main.useHsqlDatabase();
+        //org.redPandaLib.Main.useMysqlDatabase();
+        org.redPandaLib.Main.useHsqlDatabase();
 
         Log.LEVEL = -1;
         Settings.lightClient = false;

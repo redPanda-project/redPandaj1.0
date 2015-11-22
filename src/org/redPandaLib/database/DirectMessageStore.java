@@ -77,13 +77,16 @@ public class DirectMessageStore implements MessageStore {
         return -1;
     }
 
-    public void saveMsg(RawMsg msg) {
+    public void saveMsg(RawMsg msg) throws SQLTransactionRollbackException {
         try {
             int pubkeyIdWithInsert = getPubkeyIdWithInsert(connection, msg.getKey().getPubKey());
             //System.out.println("KeyId: " + pubkeyIdWithInsert);
             int messageIdWithInsert = getMessageIdWithInsert(connection, pubkeyIdWithInsert, msg.public_type, msg.timestamp, msg.nonce, msg.signature, msg.content, msg.verified);
             //System.out.println("Message ID: " + messageIdWithInsert);
         } catch (SQLException ex) {
+            if (ex instanceof SQLTransactionRollbackException) {
+                throw (SQLTransactionRollbackException) ex;
+            }
             ex.printStackTrace();
         }
 //        try {
