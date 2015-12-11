@@ -1392,20 +1392,21 @@ public class DirectMessageStore implements MessageStore {
         }
     }
 
+    @Override
     public Long getLatestBlocktime(int pubkeyId) {
 
         long timestamp = -1;
 
         try {
 
-            String query = "SELECT timestamp from message WHERE pubkey_id =? AND public_type = ? ORDER BY timestamp DESC";
+            String query = "SELECT timestamp from message WHERE pubkey_id = ? AND public_type = ? ORDER BY timestamp DESC";
 
             PreparedStatement pstmt = connection.prepareStatement(query);
             pstmt.setInt(1, pubkeyId);
-            pstmt.setLong(2, BlockMsg.PUBLIC_TYPE);
+            pstmt.setByte(2, BlockMsg.PUBLIC_TYPE);
             ResultSet executeQuery = pstmt.executeQuery();
 
-            while (executeQuery.next()) {
+            if (executeQuery.next()) {
                 timestamp = executeQuery.getLong("timestamp");
             }
             executeQuery.close();

@@ -222,15 +222,16 @@ public class StatsGUI {
                 });
 
         Settings.readGeneralDotDat();
+        
 
         //org.redPandaLib.Main.useMysqlDatabase();
         org.redPandaLib.Main.useHsqlDatabase();
 
-        Log.LEVEL = -1;
+        Log.LEVEL = 10000;
         Settings.lightClient = false;
         Settings.SUPERNODE = true;
         Settings.REDUCE_TRAFFIC = false;
-        Settings.MIN_CONNECTIONS = 20;
+        Settings.MIN_CONNECTIONS = 0;
         Settings.MAX_CONNECTIONS = 30;
 
         Settings.pingDelay = 10;

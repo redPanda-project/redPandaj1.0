@@ -185,6 +185,7 @@ public class MessageVerifierHsqlDb {
                     int cnt = 0;
 
                     while (executeQuery.next()) {
+                        Log.put("new msg to verify... " ,70);
                         cnt++;
 
                         final int message_id = executeQuery.getInt("message_id");
@@ -283,7 +284,8 @@ public class MessageVerifierHsqlDb {
                                                 System.out.println("i found a block!!!");
 
                                                 MessageDownloader.channelIdToLatestBlockTimeLock.lock();
-                                                if (MessageDownloader.channelIdToLatestBlockTime.get(pubkey_id) == null || MessageDownloader.channelIdToLatestBlockTime.get(pubkey_id) < message.timestamp) {
+                                                Long get = MessageDownloader.channelIdToLatestBlockTime.get(pubkey_id);
+                                                if (get == null || get < message.timestamp) {
                                                     MessageDownloader.channelIdToLatestBlockTime.put(pubkey_id, message.timestamp);
                                                 }
                                                 MessageDownloader.channelIdToLatestBlockTimeLock.unlock();

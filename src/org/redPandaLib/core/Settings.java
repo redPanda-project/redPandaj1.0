@@ -76,6 +76,8 @@ public class Settings {
                     //allow the other nodes to trigger the ping, shoud save batter on 3G usage for others.
                     pingTimeout *= 2;
                     pingDelay *= 2;
+                    MIN_CONNECTIONS = 50;
+                    MAX_CONNECTIONS = 400;
                     System.out.println("I am a supernode! :)");
                 }
             }

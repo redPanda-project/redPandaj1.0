@@ -46,7 +46,7 @@ public class ConnectionHandler extends Thread {
 
     public static final int READ_BUFFER_SIZE = 1024 * 205;
     public Selector selector;
-    //public ArrayList<Socket> allSockets = new ArrayList<Socket>();
+    public static ArrayList<Socket> allSockets = new ArrayList<Socket>();
     ExecutorService threadPool = new ThreadPoolExecutor(1, 4, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());//Executors.newFixedThreadPool(4);
     private boolean exit = false;
     public static long lastRun = 0;
@@ -88,9 +88,9 @@ public class ConnectionHandler extends Thread {
 
     public void addConnection(Peer peer, boolean connectionPending) {
 
-//        synchronized (allSockets) {
-//            allSockets.add(peer.getSocketChannel().socket());
-//        }
+        synchronized (allSockets) {
+            allSockets.add(peer.getSocketChannel().socket());
+        }
         //TODO: remove later when it will be saved...
         //peer.keyToIdHis = new HashMap<Integer, ECKey>();
         //peer.keyToIdMine = new ArrayList<Integer>();
@@ -480,6 +480,7 @@ public class ConnectionHandler extends Thread {
 
                                                     peer.migratePeer(pfromList);
 
+                                                    //ToDo: block
                                                     Test.removePeer(pfromList);
                                                     Test.findPeerNonce(peer);
 
@@ -681,6 +682,7 @@ public class ConnectionHandler extends Thread {
                     System.out.println("Catched fatal exception! " + peer.ip + ":" + peer.port);
                     e.printStackTrace();
                     //peer.disconnect(" IOException 4827f3fj");
+                    Test.sendStacktrace("Fatal exception!", e);
                 }
 
             }
@@ -1195,6 +1197,8 @@ public class ConnectionHandler extends Thread {
 
             final RawMsg getFinal = get;
 
+            Log.put("execute new msg thread", 70);
+
             threadPool.execute(
                     new Runnable() {
 
@@ -1202,7 +1206,7 @@ public class ConnectionHandler extends Thread {
                         public void run() {
                             final String orgName = Thread.currentThread().getName();
                             if (!orgName.contains(" ")) {
-                                Thread.currentThread().setName(orgName + " - addMessage + ev. broadcast");
+                                Thread.currentThread().setName(orgName + " - addMessage + pr. broadcast");
                             }
                             RawMsg addMessage = MessageHolder.addMessage(getFinal);
 
@@ -1211,7 +1215,7 @@ public class ConnectionHandler extends Thread {
 //                                peer.getPendingMessages().remove(msgId);
 //                            }
                             MessageDownloader.removeRequestedMessage(getFinal);
-                            Log.put("" + getFinal.timestamp + " " + getFinal.nonce, 100);
+                            Log.put("msg: " + getFinal.timestamp + " " + getFinal.nonce, 100);
 
                             if (addMessage.getChannel() == null) {
                                 //isPublic...
@@ -2186,7 +2190,7 @@ public class ConnectionHandler extends Thread {
 
                                 used = peer.writeBuffer.position();
                                 peer.writeBufferLock.unlock();
-                                if (used > 200) {
+                                if (used > 2000) {
                                     //System.out.println("SLEEP writeBuffer position: " + used + " ip: " + peer.ip);
                                     //peer.setWriteBufferFilled();
                                     try {
@@ -2202,9 +2206,19 @@ public class ConnectionHandler extends Thread {
 
                             }
                             peer.writeMessage(m);
+                            Log.put("sync msg to node " + m.database_Id, 70);
                             peer.setWriteBufferFilled();
 //                        System.out.println("send");
 
+                        }
+
+                        if (cntRows == 100) {
+                            //we have to wait until the synced messages will be removed from database
+                            try {
+                                Log.put("we have to wait until the synced messages will be removed from database", 70);
+                                sleep(10000);
+                            } catch (InterruptedException e) {
+                            }
                         }
 
 ////                        } else {
@@ -2355,48 +2369,73 @@ public class ConnectionHandler extends Thread {
 //        peer.getSocketChannel().close();
 //    }
 
-//    public void removeUnusedSockets() {
-//
-//        ArrayList<Socket> toRemove = new ArrayList<Socket>();
-//
-//        synchronized (allSockets) {
-//
-//            for (Socket socket : allSockets) {
-//
-//                boolean found = false;
-//
-//                for (Peer peer : Test.getClonedPeerList()) {
-//
-//                    SocketChannel socketChannel = peer.getSocketChannel();
-//
-//                    if (socketChannel == null) {
-//                        continue;
-//                    }
-//
-//                    if (socket.equals(socketChannel.socket())) {
-//                        found = true;
-//                        break;
-//                    }
-//
-//                }
-//
-//                if (!found) {
-////                    if (socket.isClosed()) {
-////                        System.out.println("found socket, which wasnt closed");
-////                    } else {
-////                        System.out.println("found closed socket");
-////                    }
-//                    try {
-//                        //socket isnt used by any Peer, can be closed and removed.
-//                        socket.close();
-//                    } catch (IOException ex) {
-//                    }
-//                    toRemove.add(socket);
-//                }
-//
-//            }
-//
-//            allSockets.removeAll(toRemove);
-//        }
-//    }
+    public static void closeAllSockets() {
+
+        ArrayList<Socket> a = allSockets;
+
+        allSockets = new ArrayList<Socket>();
+
+        int cnt = 0;
+        int closed = 0;
+        for (Socket s : a) {
+            cnt++;
+            if (s.isClosed()) {
+                closed++;
+            }
+            try {
+                s.close();
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        }
+        System.out.println("closed " + cnt + " sockets, already closed " + closed);
+
+    }
+
+    public static void removeUnusedSockets() {
+
+        ArrayList<Socket> toRemove = new ArrayList<Socket>();
+
+        System.out.println("clean sockets: " + allSockets.size());
+
+        synchronized (allSockets) {
+
+            for (Socket socket : allSockets) {
+
+                boolean found = false;
+
+                for (Peer peer : Test.getClonedPeerList()) {
+
+                    SocketChannel socketChannel = peer.getSocketChannel();
+
+                    if (socketChannel == null) {
+                        continue;
+                    }
+
+                    if (socket.equals(socketChannel.socket())) {
+                        found = true;
+                        break;
+                    }
+
+                }
+
+                if (!found) {
+                    if (socket.isClosed()) {
+                        System.out.println("found socket, which was not closed");
+                    } else {
+                        System.out.println("found closed socket");
+                    }
+                    try {
+                        //socket isnt used by any Peer, can be closed and removed.
+                        socket.close();
+                    } catch (IOException ex) {
+                    }
+                    toRemove.add(socket);
+                }
+
+            }
+
+            allSockets.removeAll(toRemove);
+        }
+    }
 }

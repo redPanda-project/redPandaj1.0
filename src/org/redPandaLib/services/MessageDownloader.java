@@ -175,8 +175,9 @@ public class MessageDownloader {
                         }
 
                         if (p.requestedMsgs > MAX_REQUEST_PER_PEER || p.requestedMsgs > p.maxSimultaneousRequests || System.currentTimeMillis() - p.connectedSince < 1000 * 2) {
+                            //if (System.currentTimeMillis() - p.connectedSince < 1000 * 2) {
                             shortWait = true;
-                            System.out.println("shortwait... reason: " + (p.requestedMsgs > MAX_REQUEST_PER_PEER) + " " + (p.requestedMsgs > p.maxSimultaneousRequests) + " " + (System.currentTimeMillis() - p.connectedSince < 1000 * 10));
+                            Log.put("shortwait... reason: " + (p.requestedMsgs > MAX_REQUEST_PER_PEER) + " " + (p.requestedMsgs > p.maxSimultaneousRequests) + " " + (System.currentTimeMillis() - p.connectedSince < 1000 * 10), 2);
                             continue;
                         }
 
@@ -350,6 +351,8 @@ public class MessageDownloader {
 
                                 p.writeBufferLock.unlock();
 
+                                p.setWriteBufferFilled();
+
                                 Log.put("removed message, already in block!!!", -30);
                                 continue;
                             }
@@ -434,7 +437,7 @@ public class MessageDownloader {
                                 }
 
                                 msgsRequestedThisCycle++;
-                                System.out.print(" " + p.requestedMsgs + " (" + p.ip + "-" + messageId + ") ");
+                                Log.put(" " + p.requestedMsgs + " (" + p.ip + "-" + messageId + ") ", 0);
                                 //System.out.println("requested... " + p.requestedMsgs);
 //                        
 

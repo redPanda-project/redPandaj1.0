@@ -410,6 +410,7 @@ public class Peer implements Comparable<Peer> {
             }
         } else {
             System.out.println("key is not valid");
+            disconnect("key is not valid");
         }
 
         return false;

@@ -223,9 +223,9 @@ public class Test {
 
                     if (System.currentTimeMillis() - lastSaved > 120 * 1000) {
 
-//                        if (ConnectionHandler.allSockets.size() > 10) {
-//                            ConnectionHandler.removeUnusedSockets();
-//                        }
+                        if (ConnectionHandler.allSockets.size() > 10) {
+                            ConnectionHandler.removeUnusedSockets();
+                        }
                         long ctime = System.currentTimeMillis();
                         //clean up trust data:
                         for (PeerTrustData ptd : (ArrayList<PeerTrustData>) peerTrusts.clone()) {
@@ -591,6 +591,11 @@ public class Test {
 
                     }
 
+                    continue;
+                }
+
+                if (readLine.equals("cs")) {
+                    ConnectionHandler.removeUnusedSockets();
                     continue;
                 }
 
@@ -1959,7 +1964,7 @@ public class Test {
             while (!Main.shutdown) {
 
                 loopCount++;
-                System.out.println("loop: " + loopCount);
+                Log.put("loop: " + loopCount, 50);
 
                 if (Settings.connectToNewClientsTill < System.currentTimeMillis()) {
                     try {
@@ -2524,10 +2529,7 @@ public class Test {
         MessageVerifierHsqlDb.start();
         addKnowNodes();
         //ClusterBuilder.start();
-        if (Settings.SUPERNODE) {
-            Settings.MIN_CONNECTIONS = 30;
-            Settings.MAX_CONNECTIONS = 300;
-        }
+
 
         new Thread() {
 

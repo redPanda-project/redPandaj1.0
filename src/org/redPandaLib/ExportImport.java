@@ -57,7 +57,6 @@ public class ExportImport {
 //
 //        channels.add(SpecialChannels.MAIN);
 //        channels.add(SpecialChannels.SPAM);
-
         try {
 
             DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
@@ -87,7 +86,6 @@ public class ExportImport {
 
             // shorten way
             // staff.setAttribute("id", "1");
-
             for (Channel c : channels) {
 
                 Element channelElement = doc.createElement("channel");
@@ -97,16 +95,20 @@ public class ExportImport {
                 channelAttribut.setValue("" + c.getId());
                 channelElement.setAttributeNode(channelAttribut);
 
-                // firstname elements
-                Element firstname = doc.createElement("name");
-                firstname.appendChild(doc.createTextNode(c.getName()));
-                channelElement.appendChild(firstname);
+                // name elements
+                Element name = doc.createElement("name");
+                name.appendChild(doc.createTextNode(c.getName()));
+                channelElement.appendChild(name);
 
-                // lastname elements
-                Element lastname = doc.createElement("key");
-                lastname.appendChild(doc.createTextNode(c.exportForHumans()));
-                channelElement.appendChild(lastname);
+                // key elements
+                Element keyelement = doc.createElement("key");
+                keyelement.appendChild(doc.createTextNode(c.exportForHumans()));
+                channelElement.appendChild(keyelement);
 
+                //specialChannel element
+                Element specialChannel = doc.createElement("specialChannel");
+                specialChannel.appendChild(doc.createTextNode(channels.indexOf(c) == 0 ? "Master" : "no"));
+                channelElement.appendChild(specialChannel);
 
             }
 
@@ -128,7 +130,6 @@ public class ExportImport {
                 lastname.appendChild(doc.createTextNode(identity2Name.get(identity)));
                 channelElement.appendChild(lastname);
 
-
             }
 
             // write the content into xml file
@@ -148,11 +149,8 @@ public class ExportImport {
 
             System.out.println("xml--- \n\n" + new String(array));
 
-
-
             Sha256Hash create = Sha256Hash.create(password.getBytes());
             byte[] pass = create.getBytes();
-
 
             IvParameterSpec iv = new IvParameterSpec(pass, 0, 16);
             ByteArrayOutputStream encodedBytes = new ByteArrayOutputStream();
@@ -161,7 +159,6 @@ public class ExportImport {
             FileOutputStream fileOutputStream = new FileOutputStream(path);
             fileOutputStream.write(encodedBytes.toByteArray());
             fileOutputStream.close();
-
 
             System.out.println("File saved!");
 
@@ -172,7 +169,6 @@ public class ExportImport {
 
     public static void readXML(String path, String password) throws Exception {
 
-
         File file = new File(path);
         byte[] read = read(file);
 
@@ -180,11 +176,9 @@ public class ExportImport {
         byte[] pass = create.getBytes();
         ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(read);
 
-
         IvParameterSpec iv = new IvParameterSpec(pass, 0, 16);
         ByteArrayOutputStream encodedBytes = new ByteArrayOutputStream();
         byte[] decode = AESCrypt.decode(byteArrayInputStream, pass, iv);
-
 
         ByteArrayInputStream finalBytes = new ByteArrayInputStream(decode);
 
@@ -202,7 +196,6 @@ public class ExportImport {
             Test.localSettings.identity = Long.parseLong(value);
         }
 
-
         System.out.println("==========================");
 
         NodeList nodes = doc.getElementsByTagName("channel");
@@ -216,10 +209,25 @@ public class ExportImport {
                 Element element = (Element) node;
                 String name = getValue("name", element);
                 String key = getValue("key", element);
+                String specialChannel = null;
+                try {
+                    specialChannel = getValue("specialChannel", element);
+                } catch (NullPointerException e) {
+                    //value not found - old version of xml file?
+                    System.out.println("special channel value not found - old version of xml file?");
+                }
                 System.out.println("name: " + name);
                 System.out.println("key: " + key);
+
                 try {
-                    Main.importChannelFromHuman(key, name);
+                    Channel importChannelFromHuman = Main.importChannelFromHuman(key, name);
+                    if (specialChannel != null && specialChannel.equals("Master")) {
+                        importChannelFromHuman.setId(0);
+                        Test.channels.remove(importChannelFromHuman);
+                        Test.channels.set(0, importChannelFromHuman);
+                        System.out.println("Master channel");
+
+                    }
                 } catch (AddressFormatException ex) {
                     Logger.getLogger(ExportImport.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -228,9 +236,12 @@ public class ExportImport {
 
         NodeList nodesIdentities = doc.getElementsByTagName("identity");
 
-        System.out.println("==========================");
+        System.out.println(
+                "==========================");
 
-        for (int i = 0; i < nodesIdentities.getLength(); i++) {
+        for (int i = 0;
+                i < nodesIdentities.getLength();
+                i++) {
             Node node = nodesIdentities.item(i);
 
             if (node.getNodeType() == Node.ELEMENT_NODE) {
@@ -248,7 +259,6 @@ public class ExportImport {
             }
         }
 
-
     }
 
     private static String getValue(String tag, Element element) {
@@ -262,7 +272,6 @@ public class ExportImport {
         if (file.length() > 1024 * 1024 * 10) {
             return null;
         }
-
 
         byte[] buffer = new byte[(int) file.length()];
         InputStream ios = null;

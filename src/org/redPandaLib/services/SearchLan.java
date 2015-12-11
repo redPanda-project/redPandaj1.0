@@ -30,7 +30,7 @@ public class SearchLan {
                         String host = subnet + i;
 
                         Peer peer = new Peer(host, 59558);
-                        peer.retries = 10;
+                        //peer.retries = 10;
                         Test.findPeer(peer);
                     }
 

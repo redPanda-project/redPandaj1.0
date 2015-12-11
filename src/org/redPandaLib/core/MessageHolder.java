@@ -24,7 +24,7 @@ public class MessageHolder {
 
     /**
      * Only contains the necessary data for sync, so NO content is available!!
-     *
+     * Returns MAX 100 rows!
      * @return
      */
     public static ResultSet getAllMessages(long from, long to, int peer_id) {
