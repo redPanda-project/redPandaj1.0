@@ -47,7 +47,7 @@ public class ConnectionHandler extends Thread {
     public static final int READ_BUFFER_SIZE = 1024 * 205;
     public Selector selector;
     public static ArrayList<Socket> allSockets = new ArrayList<Socket>();
-    ExecutorService threadPool = new ThreadPoolExecutor(1, 4, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());//Executors.newFixedThreadPool(4);
+    ExecutorService threadPool = new ThreadPoolExecutor(2, 4, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());//Executors.newFixedThreadPool(4);
     private boolean exit = false;
     public static long lastRun = 0;
     public static HashMap<ECKey, HashMap<PeerTrustData, Long>> ratingData = new HashMap<ECKey, HashMap<PeerTrustData, Long>>();
@@ -964,6 +964,17 @@ public class ConnectionHandler extends Thread {
                         int pubkeyId = Test.messageStore.getPubkeyId(id2KeyHis);
 
                         peer.writeBufferLock.lock();
+                        ECKey k = id2KeyHis;
+                        if (!peer.peerTrustData.keyToIdMine.contains(pubkeyId)) {
+                            peer.peerTrustData.keyToIdMine.add(pubkeyId);
+                            //int indexOf = keyToIdMine.indexOf(k);
+                            int indexOf = pubkeyId;
+                            peer.writeBuffer.put((byte) 4);
+                            peer.writeBuffer.put(k.getPubKey());
+                            peer.writeBuffer.putInt(indexOf);
+                            Log.put("key introduced", 0);
+                        }
+
                         peer.writeBuffer.put((byte) 62);
                         peer.writeBuffer.putInt(pubkeyId);
                         peer.writeBufferLock.unlock();
@@ -1137,7 +1148,7 @@ public class ConnectionHandler extends Thread {
                     peer.writeBufferLock.unlock();
                     peer.setWriteBufferFilled();
 
-                    Log.put("wrote msg to peer " + peer.ip + " with byte length: " + rawMsg.getContent().length, 30);
+                    Log.put("wrote msg to peer " + peer.ip + " with byte length: " + rawMsg.getContent().length + " msgid: " + rawMsg.database_Id, 30);
 
                 }
             };
@@ -2405,6 +2416,11 @@ public class ConnectionHandler extends Thread {
                 boolean found = false;
 
                 for (Peer peer : Test.getClonedPeerList()) {
+
+                    if (peer == null) {
+                        Main.sendBroadCastMsg("null peer in list? 95178");
+                        continue;
+                    }
 
                     SocketChannel socketChannel = peer.getSocketChannel();
 

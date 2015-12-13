@@ -17,6 +17,7 @@ import java.util.logging.Logger;
 import org.redPandaLib.Main;
 import org.redPandaLib.core.*;
 import org.redPandaLib.core.messages.RawMsg;
+import org.redPandaLib.crypt.ECKey;
 
 /**
  *
@@ -332,6 +333,18 @@ public class MessageDownloader {
                                     p.writeBufferLock.unlock();
                                     return;
                                 }
+
+                                ECKey k = m.key;
+                                if (!p.peerTrustData.keyToIdMine.contains(k.database_id)) {
+                                    p.peerTrustData.keyToIdMine.add(k.database_id);
+                                    //int indexOf = keyToIdMine.indexOf(k);
+                                    int indexOf = m.key.database_id;
+                                    p.writeBuffer.put((byte) 4);
+                                    p.writeBuffer.put(k.getPubKey());
+                                    p.writeBuffer.putInt(indexOf);
+                                    Log.put("key introduced", 0);
+                                }
+
                                 //m.database_Id = messageId;
                                 //m.key.database_id = Test.messageStore.getPubkeyId(m.key);
                                 if (p.writeBuffer.remaining() < 1 + 4 + 1 + 8 + 4 + 4) {
@@ -347,7 +360,9 @@ public class MessageDownloader {
                                 p.writeBuffer.put(m.public_type);
                                 p.writeBuffer.putLong(m.timestamp);
                                 p.writeBuffer.putInt(m.nonce);
-                                p.writeBuffer.putInt(m.database_Id);//TODO long zu int machen mit offset falls db zu gross!!
+                                p.writeBuffer.putInt(m.database_Id);//TODO: change int to long with offset in case database has much more entries!!
+
+                                Log.put("kDBid: " + m.key.database_id + " public_type: " + m.public_type + " time: " + m.timestamp + " nonce: " + m.nonce + " mdbid: " + m.database_Id, 0);
 
                                 p.writeBufferLock.unlock();
 
@@ -391,17 +406,19 @@ public class MessageDownloader {
                                         continue;
                                     }
 
-                                    if (delay > Settings.pingTimeout * 1000L + 60000L) {
+                                    //if (delay > Settings.pingTimeout * 1000L + 60000L) {
+                                    if (delay > 240000L) {
                                         System.out.println("MSG hard timeout... " + get.requestedFromPeer.getIp());
                                         requestedMsgs.remove(get);
-                                        get.requestedFromPeer.getPendingMessages().remove(messageId);
                                         get.requestedFromPeer.getPendingMessagesTimedOut().put(messageId, get.m);
+                                        get.requestedFromPeer.getPendingMessages().remove(messageId);
                                         //ToDo: timeout for timeoutmessages
                                     } else {
 
-                                        System.out.println("MSG soft timeout... just requesting at another peer");
+                                        //System.out.println("MSG soft timeout... just requesting at another peer");
                                         if (get.requestedFromPeer == p) {
-                                            System.out.println("already requested from this peer... " + p.nonce);
+                                            //System.out.println("softtimeout, but already requested from this peer... " + p.nonce);
+                                            System.out.println(":" + delay + ":");
                                             requestedMsgsLock.unlock();
                                             continue;
                                         }
@@ -424,6 +441,10 @@ public class MessageDownloader {
 
 //                                ByteBuffer writeBuffer = p.writeBuffer;
                                 p.writeBufferLock.lock();
+                                if (p.writeBuffer == null) {
+                                    p.writeBufferLock.unlock();
+                                    continue;
+                                }
                                 p.writeBuffer.put((byte) 6);
                                 p.writeBuffer.putInt(messageId);
                                 p.writeBufferLock.unlock();
@@ -532,9 +553,11 @@ public class MessageDownloader {
 //                }
                 } catch (Throwable e) {
 
+                    Test.sendStacktrace("SLEEP ! catched msg downloader exc.: \n", e);
+
                     System.out.println("MessageDownloader exception!!!!: ");
                     e.printStackTrace();
-                    Test.sendStacktrace("SLEEP ! catched msg downloader exc.: \n", e);
+
                     try {
                         sleep(60000);
                     } catch (InterruptedException ex) {
