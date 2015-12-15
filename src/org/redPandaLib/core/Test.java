@@ -2531,34 +2531,34 @@ public class Test {
         //ClusterBuilder.start();
 
 
-        new Thread() {
-
-            @Override
-            public void run() {
-                KnownChannels.updateMyChannels();
-
-                try {
-                    sleep(1000);
-                } catch (InterruptedException ex) {
-                }
-
-                if (System.currentTimeMillis() - Test.localSettings.lastSendAllMyChannels > 1000 * 60 * 60 * 24 * 2) {
-
-                    KnownChannels.sendAllKnownChannels();
-
-                    Test.localSettings.lastSendAllMyChannels = System.currentTimeMillis();
-                    Test.localSettings.save();
-
-                }
-
-                try {
-                    sleep(1000 * 60 * 60 * 4);
-                } catch (InterruptedException ex) {
-                }
-
-            }
-
-        }.start();
+//        new Thread() {
+//
+//            @Override
+//            public void run() {
+//                KnownChannels.updateMyChannels();
+//
+//                try {
+//                    sleep(1000);
+//                } catch (InterruptedException ex) {
+//                }
+//
+//                if (System.currentTimeMillis() - Test.localSettings.lastSendAllMyChannels > 1000 * 60 * 60 * 24 * 2) {
+//
+//                    KnownChannels.sendAllKnownChannels();
+//
+//                    Test.localSettings.lastSendAllMyChannels = System.currentTimeMillis();
+//                    Test.localSettings.save();
+//
+//                }
+//
+//                try {
+//                    sleep(1000 * 60 * 60 * 4);
+//                } catch (InterruptedException ex) {
+//                }
+//
+//            }
+//
+//        }.start();
 
         WatchDog.start();
 

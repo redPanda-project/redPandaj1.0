@@ -237,24 +237,34 @@ public class DirectMessageStore implements MessageStore {
 //        }
         if (!executeQuery.next()) {
             //System.out.println("noch nicht in der db");
-            messageId = getNextMessageId();
-//            System.out.println("nextmsgid: " + messageId);
 
+//            System.out.println("nextmsgid: " + messageId);
             //System.out.println("id: " + pubkey_id + " timestamp: " + timestamp + " nonce: " + nonce);
             executeQuery.close();
             pstmt.close();
-            //message_id INTEGER PRIMARY KEY IDENTITY, pubkey_id INTEGER, timestamp BIGINT, nonce INTEGER,  signature BINARY(72), content LONGVARBINARY, verified boolean
-            query = "INSERT into message (pubkey_id,public_type,timestamp,nonce,signature,content,verified,message_id) VALUES (?,?,?,?,?,?,?,?)";
-            pstmt = connection.prepareStatement(query);
-            pstmt.setInt(1, pubkey_id);
-            pstmt.setByte(2, pubkey_type);
-            pstmt.setLong(3, timestamp);
-            pstmt.setInt(4, nonce);
-            pstmt.setBytes(5, signature);
-            pstmt.setBytes(6, content);
-            pstmt.setBoolean(7, verified);
-            pstmt.setInt(8, messageId);
-            boolean execute = pstmt.execute();
+
+            boolean again = true;
+            while (again) {
+                messageId = getNextMessageId();
+                //message_id INTEGER PRIMARY KEY IDENTITY, pubkey_id INTEGER, timestamp BIGINT, nonce INTEGER,  signature BINARY(72), content LONGVARBINARY, verified boolean
+                query = "INSERT into message (pubkey_id,public_type,timestamp,nonce,signature,content,verified,message_id) VALUES (?,?,?,?,?,?,?,?)";
+                pstmt = connection.prepareStatement(query);
+                pstmt.setInt(1, pubkey_id);
+                pstmt.setByte(2, pubkey_type);
+                pstmt.setLong(3, timestamp);
+                pstmt.setInt(4, nonce);
+                pstmt.setBytes(5, signature);
+                pstmt.setBytes(6, content);
+                pstmt.setBoolean(7, verified);
+                pstmt.setInt(8, messageId);
+                try {
+                    pstmt.execute();
+                    again = false;
+                } catch (Throwable e) {
+                    //check for inconsistent database caused by a crash?
+                    Test.sendStacktrace("message id  " + messageId + " already in db, trying next id!", e);
+                }
+            }
             boolean tryLock = messageCountLock.tryLock();
             if (!tryLock) {
                 resetMessageCount = true;
@@ -358,6 +368,7 @@ public class DirectMessageStore implements MessageStore {
             byte[] content = executeQuery.getBytes("content");
             boolean verified = executeQuery.getBoolean("verified");
             RawMsg rawMsg = new RawMsg(timestamp, nonce, signature, content, verified);
+            rawMsg.database_Id = message_id;
 
 //            System.out.println("sign: " + Utils.bytesToHexString(signature));
 //            System.out.println("content: " + Utils.bytesToHexString(content));

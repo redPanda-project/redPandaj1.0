@@ -231,8 +231,8 @@ public class StatsGUI {
         Settings.lightClient = false;
         Settings.SUPERNODE = true;
         Settings.REDUCE_TRAFFIC = false;
-        Settings.MIN_CONNECTIONS = 0;
-        Settings.MAX_CONNECTIONS = 30;
+        Settings.MIN_CONNECTIONS = 200;
+        Settings.MAX_CONNECTIONS = 500;
 
         Settings.pingDelay = 10;
 

@@ -1082,6 +1082,7 @@ public class ConnectionHandler extends Thread {
 
                     RawMsg rawMsg = null;
                     rawMsg = MessageHolder.getRawMsg(id);
+                    Log.put("message to fetch by id: " + id, 80);
                     if (rawMsg == null) {
                         System.out.println("HM diese Nachricht habe ich nicht, id: " + id + " ip: " + peer.getIp());
                         return;

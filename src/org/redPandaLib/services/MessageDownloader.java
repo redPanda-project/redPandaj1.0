@@ -274,7 +274,7 @@ public class MessageDownloader {
                                 }
 
                                 boolean removed = Test.messageStore.removeMessageToSend(p.getPeerTrustData().internalId, myMessageId);
-                                Log.put("removed msg: " + p.getPeerTrustData().internalId + " - " + myMessageId + " -- " + m.public_type + " - " + removed, 80);
+                                Log.put("removed msg: " + p.ip + " " + p.getPeerTrustData().internalId + " - " + myMessageId + " -- " + m.public_type + " - " + removed, 80);
 
                                 if (!removed && !p.removedSendMessages.contains(myMessageId)) {
                                     Log.put("not removed.... sending to other node", 80);
@@ -297,6 +297,15 @@ public class MessageDownloader {
                                     p.getPendingMessages().remove(messageId);
                                 }
                                 Log.put("|", 200);
+                                continue;
+                            }
+
+                            //i send him a mesage to remove which i dont have, he answered that i should remove this message, but i dont have it
+                            if (messageId == -1) {
+                                synchronized (p.getPendingMessages()) {
+                                    p.getPendingMessages().remove(messageId);
+                                }
+                                Log.put("i send him a mesage to remove which i dont have, he answered that i should remove this message, but i dont have it", 50);
                                 continue;
                             }
 
@@ -360,7 +369,8 @@ public class MessageDownloader {
                                 p.writeBuffer.put(m.public_type);
                                 p.writeBuffer.putLong(m.timestamp);
                                 p.writeBuffer.putInt(m.nonce);
-                                p.writeBuffer.putInt(m.database_Id);//TODO: change int to long with offset in case database has much more entries!!
+                                p.writeBuffer.putInt(-1);//TODO: change int to long with offset in case database has much more entries!!
+                                //-1 because i dont have this message and i dont want it too!
 
                                 Log.put("kDBid: " + m.key.database_id + " public_type: " + m.public_type + " time: " + m.timestamp + " nonce: " + m.nonce + " mdbid: " + m.database_Id, 0);
 
