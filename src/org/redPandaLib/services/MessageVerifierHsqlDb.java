@@ -185,7 +185,7 @@ public class MessageVerifierHsqlDb {
                     int cnt = 0;
 
                     while (executeQuery.next()) {
-                        Log.put("new msg to verify... " ,70);
+                        Log.put("new msg to verify... ", 70);
                         cnt++;
 
                         final int message_id = executeQuery.getInt("message_id");
@@ -397,7 +397,7 @@ public class MessageVerifierHsqlDb {
                                                             if (blockMsg.getMessageCount() != msgcount || blockMsg.getContentHash() != hash) {
                                                                 System.out.println("i have to generate a new block");
 
-                                                                if (System.currentTimeMillis() - LAST_AUTO_GENERATED_BLOCK > 1000 * 60 * 60 * 4) {
+                                                                if (System.currentTimeMillis() - LAST_AUTO_GENERATED_BLOCK > 1000 * 60 * 60 * 4 && System.currentTimeMillis() - blockMsg.timestamp < 1000 * 60 * 10) {
                                                                     Blocks.generate(blockMsg.channel);
                                                                     LAST_AUTO_GENERATED_BLOCK = System.currentTimeMillis();
                                                                 }
@@ -869,7 +869,11 @@ public class MessageVerifierHsqlDb {
 
                 } catch (java.sql.SQLTransactionRollbackException ex) {
 
-                    System.out.println("transaction rollback exception, not that problem here");
+                    System.out.println("transaction rollback exception, not that problem here, sleep 10 second");
+                    try {
+                        sleep(11375);
+                    } catch (InterruptedException ex1) {
+                    }
 
                 } catch (Throwable ex) {
                     try {

@@ -162,6 +162,9 @@ public class MessageDownloader {
 
                         @Override
                         public int compare(Peer t, Peer t1) {
+                            if (t == null || t1 == null) {
+                                return Integer.MIN_VALUE;
+                            }
                             return (t1.getMessageLoadedCount() - t.getMessageLoadedCount());
                         }
                     });

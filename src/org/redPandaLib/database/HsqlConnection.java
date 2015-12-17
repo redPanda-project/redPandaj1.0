@@ -103,6 +103,7 @@ public class HsqlConnection {
         stmt.executeUpdate("SET FILES DEFRAG 50");
         stmt.executeUpdate("SET SESSION RESULT MEMORY ROWS 2000");
         stmt.executeUpdate("SET DATABASE TRANSACTION CONTROL MVLOCKS");
+
         con.commit();
         createTables(stmt);
 
@@ -136,7 +137,7 @@ public class HsqlConnection {
         stmt.executeUpdate("drop table if exists peerMessagesIntroducedToHim");
         stmt.executeUpdate("create CACHED table if not exists pubkey (pubkey_id integer PRIMARY KEY IDENTITY, pubkey BINARY(33) UNIQUE)");
         stmt.executeUpdate("create CACHED table if not exists channel (channel_id integer PRIMARY KEY IDENTITY, pubkey_id INTEGER UNIQUE, private_key BINARY(32) UNIQUE, name LONGVARBINARY)");
-        
+
         stmt.executeUpdate("create CACHED table if not exists message (message_id INTEGER IDENTITY PRIMARY KEY, pubkey_id INTEGER, public_type TINYINT, timestamp BIGINT, nonce INTEGER,  signature BINARY(72), content LONGVARBINARY, verified boolean)");
         stmt.executeUpdate("create CACHED table if not exists channelmessage (pubkey_id INTEGER, message_id INTEGER IDENTITY PRIMARY KEY, message_type INTEGER, public_type TINYINT, timestamp BIGINT, nonce INTEGER, decryptedContent LONGVARBINARY, identity BIGINT, fromMe BOOLEAN, FOREIGN KEY (pubkey_id) REFERENCES pubkey(pubkey_id))");
 

@@ -16,6 +16,7 @@ import java.util.logging.Logger;
 import org.redPandaLib.Main;
 import org.redPandaLib.core.Channel;
 import org.redPandaLib.core.Log;
+import org.redPandaLib.core.MessageHolder;
 import org.redPandaLib.core.Settings;
 import org.redPandaLib.core.Test;
 import org.redPandaLib.core.messages.BlockMsg;
@@ -34,6 +35,7 @@ public class DirectMessageStore implements MessageStore {
     private boolean resetMessageCount = true;
     private final ReentrantLock messageCountLock = new ReentrantLock();
     public static final int DATABASE_VERSION = 2;
+    public static final ReentrantLock messageLock = new ReentrantLock();
 
     public DirectMessageStore(Connection connection) throws SQLException {
         this.connection = connection;
@@ -103,9 +105,26 @@ public class DirectMessageStore implements MessageStore {
         String query = "SELECT pubkey_id,pubkey from pubkey WHERE pubkey = ?";
         //stmt.executeQuery("SELECT id,key from pubkey WHERE key EQUASLS "+ msg.getKey().getPubKey())
 
-        PreparedStatement pstmt = connection.prepareStatement(query);
-        pstmt.setBytes(1, pubkeyBytes);
-        ResultSet executeQuery = pstmt.executeQuery();
+        PreparedStatement pstmt = null;
+        ResultSet executeQuery = null;
+
+        boolean loop = true;
+        while (loop) {
+            try {
+                loop = false;
+                pstmt = connection.prepareStatement(query);
+                pstmt.setBytes(1, pubkeyBytes);
+                executeQuery = pstmt.executeQuery();
+            } catch (SQLTransactionRollbackException e) {
+                Log.put("wait for next pubkey check", 0);
+                loop = true;
+                try {
+                    Thread.sleep(450);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
 
 //        boolean found = false;
 //        while (executeQuery.next()) {
@@ -257,12 +276,15 @@ public class DirectMessageStore implements MessageStore {
                 pstmt.setBytes(6, content);
                 pstmt.setBoolean(7, verified);
                 pstmt.setInt(8, messageId);
+                //check for inconsistent database caused by a crash?
                 try {
                     pstmt.execute();
                     again = false;
+                } catch (java.sql.SQLIntegrityConstraintViolationException e) {
+                    //id already in use. Why? i do not know yet.
+                    Log.put("message id  " + messageId + " already in db, trying next id!", 0);
                 } catch (Throwable e) {
-                    //check for inconsistent database caused by a crash?
-                    Test.sendStacktrace("message id  " + messageId + " already in db, trying next id!", e);
+                    Test.sendStacktrace("message could not be added to db!\n", e);
                 }
             }
             boolean tryLock = messageCountLock.tryLock();
@@ -1405,28 +1427,39 @@ public class DirectMessageStore implements MessageStore {
 
     @Override
     public Long getLatestBlocktime(int pubkeyId) {
-
-        long timestamp = -1;
-
-        try {
-
-            String query = "SELECT timestamp from message WHERE pubkey_id = ? AND public_type = ? ORDER BY timestamp DESC";
-
-            PreparedStatement pstmt = connection.prepareStatement(query);
-            pstmt.setInt(1, pubkeyId);
-            pstmt.setByte(2, BlockMsg.PUBLIC_TYPE);
-            ResultSet executeQuery = pstmt.executeQuery();
-
-            if (executeQuery.next()) {
-                timestamp = executeQuery.getLong("timestamp");
-            }
-            executeQuery.close();
-            pstmt.close();
-
-        } catch (SQLException ex) {
-            Test.sendStacktrace(ex);
-        }
-        return timestamp;
+        return 0L;
+//        long timestamp = -1;
+//        boolean loop = true;
+//        while (loop) {
+//            try {
+//                loop = false;
+//                String query = "SELECT timestamp from message WHERE pubkey_id = ? AND public_type = ? ORDER BY timestamp DESC";
+//
+//                PreparedStatement pstmt = connection.prepareStatement(query);
+//                pstmt.setInt(1, pubkeyId);
+//                pstmt.setByte(2, BlockMsg.PUBLIC_TYPE);
+//                ResultSet executeQuery = pstmt.executeQuery();
+//
+//                if (executeQuery.next()) {
+//                    timestamp = executeQuery.getLong("timestamp");
+//                }
+//                executeQuery.close();
+//                pstmt.close();
+//
+//            } catch (SQLTransactionRollbackException e) {
+//                loop = true;
+//                Log.put("sleep 20 sec for next block time check", 0);
+//                try {
+//                    Thread.sleep(20000);
+//                } catch (InterruptedException ex) {
+//                    Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+//                }
+//            } catch (SQLException ex) {
+//                ex.printStackTrace();
+//                Test.sendStacktrace(ex);
+//            }
+//        }
+//        return timestamp;
     }
 
     /**
