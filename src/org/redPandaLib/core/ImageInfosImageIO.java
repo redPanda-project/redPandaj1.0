@@ -21,6 +21,9 @@ public class ImageInfosImageIO implements ImageInfos {
     @Override
     public Infos getInfos(String path) throws IOException {
         BufferedImage read = ImageIO.read(new File(path));
+        if (read == null) {
+            return null;
+        }
         Infos infos = new Infos();
         infos.width = read.getWidth();
         infos.heigth = read.getHeight();

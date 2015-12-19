@@ -1427,39 +1427,38 @@ public class DirectMessageStore implements MessageStore {
 
     @Override
     public Long getLatestBlocktime(int pubkeyId) {
-        return 0L;
-//        long timestamp = -1;
-//        boolean loop = true;
-//        while (loop) {
-//            try {
-//                loop = false;
-//                String query = "SELECT timestamp from message WHERE pubkey_id = ? AND public_type = ? ORDER BY timestamp DESC";
-//
-//                PreparedStatement pstmt = connection.prepareStatement(query);
-//                pstmt.setInt(1, pubkeyId);
-//                pstmt.setByte(2, BlockMsg.PUBLIC_TYPE);
-//                ResultSet executeQuery = pstmt.executeQuery();
-//
-//                if (executeQuery.next()) {
-//                    timestamp = executeQuery.getLong("timestamp");
-//                }
-//                executeQuery.close();
-//                pstmt.close();
-//
-//            } catch (SQLTransactionRollbackException e) {
-//                loop = true;
-//                Log.put("sleep 20 sec for next block time check", 0);
-//                try {
-//                    Thread.sleep(20000);
-//                } catch (InterruptedException ex) {
-//                    Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
-//                }
-//            } catch (SQLException ex) {
-//                ex.printStackTrace();
-//                Test.sendStacktrace(ex);
-//            }
-//        }
-//        return timestamp;
+        long timestamp = -1;
+        boolean loop = true;
+        while (loop) {
+            try {
+                loop = false;
+                String query = "SELECT timestamp from message WHERE pubkey_id = ? AND public_type = ? ORDER BY timestamp DESC";
+
+                PreparedStatement pstmt = connection.prepareStatement(query);
+                pstmt.setInt(1, pubkeyId);
+                pstmt.setByte(2, BlockMsg.PUBLIC_TYPE);
+                ResultSet executeQuery = pstmt.executeQuery();
+
+                if (executeQuery.next()) {
+                    timestamp = executeQuery.getLong("timestamp");
+                }
+                executeQuery.close();
+                pstmt.close();
+
+            } catch (SQLTransactionRollbackException e) {
+                loop = true;
+                Log.put("sleep 20 sec for next block time check", 0);
+                try {
+                    Thread.sleep(20000);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                Test.sendStacktrace(ex);
+            }
+        }
+        return timestamp;
     }
 
     /**

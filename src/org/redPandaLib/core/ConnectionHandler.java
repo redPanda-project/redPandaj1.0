@@ -14,6 +14,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -47,7 +48,7 @@ public class ConnectionHandler extends Thread {
     public static final int READ_BUFFER_SIZE = 1024 * 205;
     public Selector selector;
     public static ArrayList<Socket> allSockets = new ArrayList<Socket>();
-    ExecutorService threadPool = new ThreadPoolExecutor(2, 4, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());//Executors.newFixedThreadPool(4);
+    ExecutorService threadPool = new ThreadPoolExecutor(1, 1, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());//Executors.newFixedThreadPool(4);
     private boolean exit = false;
     public static long lastRun = 0;
     public static HashMap<ECKey, HashMap<PeerTrustData, Long>> ratingData = new HashMap<ECKey, HashMap<PeerTrustData, Long>>();
@@ -634,6 +635,18 @@ public class ConnectionHandler extends Thread {
 
                         //System.out.println("key is writeAble");
                         peer.writeBufferLock.lock();
+
+                        if (peer.writeBuffer == null) {
+                            try {
+                                if (key.isValid()) {
+                                    key.interestOps(SelectionKey.OP_READ);
+                                }
+                            } catch (CancelledKeyException e) {
+                            }
+                            peer.writeBufferLock.unlock();
+                            Log.put("writebuffer was null and writeable?", 0);
+                            continue;
+                        }
 
 //                                int position = writeBuffer.position();
 //                                int limit = writeBuffer.limit();

@@ -38,7 +38,7 @@ public class RSA {
             KeyPairGenerator kpg;
             try {
                 kpg = KeyPairGenerator.getInstance(Algorithm);
-                kpg.initialize(2048);
+                kpg.initialize(3072);
                 keyPair = kpg.generateKeyPair();
             } catch (NoSuchAlgorithmException e) {
                 throw new Exception(
@@ -76,6 +76,10 @@ public class RSA {
 
         //System.out.println("" + encode);
 
+        System.out.println("LEN: " + Base58.encode(pub).length());
+        System.out.println("enc: " + Base58.encode(pub));
+        System.out.println("LEN: " + Base58.encode(priv).length());
+        System.out.println("enc: " + Base58.encode(priv));
 
         PublicKey publicKey = KeyFactory.getInstance(Algorithm).generatePublic(new X509EncodedKeySpec(pub));
 

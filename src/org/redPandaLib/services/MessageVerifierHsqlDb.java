@@ -581,25 +581,30 @@ public class MessageVerifierHsqlDb {
                                                                 }
 
                                                                 Infos infos = Test.imageInfos.getInfos(pathToFile);
-                                                                String imageInfos = pathToFile + "\n" + infos.width + "\n" + infos.heigth;
+                                                                if (infos == null) {
+                                                                    Log.put("image is no image?", 0);
 
-                                                                long identity = imageMsg.getIdentity();
-                                                                boolean fromMe = (identity == Test.localSettings.identity);
+                                                                } else {
+                                                                    String imageInfos = pathToFile + "\n" + infos.width + "\n" + infos.heigth;
 
-                                                                Test.messageStore.addDecryptedContent(pubkey_id, message_id, ImageMsg.BYTE, imageMsg.getTimestamp(), imageInfos.getBytes(), imageMsg.getIdentity(), fromMe, imageMsg.nonce, imageMsg.public_type);
-                                                                TextMessageContent fromTextMsg = TextMessageContent.fromImageMsg(imageMsg, fromMe, imageInfos);
+                                                                    long identity = imageMsg.getIdentity();
+                                                                    boolean fromMe = (identity == Test.localSettings.identity);
 
-                                                                for (NewMessageListener listener : Main.listeners) {
-                                                                    listener.newMessage(fromTextMsg);
-                                                                }
+                                                                    Test.messageStore.addDecryptedContent(pubkey_id, message_id, ImageMsg.BYTE, imageMsg.getTimestamp(), imageInfos.getBytes(), imageMsg.getIdentity(), fromMe, imageMsg.nonce, imageMsg.public_type);
+                                                                    TextMessageContent fromTextMsg = TextMessageContent.fromImageMsg(imageMsg, fromMe, imageInfos);
 
-                                                                if (USES_UNREAD_STATUS && !fromMe) {
-                                                                    Test.messageStore.addUnreadMessage(message_id);
-                                                                }
+                                                                    for (NewMessageListener listener : Main.listeners) {
+                                                                        listener.newMessage(fromTextMsg);
+                                                                    }
 
-                                                                //send delivered msg
-                                                                if (Settings.SEND_DELIVERED_MSG && SpecialChannels.isSpecial(pubkey) == null) {
-                                                                    sendDeliveredMessage(message);
+                                                                    if (USES_UNREAD_STATUS && !fromMe) {
+                                                                        Test.messageStore.addUnreadMessage(message_id);
+                                                                    }
+
+                                                                    //send delivered msg
+                                                                    if (Settings.SEND_DELIVERED_MSG && SpecialChannels.isSpecial(pubkey) == null) {
+                                                                        sendDeliveredMessage(message);
+                                                                    }
                                                                 }
 
                                                             } catch (IOException ex) {

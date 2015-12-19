@@ -431,7 +431,7 @@ public class MessageDownloader {
                                         //System.out.println("MSG soft timeout... just requesting at another peer");
                                         if (get.requestedFromPeer == p) {
                                             //System.out.println("softtimeout, but already requested from this peer... " + p.nonce);
-                                            System.out.println(":" + delay + ":");
+                                            System.out.print(":" + delay + ":");
                                             requestedMsgsLock.unlock();
                                             continue;
                                         }
