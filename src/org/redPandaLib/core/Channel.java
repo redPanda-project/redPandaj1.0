@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.redPandaLib.Main;
+import org.redPandaLib.crypt.RSAKey;
 import org.redPandaLib.crypt.Sha256Hash;
 
 /**
