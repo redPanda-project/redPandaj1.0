@@ -33,7 +33,7 @@ public class Channel implements Serializable, Comparable<Channel> {
     public long displayPriority = 0;
     public HashMap<PeerTrustData, Integer> rating = new HashMap<PeerTrustData, Integer>();
     public boolean useForContactExchange = false;
-    protected 
+    protected RSAKey extraEncryptionKey = null;
 
     public String getName() {
         return name;
