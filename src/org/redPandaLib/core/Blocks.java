@@ -29,6 +29,10 @@ public class Blocks {
 
     public static void generate(Channel channel) {
 
+        if (!channel.isWriteable()) {
+            return;
+        }
+
         //get id from chanel in database
         int pubkeyId = Test.messageStore.getPubkeyId(channel.getKey());
 

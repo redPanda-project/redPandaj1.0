@@ -97,4 +97,14 @@ public class RSAKey {
         }
         return null;
     }
+
+    public static void main(String[] args) {
+//        RSAKey newInstace = RSAKey.newInstace();
+//        System.out.println("PRIV: " + Base58.encode(newInstace.getPrivateKeyBytes()));
+//        System.out.println("PUB: " + Base58.encode(newInstace.getPublicKeyBytes()));
+        ECKey ecKey = new ECKey();
+        System.out.println("" + ecKey.getPrivKeyBytes().length);
+        System.out.println("" + Base58.encode(ecKey.getPrivKeyBytes()));
+
+    }
 }

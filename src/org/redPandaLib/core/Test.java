@@ -25,6 +25,7 @@ import java.security.Security;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLTransactionRollbackException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -39,6 +40,7 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.redPandaLib.ChannelisNotWriteableException;
 import org.redPandaLib.ImageTooLargeException;
 import org.redPandaLib.Main;
 import org.redPandaLib.NewMessageListener;
@@ -191,6 +193,7 @@ public class Test {
 
         localSettings = saver.loadLocalSettings();
         NONCE = localSettings.nonce;
+        localSettings.identity2Name.put(-3317663402085509703L, "pY4x3g");
         localSettings.save();
         loadChannels();
 
@@ -646,6 +649,48 @@ public class Test {
                     continue;
                 }
 
+                if (readLine.equals("db33")) {
+                    try {
+                        PreparedStatement pstmt = messageStore.getConnection().prepareStatement("SELECT * FROM INFORMATION_SCHEMA.SYSTEM_SESSIONS");
+                        ResultSet executeQuery = pstmt.executeQuery();
+                        while (executeQuery.next()) {
+                            String string = executeQuery.getString("CURRENT_STATEMENT");
+                            System.out.println("asdf " + string);
+                        }
+                        pstmt.close();
+                    } catch (SQLException ex) {
+                        Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+
+                    continue;
+                }
+
+                if (readLine.equals("rm")) {
+                    System.out.println("channel id?");
+                    try {
+                        int chanid = Integer.parseInt(bufferedReader.readLine());
+                        Channel toRem = null;
+                        for (Channel c : channels) {
+                            if (c.id == chanid) {
+                                toRem = c;
+                                break;
+                            }
+                        }
+
+                        if (toRem == null) {
+                            System.out.println("channel not found.");
+                        } else {
+                            channels.remove(toRem);
+                            saver.saveIdentities(channels);
+                            System.out.println("done");
+                        }
+
+                    } catch (NumberFormatException e) {
+                        System.out.println("No integer.");
+                    }
+                    continue;
+                }
+
                 if (readLine.equals("rM")) {
                     channels.remove(SpecialChannels.MAIN);
                     continue;
@@ -717,6 +762,8 @@ public class Test {
                         Main.sendImageToChannel(SpecialChannels.SPAM, "img.jpg", true);
                     } catch (ImageTooLargeException ex) {
                         Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                    } catch (ChannelisNotWriteableException ex) {
+                        Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
                     }
 
                     continue;
@@ -763,7 +810,11 @@ public class Test {
                         if (c == null) {
                             System.out.println("dhuweghnueiwnru");
                         }
-                        System.out.println("#" + c.getId() + " \t " + c.getName() + " \t - " + c.exportForHumans() + " (pub: " + Channel.byte2String(c.getKey().getPubKey()) + " - " + Utils.bytesToHexString(c.getKey().getPubKey()) + "priv: " + Channel.byte2String(c.getKey().getPrivKeyBytes()) + ")");
+                        if (c.pub) {
+                            System.out.println("#" + c.getId() + " \t " + c.getName() + " \t - " + c.exportForHumans() + " (pub: " + Channel.byte2String(c.getKey().getPubKey()) + " - " + Utils.bytesToHexString(c.getKey().getPubKey()) + " priv: NOT AVAILABLE)");
+                        } else {
+                            System.out.println("#" + c.getId() + " \t " + c.getName() + " \t - " + c.exportForHumans() + " (pub: " + Channel.byte2String(c.getKey().getPubKey()) + " - " + Utils.bytesToHexString(c.getKey().getPubKey()) + " priv: " + Channel.byte2String(c.getKey().getPrivKeyBytes()) + ")");
+                        }
                     }
                     System.out.println("send message to channel number:");
                     readLine = bufferedReader.readLine();
@@ -782,6 +833,11 @@ public class Test {
                         System.out.println("Number not found, aborting...");
                         continue;
                     }
+
+                    if (channel.key.getPrivKeyBytes() == null) {
+                        System.out.println("Channel has no private signing key, cant write to the channel!");
+                        continue;
+                    }
                     //ArrayList<TextMessageContent> messages = MessageHolder.getMessages(channel);
 
                     ArrayList<TextMessageContent> messages = Main.getMessages(channel, System.currentTimeMillis() - 1000L * 60L * 60L * 24L * 30L, System.currentTimeMillis());
@@ -793,7 +849,10 @@ public class Test {
                     System.out.println("Ok, writing to channel: " + channel.getName() + " EXPORT: " + channel.exportForHumans() + "\nContent:");
 
                     readLine = bufferedReader.readLine();
-                    Main.sendMessageToChannel(channel, readLine);
+                    try {
+                        Main.sendMessageToChannel(channel, readLine);
+                    } catch (ChannelisNotWriteableException e) {
+                    }
 //                    TextMsg build = TextMsg.build(channel, readLine);
 //                    MessageHolder.addMessage(build);
 //                    broadcastMsg(build);
@@ -935,6 +994,8 @@ public class Test {
                         ArrayList<Peer> peers = peerList;
                         peerList = new ArrayList<Peer>();
                         peerTrusts = new ArrayList<PeerTrustData>();
+                        saver.saveTrustedPeers(peerTrusts);
+                        saver.savePeerss(peers);
                         for (Peer peer : peers) {
                             peer.disconnect("r");
                         }
@@ -1764,6 +1825,7 @@ public class Test {
             executeQuery.close();
             prepareStatement.close();
 
+        } catch (SQLTransactionRollbackException e) {
         } catch (SQLException ex) {
             Logger.getLogger(Test.class
                     .getName()).log(Level.SEVERE, null, ex);
@@ -1788,6 +1850,10 @@ public class Test {
                 System.out.println("Generated new Master Key!");
             }
 
+//            if (Channel.getChannelById(-4) == null) {
+//                channels.add(SpecialChannels.getAnnouncementChannel());
+//                System.out.println("Added announcements channel!");
+//            }
 //            if (channels.size() < 2) {
 //                channels.add(Channel.generateNew("Mine 1"));
 //                channels.add(Channel.generateNew("Mine 2"));
@@ -2530,7 +2596,6 @@ public class Test {
         addKnowNodes();
         //ClusterBuilder.start();
 
-
 //        new Thread() {
 //
 //            @Override
@@ -2559,7 +2624,6 @@ public class Test {
 //            }
 //
 //        }.start();
-
         WatchDog.start();
 
     }

@@ -269,11 +269,19 @@ public class RawMsg implements Serializable, Comparable<RawMsg> {
     }
 
     public void encrypt() {
-        content = AESCrypt.encode(key, timestamp, decryptedContent);
+        if (channel.isPublic()) {
+            content = AESCrypt.encode(channel.getExtraEncryptionKey(), timestamp, decryptedContent);
+        } else {
+            content = AESCrypt.encode(key.getPrivKeyBytes(), timestamp, decryptedContent);
+        }
     }
 
     public void decrypt() {
-        decryptedContent = AESCrypt.decode(key, timestamp, content);
+        if (channel.isPublic()) {
+            decryptedContent = AESCrypt.decode(channel.getExtraEncryptionKey(), timestamp, content);
+        } else {
+            decryptedContent = AESCrypt.decode(key.getPrivKeyBytes(), timestamp, content);
+        }
     }
 
     public Channel getChannel() {

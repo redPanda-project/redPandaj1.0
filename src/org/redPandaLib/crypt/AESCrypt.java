@@ -37,7 +37,6 @@ public class AESCrypt {
             ByteArrayOutputStream encodedBytes = new ByteArrayOutputStream();
             encode(msg.getBytes(), encodedBytes, pass, iv);
 
-
             System.out.println("encrypted: " + Utils.bytesToHexString(encodedBytes.toByteArray()));
 
             ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(encodedBytes.toByteArray());
@@ -51,22 +50,16 @@ public class AESCrypt {
 
     }
 
-    public static byte[] encode(ECKey key, long timestamp, byte[] toEncode) {
+    public static byte[] encode(byte[] pass, long timestamp, byte[] toEncode) {
         try {
-            byte[] pass = key.getPrivKeyBytes();
-            //IvParameterSpec iv = new IvParameterSpec(pass, 0, 16);
-
-
             byte[] ivBytes = new byte[16];
             ByteBuffer buffer = ByteBuffer.wrap(ivBytes);
             buffer.putLong(timestamp);
-            buffer.put(key.getPrivKeyBytes(), 0, 8);
-
+            buffer.put(pass, 0, 8);
 
             IvParameterSpec iv = new IvParameterSpec(ivBytes, 0, 16);
 
             //iv = new IvParameterSpec(new byte[16]);
-
             ByteArrayOutputStream encodedBytes = new ByteArrayOutputStream();
             encode(toEncode, encodedBytes, pass, iv);
 
@@ -101,34 +94,27 @@ public class AESCrypt {
         Key k = new SecretKeySpec(pass, "AES");
         c.init(Cipher.ENCRYPT_MODE, k, iv);
 
-
 //        AlgorithmParameters params = c.getParameters();
         //byte[] iv = params.getParameterSpec(IvParameterSpec.class).getIV();
-
         OutputStream cos = new CipherOutputStream(out, c);
         cos.write(bytes);
         cos.close();
 
     }
 
-    public static byte[] decode(ECKey key, long timestamp, byte[] toDecode) {
+    public static byte[] decode(byte[] pass, long timestamp, byte[] toDecode) {
         try {
-            byte[] pass = key.getPrivKeyBytes();
-            //IvParameterSpec iv = new IvParameterSpec(pass, 0, 16);
-
             byte[] ivBytes = new byte[16];
             ByteBuffer buffer = ByteBuffer.wrap(ivBytes);
             buffer.putLong(timestamp);
-            buffer.put(key.getPrivKeyBytes(), 0, 8);
+            buffer.put(pass, 0, 8);
             IvParameterSpec iv = new IvParameterSpec(ivBytes, 0, 16);
 
             //iv = new IvParameterSpec(new byte[16]);
-
             ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(toDecode);
             byte[] decode = decode(byteArrayInputStream, pass, iv);
 
             //System.out.println("dnjwadhwad " + toDecode.length + " " + decode.length);
-
             return decode;
 
         } catch (Exception ex) {

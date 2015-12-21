@@ -13,6 +13,7 @@ import org.redPandaLib.core.messages.RawMsg;
 import java.util.ArrayList;
 import org.redPandaLib.core.messages.TextMessageContent;
 import org.redPandaLib.crypt.ECKey;
+import org.redPandaLib.database.DirectMessageStore;
 
 /**
  *
@@ -25,6 +26,7 @@ public class MessageHolder {
     /**
      * Only contains the necessary data for sync, so NO content is available!!
      * Returns MAX 100 rows!
+     *
      * @return
      */
     public static ResultSet getAllMessages(long from, long to, int peer_id) {
@@ -48,11 +50,12 @@ public class MessageHolder {
 
     /**
      * Stores a new RawMsg into the database and sets all nessesary values to
-     * the key and message object to work with.
-     * !!WARNING!!: this method will block the calling thread if there is a transaction
-     * rollback exeption due to the locks in the database.
+     * the key and message object to work with. !!WARNING!!: this method will
+     * block the calling thread if there is a transaction rollback exeption due
+     * to the locks in the database.
+     *
      * @param m
-     * @return 
+     * @return
      */
     public static RawMsg addMessage(RawMsg m) {
 
@@ -61,13 +64,14 @@ public class MessageHolder {
 //                msgs.add(m);
 //            }
 //        }
+        DirectMessageStore.messageLock.lock();
         boolean done = false;
         while (!done) {
             try {
                 Test.messageStore.saveMsg(m);
                 done = true;
             } catch (SQLTransactionRollbackException ex) {
-                ex.printStackTrace();
+                Log.put("rollback while inserting msg...", -2);
             }
             try {
                 Thread.sleep(500);
@@ -75,6 +79,7 @@ public class MessageHolder {
                 ex.printStackTrace();
             }
         }
+        DirectMessageStore.messageLock.unlock();
 
         int msgId = Test.messageStore.getMsgId(m);
 

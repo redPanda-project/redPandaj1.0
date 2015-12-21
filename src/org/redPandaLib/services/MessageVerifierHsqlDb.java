@@ -394,18 +394,20 @@ public class MessageVerifierHsqlDb {
                                                             msgcount = generateMyHashAndMsgCount.cnt;
                                                             hash = generateMyHashAndMsgCount.hash;
 
-                                                            if (blockMsg.getMessageCount() != msgcount || blockMsg.getContentHash() != hash) {
-                                                                System.out.println("i have to generate a new block");
+                                                            if (message.channel.isWriteable()) {
 
-                                                                if (System.currentTimeMillis() - LAST_AUTO_GENERATED_BLOCK > 1000 * 60 * 60 * 4 && System.currentTimeMillis() - blockMsg.timestamp < 1000 * 60 * 10) {
-                                                                    Blocks.generate(blockMsg.channel);
-                                                                    LAST_AUTO_GENERATED_BLOCK = System.currentTimeMillis();
+                                                                if (blockMsg.getMessageCount() != msgcount || blockMsg.getContentHash() != hash) {
+                                                                    System.out.println("i have to generate a new block");
+
+                                                                    if (System.currentTimeMillis() - LAST_AUTO_GENERATED_BLOCK > 1000 * 60 * 60 * 4 && System.currentTimeMillis() - blockMsg.timestamp < 1000 * 60 * 10) {
+                                                                        Blocks.generate(blockMsg.channel);
+                                                                        LAST_AUTO_GENERATED_BLOCK = System.currentTimeMillis();
+                                                                    }
+
+                                                                } else {
+                                                                    System.out.println("all fine");
                                                                 }
-
-                                                            } else {
-                                                                System.out.println("all fine");
                                                             }
-
                                                         } else {
 
                                                             System.out.println("block and my database are the same!!! yeah!");
@@ -923,7 +925,14 @@ public class MessageVerifierHsqlDb {
             }
         }
 
+        /**
+         * this method checks if the channel is writeable or not
+         * @param message 
+         */
         private void sendDeliveredMessage(final RawMsg message) {
+            if (!message.getChannel().isWriteable()) {
+                return;
+            }
             sendDeliveredMsgsThreads.submit(new Runnable() {
 
                 @Override

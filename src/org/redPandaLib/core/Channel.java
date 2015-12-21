@@ -34,12 +34,12 @@ public class Channel implements Serializable, Comparable<Channel> {
     public long displayPriority = 0;
     public HashMap<PeerTrustData, Integer> rating = new HashMap<PeerTrustData, Integer>();
     public boolean useForContactExchange = false;
-    protected RSAKey extraEncryptionKey = null;
+    protected byte[] extraEncryptionKey = null;
+    boolean pub = false;
 
     public String getName() {
         return name;
     }
-    boolean pub = false;
 
     public Channel() {
     }
@@ -286,9 +286,12 @@ public class Channel implements Serializable, Comparable<Channel> {
 
         byte[] mainBytes;
 
+        System.out.println("channel: " + id + " pub: " + pub);
+
         if (pub) {
             prefix = "pu";
             mainBytes = key.getPubKey();
+            System.out.println("public key bytes used");
         } else {
             prefix = "pr";
             mainBytes = key.getPrivKeyBytes();
@@ -421,5 +424,25 @@ public class Channel implements Serializable, Comparable<Channel> {
 
     public void setId(int id) {
         this.id = id;
+    }
+
+    public void setExtraEncryptionKey(byte[] extraEncryptionKey) {
+        this.extraEncryptionKey = extraEncryptionKey;
+    }
+
+    public byte[] getExtraEncryptionKey() {
+        return extraEncryptionKey;
+    }
+
+    public void setPublic(boolean pub) {
+        this.pub = pub;
+    }
+
+    public boolean isPublic() {
+        return pub;
+    }
+
+    public boolean isWriteable() {
+        return key.getPrivKeyBytes() != null;
     }
 }

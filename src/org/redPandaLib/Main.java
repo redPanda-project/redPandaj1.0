@@ -224,7 +224,7 @@ public class Main {
         return channels;
     }
 
-    public static void sendMessageToChannel(Channel channel, String text) {
+    public static void sendMessageToChannel(Channel channel, String text) throws ChannelisNotWriteableException {
 //        Test.clientVersion++;
 //        Msg msg = new Msg(System.currentTimeMillis(), 99, channel, Test.clientSeed, Test.clientVersion, "[" + Test.getNick() + "] " + text);
 //        Test.processNewMessage(msg, true);
@@ -234,6 +234,10 @@ public class Main {
 //        rawMsg.sign();
 //        MessageHolder.addMessage(rawMsg);
 //        Test.broadcastMsg(rawMsg);
+        if (!channel.isWriteable()) {
+            throw new ChannelisNotWriteableException();
+        }
+
         TextMsg build = TextMsg.build(channel, text);
         RawMsg addMessage = MessageHolder.addMessage(build);
         Test.broadcastMsg(addMessage);
@@ -248,7 +252,7 @@ public class Main {
         }
     }
 
-    public static void sendImageToChannel(Channel channel, String pathToFile, boolean lowPriority) throws ImageTooLargeException {
+    public static void sendImageToChannel(Channel channel, String pathToFile, boolean lowPriority) throws ImageTooLargeException, ChannelisNotWriteableException {
         //        Test.clientVersion++;
         //        Msg msg = new Msg(System.currentTimeMillis(), 99, channel, Test.clientSeed, Test.clientVersion, "[" + Test.getNick() + "] " + text);
         //        Test.processNewMessage(msg, true);
@@ -257,6 +261,10 @@ public class Main {
         //        rawMsg.sign();
         //        MessageHolder.addMessage(rawMsg);
         //        Test.broadcastMsg(rawMsg);
+        if (!channel.isWriteable()) {
+            throw new ChannelisNotWriteableException();
+        }
+
         ArrayList<ImageMsg> build = ImageMsg.build(channel, pathToFile, lowPriority);
 
         if (build == null) {
@@ -468,4 +476,5 @@ public class Main {
         Test.triggerOutboundthread();
 
     }
+
 }

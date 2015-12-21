@@ -222,7 +222,7 @@ public class Peer implements Comparable<Peer> {
         try {
             writeBufferLock.tryLock(2, TimeUnit.SECONDS);
 
-            Log.put("DISCONNECT: " + reason, -30);
+            Log.put("DISCONNECT: " + reason, 30);
 
             setConnected(false);
 

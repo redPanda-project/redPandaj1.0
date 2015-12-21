@@ -50,6 +50,8 @@ public class DirectMessageStore implements MessageStore {
 
             return messageId;
 
+        } catch (SQLTransactionRollbackException e) {
+            return -2;
         } catch (SQLException ex) {
             Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -116,10 +118,22 @@ public class DirectMessageStore implements MessageStore {
                 pstmt.setBytes(1, pubkeyBytes);
                 executeQuery = pstmt.executeQuery();
             } catch (SQLTransactionRollbackException e) {
-                Log.put("wait for next pubkey check", 0);
+                if (pstmt != null) {
+                    try {
+                        pstmt.close();
+                    } catch (Exception ex) {
+                    }
+                }
+                if (executeQuery != null) {
+                    try {
+                        executeQuery.close();
+                    } catch (Exception ex) {
+                    }
+                }
+                Log.put("wait for next pubkey check 4-5 sec", -20);
                 loop = true;
                 try {
-                    Thread.sleep(450);
+                    Thread.sleep(4500);
                 } catch (InterruptedException ex) {
                     Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -143,8 +157,16 @@ public class DirectMessageStore implements MessageStore {
             query = "INSERT into pubkey (pubkey) VALUES (?)";
             pstmt = connection.prepareStatement(query);
             pstmt.setBytes(1, pubkeyBytes);
-            pstmt.execute();
-            pstmt.close();
+            try {
+                pstmt.execute();
+            } catch (SQLException e) {
+                throw e;
+            } finally {
+                try {
+                    pstmt.close();
+                } catch (Exception ex) {
+                }
+            }
 
             //get Key Id
             query = "SELECT pubkey_id,pubkey from pubkey WHERE pubkey = ?";
@@ -152,8 +174,17 @@ public class DirectMessageStore implements MessageStore {
 
             pstmt = connection.prepareStatement(query);
             pstmt.setBytes(1, pubkeyBytes);
-            executeQuery = pstmt.executeQuery();
-            executeQuery.next();//braucht man das?
+
+            try {
+                executeQuery = pstmt.executeQuery();
+                executeQuery.next();//braucht man das?
+            } catch (SQLException e) {
+                try {
+                    pstmt.close();
+                } catch (Exception ex) {
+                }
+                throw e;
+            }
         }
 
         int aInt = executeQuery.getInt("pubkey_id");
@@ -237,15 +268,27 @@ public class DirectMessageStore implements MessageStore {
     private int getMessageIdWithInsert(Connection connection, int pubkey_id, byte pubkey_type, long timestamp, int nonce, byte[] signature, byte[] content, boolean verified) throws SQLException {
 
         int messageId = -1;
-
-        //get Key Id
-        String query = "SELECT message_id from message WHERE pubkey_id = ? AND public_type = ? AND timestamp = ? AND nonce = ?";
-        PreparedStatement pstmt = connection.prepareStatement(query);
-        pstmt.setInt(1, pubkey_id);
-        pstmt.setByte(2, pubkey_type);
-        pstmt.setLong(3, timestamp);
-        pstmt.setInt(4, nonce);
-        ResultSet executeQuery = pstmt.executeQuery();
+        PreparedStatement pstmt = null;
+        ResultSet executeQuery = null;
+        String query;
+        try {
+            //get Key Id
+            query = "SELECT message_id from message WHERE pubkey_id = ? AND public_type = ? AND timestamp = ? AND nonce = ?";
+            pstmt = connection.prepareStatement(query);
+            pstmt.setInt(1, pubkey_id);
+            pstmt.setByte(2, pubkey_type);
+            pstmt.setLong(3, timestamp);
+            pstmt.setInt(4, nonce);
+            executeQuery = pstmt.executeQuery();
+        } catch (SQLException e) {
+            if (pstmt != null) {
+                try {
+                    pstmt.close();
+                } catch (Exception ex) {
+                }
+            }
+            throw e;
+        }
 //        boolean found = false;
 //        while (executeQuery.next()) {
 //            found = true;
@@ -283,8 +326,15 @@ public class DirectMessageStore implements MessageStore {
                 } catch (java.sql.SQLIntegrityConstraintViolationException e) {
                     //id already in use. Why? i do not know yet.
                     Log.put("message id  " + messageId + " already in db, trying next id!", 0);
+                } catch (SQLTransactionRollbackException e) {
+                    throw (SQLTransactionRollbackException) e;
                 } catch (Throwable e) {
                     Test.sendStacktrace("message could not be added to db!\n", e);
+                } finally {
+                    try {
+                        pstmt.close();
+                    } catch (Exception e) {
+                    }
                 }
             }
             boolean tryLock = messageCountLock.tryLock();
@@ -294,8 +344,6 @@ public class DirectMessageStore implements MessageStore {
                 messageCount++;
                 messageCountLock.unlock();
             }
-
-            pstmt.close();
 
 //            //get Key Id
 //            query = "SELECT message_id from message WHERE pubkey_id = ? AND public_type = ? AND timestamp = ? AND nonce = ?";
@@ -367,40 +415,67 @@ public class DirectMessageStore implements MessageStore {
      */
     @Override
     public RawMsg getMessageById(int message_id) {
-        try {
-            //get Key Id
-            String query = "SELECT * from message WHERE message_id = ?";
-            PreparedStatement pstmt = connection.prepareStatement(query);
-            pstmt.setInt(1, message_id);
-            ResultSet executeQuery = pstmt.executeQuery();
+        PreparedStatement pstmt = null;
+        ResultSet executeQuery = null;
 
-            if (!executeQuery.next()) {
-                executeQuery.close();
-                pstmt.close();
-                return null;
-            }
+        boolean again = true;
+        while (again) {
+            again = false;
+            try {
+                //get Key Id
+                String query = "SELECT * from message WHERE message_id = ?";
+                pstmt = connection.prepareStatement(query);
+                pstmt.setInt(1, message_id);
+                executeQuery = pstmt.executeQuery();
 
-            //message_id INTEGER PRIMARY KEY IDENTITY, pubkey_id INTEGER, timestamp BIGINT, nonce INTEGER,  signature BINARY(72), content LONGVARBINARY, verified boolean
-            //int pubkey_id = executeQuery.getInt("pubkey_id");
-            //byte[] pubkeyBytes = getPubkeyById(connection, pubkey_id);
-            byte public_type = executeQuery.getByte("public_type");
-            long timestamp = executeQuery.getLong("timestamp");
-            int nonce = executeQuery.getInt("nonce");
-            byte[] signature = executeQuery.getBytes("signature");
-            byte[] content = executeQuery.getBytes("content");
-            boolean verified = executeQuery.getBoolean("verified");
-            RawMsg rawMsg = new RawMsg(timestamp, nonce, signature, content, verified);
-            rawMsg.database_Id = message_id;
+                if (!executeQuery.next()) {
+                    executeQuery.close();
+                    pstmt.close();
+                    return null;
+                }
+
+                //message_id INTEGER PRIMARY KEY IDENTITY, pubkey_id INTEGER, timestamp BIGINT, nonce INTEGER,  signature BINARY(72), content LONGVARBINARY, verified boolean
+                //int pubkey_id = executeQuery.getInt("pubkey_id");
+                //byte[] pubkeyBytes = getPubkeyById(connection, pubkey_id);
+                byte public_type = executeQuery.getByte("public_type");
+                long timestamp = executeQuery.getLong("timestamp");
+                int nonce = executeQuery.getInt("nonce");
+                byte[] signature = executeQuery.getBytes("signature");
+                byte[] content = executeQuery.getBytes("content");
+                boolean verified = executeQuery.getBoolean("verified");
+                RawMsg rawMsg = new RawMsg(timestamp, nonce, signature, content, verified);
+                rawMsg.database_Id = message_id;
 
 //            System.out.println("sign: " + Utils.bytesToHexString(signature));
 //            System.out.println("content: " + Utils.bytesToHexString(content));
-            rawMsg.public_type = public_type;
+                rawMsg.public_type = public_type;
 
-            executeQuery.close();
-            pstmt.close();
-            return rawMsg;
-        } catch (SQLException ex) {
-            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+                executeQuery.close();
+                pstmt.close();
+                return rawMsg;
+            } catch (SQLTransactionRollbackException e) {
+                try {
+                    Thread.sleep(300);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                again = true;
+            } catch (SQLException ex) {
+                Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                if (executeQuery != null) {
+                    try {
+                        executeQuery.close();
+                    } catch (SQLException ex) {
+                    }
+                }
+                if (pstmt != null) {
+                    try {
+                        pstmt.close();
+                    } catch (SQLException ex) {
+                    }
+                }
+            }
         }
 
         return null;
@@ -433,7 +508,7 @@ public class DirectMessageStore implements MessageStore {
         try {
             //get Key Id
             //String query = "SELECT message_id,pubkey.pubkey_id, pubkey,public_type,timestamp,nonce,signature,content,verified from message left join pubkey on (pubkey.pubkey_id = message.pubkey_id) WHERE timestamp > ? order by timestamp asc";
-            String query = "SELECT message.message_id,pubkey.pubkey_id, pubkey,public_type,timestamp,nonce,signature,verified from haveToSendMessageToPeer left join message on (haveToSendMessageToPeer.message_id = message.message_id) left join pubkey on (message.pubkey_id = pubkey.pubkey_id) WHERE timestamp > ? AND peer_id = ? order by timestamp asc LIMIT 100";
+            String query = "SELECT message.message_id,pubkey.pubkey_id, pubkey,public_type,timestamp,nonce,signature,verified from haveToSendMessageToPeer left join message on (haveToSendMessageToPeer.message_id = message.message_id) left join pubkey on (message.pubkey_id = pubkey.pubkey_id) WHERE timestamp > ? AND peer_id = ? order by timestamp asc LIMIT 300";
             PreparedStatement pstmt = connection.prepareStatement(query);
             //pstmt.setFetchSize(100);
             pstmt.setLong(1, from);
@@ -831,6 +906,8 @@ public class DirectMessageStore implements MessageStore {
             createStatement.close();
 
             return aInt;
+        } catch (SQLTransactionRollbackException e) {
+            return -2;
         } catch (SQLException ex) {
             Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -1205,21 +1282,41 @@ public class DirectMessageStore implements MessageStore {
     }
 
     public boolean removeMessageToSend(long peer_id, int message_id) {
-        try {
-            String query = "DELETE from haveToSendMessageToPeer WHERE peer_id = ? AND message_id = ?";
-            PreparedStatement pstmt = connection.prepareStatement(query);
-            pstmt.setLong(1, peer_id);
-            pstmt.setInt(2, message_id);
-            pstmt.execute();
-            int updateCount = pstmt.getUpdateCount();
-            pstmt.close();
+        boolean again = true;
 
-            return (updateCount > 0);
+        PreparedStatement pstmt = null;
 
-        } catch (SQLException ex) {
-            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        while (again) {
+            again = false;
+            try {
+                String query = "DELETE from haveToSendMessageToPeer WHERE peer_id = ? AND message_id = ?";
+                pstmt = connection.prepareStatement(query);
+                pstmt.setLong(1, peer_id);
+                pstmt.setInt(2, message_id);
+                pstmt.execute();
+                int updateCount = pstmt.getUpdateCount();
+
+                return (updateCount > 0);
+
+            } catch (SQLTransactionRollbackException e) {
+                again = true;
+                Log.put("delete haveToSendMessageToPeer again...", -2);
+                try {
+                    Thread.sleep(147);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            } catch (SQLException ex) {
+                Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                if (pstmt != null) {
+                    try {
+                        pstmt.close();
+                    } catch (Exception ex) {
+                    }
+                }
+            }
         }
-
         return false;
     }
 
@@ -1468,9 +1565,10 @@ public class DirectMessageStore implements MessageStore {
      */
     @Override
     public int getNextMessageId() {
+        PreparedStatement pstmt = null;
         try {
             String query = "UPDATE msgcounter SET id=id+2";
-            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt = connection.prepareStatement(query);
             pstmt.execute();
             pstmt.close();
             query = "SELECT id from msgcounter";
@@ -1480,6 +1578,13 @@ public class DirectMessageStore implements MessageStore {
             return executeQuery.getInt(1);
         } catch (SQLException ex) {
             Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            if (pstmt != null) {
+                try {
+                    pstmt.close();
+                } catch (SQLException ex) {
+                }
+            }
         }
 
         return -1;

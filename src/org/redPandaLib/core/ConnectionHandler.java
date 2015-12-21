@@ -38,6 +38,7 @@ import org.redPandaLib.crypt.AESCrypt;
 import org.redPandaLib.crypt.ECKey;
 import org.redPandaLib.crypt.RC4;
 import org.redPandaLib.crypt.Sha256Hash;
+import org.redPandaLib.database.DirectMessageStore;
 
 /**
  *
@@ -48,7 +49,8 @@ public class ConnectionHandler extends Thread {
     public static final int READ_BUFFER_SIZE = 1024 * 205;
     public Selector selector;
     public static ArrayList<Socket> allSockets = new ArrayList<Socket>();
-    ExecutorService threadPool = new ThreadPoolExecutor(1, 1, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());//Executors.newFixedThreadPool(4);
+    ExecutorService threadPool = new ThreadPoolExecutor(1, 3, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());//Executors.newFixedThreadPool(4);
+    ExecutorService threadPool2 = new ThreadPoolExecutor(1, 6, 30, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());//Executors.newFixedThreadPool(4);
     private boolean exit = false;
     public static long lastRun = 0;
     public static HashMap<ECKey, HashMap<PeerTrustData, Long>> ratingData = new HashMap<ECKey, HashMap<PeerTrustData, Long>>();
@@ -435,7 +437,7 @@ public class ConnectionHandler extends Thread {
                                         peer.nonce = nonce;
 
                                         if (nonce == Test.NONCE) {
-                                            System.out.println("found myself!" + peer.ip + ":" + peer.port);
+                                            Log.put("found myself!" + peer.ip + ":" + peer.port, 200);
 
                                             Test.removeByIpAndPortPeer(peer);
                                             peer.disconnect(" found myself");
@@ -461,7 +463,7 @@ public class ConnectionHandler extends Thread {
 
 //                                                        System.out.println("nonce1: " + peer.nonce + " nonce2: " + pfromList.nonce);
                                                     if (pfromList.isConnected() || pfromList.isConnecting) {
-                                                        System.out.println("Peer already in peerlist... closing old connection...");
+                                                        Log.put("Peer already in peerlist... closing old connection...", 22);
                                                         pfromList.disconnect(" closing old con");
 //                                                            System.out.println("Peer is already connected, closing new connection");
 //                                                            peer.disconnect();
@@ -1076,7 +1078,7 @@ public class ConnectionHandler extends Thread {
             return 1 + 21;
 
         } else if (command == (byte) 6) {
-            Log.put("Command: get message content " + peer.ip + ":" + peer.port, 8);
+            Log.put("Command: get message content " + peer.ip + ":" + peer.port, -2);
             if (4 > readBuffer.remaining()) {
                 return 0;
             }
@@ -1095,7 +1097,7 @@ public class ConnectionHandler extends Thread {
 
                     RawMsg rawMsg = null;
                     rawMsg = MessageHolder.getRawMsg(id);
-                    Log.put("message to fetch by id: " + id, 80);
+                    Log.put("message to fetch by id: " + id, -2);
                     if (rawMsg == null) {
                         System.out.println("HM diese Nachricht habe ich nicht, id: " + id + " ip: " + peer.getIp());
                         return;
@@ -1131,6 +1133,7 @@ public class ConnectionHandler extends Thread {
                     }
 
                     if (peer.writeBuffer == null) {
+                        System.out.println("writebuffer was null while, wanted to write msg to node");
                         return;
                     }
 
@@ -1162,18 +1165,18 @@ public class ConnectionHandler extends Thread {
                     peer.writeBufferLock.unlock();
                     peer.setWriteBufferFilled();
 
-                    Log.put("wrote msg to peer " + peer.ip + " with byte length: " + rawMsg.getContent().length + " msgid: " + rawMsg.database_Id, 30);
+                    Log.put("wrote msg to peer " + peer.ip + " with byte length: " + rawMsg.getContent().length + " msgid: " + rawMsg.database_Id, -2);
 
                 }
             };
 
-            threadPool.execute(runnable);
+            threadPool2.execute(runnable);
             //new Thread(runnable).start();
 
             return 1 + 4;
 
         } else if (command == (byte) 7) {
-
+//message content
             if (4 + RawMsg.SIGNATURE_LENGRTH + 4 > readBuffer.remaining()) {
                 return 0;
             }
@@ -1224,67 +1227,70 @@ public class ConnectionHandler extends Thread {
 
             Log.put("execute new msg thread", 70);
 
-            threadPool.execute(
-                    new Runnable() {
+            Runnable runnable = new Runnable() {
 
-                        @Override
-                        public void run() {
-                            final String orgName = Thread.currentThread().getName();
-                            if (!orgName.contains(" ")) {
-                                Thread.currentThread().setName(orgName + " - addMessage + pr. broadcast");
-                            }
-                            RawMsg addMessage = MessageHolder.addMessage(getFinal);
+                @Override
+                public void run() {
+                    final String orgName = Thread.currentThread().getName();
+                    if (!orgName.contains(" ")) {
+                        Thread.currentThread().setName(orgName + " - addMessage + pr. broadcast");
+                    }
 
-                            //System.out.println("DWGDYWGDYW " + addMessage.key.database_id);
+                    RawMsg addMessage = MessageHolder.addMessage(getFinal);
+
+                    MessageDownloader.removeRequestedMessage(getFinal);
+                    //System.out.println("DWGDYWGDYW " + addMessage.key.database_id);
 //                            synchronized (peer.getPendingMessages()) {
 //                                peer.getPendingMessages().remove(msgId);
 //                            }
-                            MessageDownloader.removeRequestedMessage(getFinal);
-                            Log.put("msg: " + getFinal.timestamp + " " + getFinal.nonce, 100);
+                    Log.put("msg: " + getFinal.timestamp + " " + getFinal.nonce, 100);
 
-                            if (addMessage.getChannel() == null) {
-                                //isPublic...
-                                MessageDownloader.publicMsgsLoaded++;
-                            }
+                    if (addMessage.getChannel() == null) {
+                        //isPublic...
+                        MessageDownloader.publicMsgsLoaded++;
+                    }
 
 //                    System.out.println("KEY: " + Channel.byte2String(addMessage.key.getPubKey()));
 //                    System.out.println("timestamp: " + addMessage.timestamp);
 //                    System.out.println("CONTENT hash: " + Sha256Hash.create(addMessage.content));
 //                    System.out.println("signature hash: " + Sha256Hash.create(addMessage.signature));
-                            synchronized (peer.getLoadedMsgs()) {
-                                peer.addLoadedMsg(addMessage.database_Id);
-                            }
+                    synchronized (peer.getLoadedMsgs()) {
+                        peer.addLoadedMsg(addMessage.database_Id);
+                    }
 
-                            if (addMessage.key.database_id == -1) {
-                                addMessage = MessageHolder.addMessage(addMessage);
-                                System.out.println("woooot");
-                            }
+                    if (addMessage.key.database_id == -1) {
+                        addMessage = MessageHolder.addMessage(addMessage);
+                        System.out.println("woooot");
+                    }
 
-                            if (addMessage.key.database_id == -1) {
-                                System.out.println("#####CODE: 19564 - NICHT GUT!!!! - try again to get PUBKEY ID");
+                    if (addMessage.key.database_id == -1) {
+                        System.out.println("#####CODE: 19564 - NICHT GUT!!!! - try again to get PUBKEY ID");
 
-                                RawMsg again = MessageHolder.addMessage(addMessage);
+                        RawMsg again = MessageHolder.addMessage(addMessage);
 
-                                System.out.println("#####Key id is now: " + again.key.database_id);
+                        System.out.println("#####Key id is now: " + again.key.database_id);
 
-                                System.out.println("#####Message not broadcasted...");
-                                return;
-                            }
+                        System.out.println("#####Message not broadcasted...");
+                        return;
+                    }
 
-                            if (!Settings.BROADCAST_MSGS_AFTER_VERIFICATION) {
-                                Test.broadcastMsg(addMessage);
-                            }
+                    if (!Settings.BROADCAST_MSGS_AFTER_VERIFICATION) {
+                        Test.broadcastMsg(addMessage);
+                    }
 
-                            MessageDownloader.trigger();
-                            MessageVerifierHsqlDb.trigger();
+                    MessageDownloader.trigger();
+                    MessageVerifierHsqlDb.trigger();
 
-                            if (peer.maxSimultaneousRequests <= MessageDownloader.MAX_REQUEST_PER_PEER) {
-                                peer.maxSimultaneousRequests++;
-                                Log.put("increased max req to: " + peer.maxSimultaneousRequests, 102);
-                            }
+                    if (peer.maxSimultaneousRequests <= MessageDownloader.MAX_REQUEST_PER_PEER) {
+                        peer.maxSimultaneousRequests++;
+                        Log.put("increased max req to: " + peer.maxSimultaneousRequests, -1);
+                    }
 
-                        }
-                    });
+                }
+            };
+
+            threadPool.execute(runnable);
+            //runnable.run();
 
 //            new Thread() {
 //
@@ -1299,7 +1305,8 @@ public class ConnectionHandler extends Thread {
 //                    MessageDownloader.trigger();
 //                }
 //            }.start();
-            Log.put("parsed bytes: " + (1 + 4 + RawMsg.SIGNATURE_LENGRTH + 4 + contentLength) + " remainig: " + readBuffer.remaining(), 200);
+            Log.put(
+                    "parsed bytes: " + (1 + 4 + RawMsg.SIGNATURE_LENGRTH + 4 + contentLength) + " remainig: " + readBuffer.remaining(), 200);
 
             return 1 + 4 + RawMsg.SIGNATURE_LENGRTH + 4 + contentLength;
 
@@ -2101,8 +2108,10 @@ public class ConnectionHandler extends Thread {
                 }
 
                 try {
-                    int cntRows = 100;
-                    while (cntRows == 100) {
+
+                    //currenlty sync 300 msg not more per connection establishment.!
+                    int cntRows = -1;
+                    while (cntRows == -1) {
 
 //                            if (Settings.SUPERNODE) {
 //                                time = 0;
@@ -2451,9 +2460,9 @@ public class ConnectionHandler extends Thread {
 
                 if (!found) {
                     if (socket.isClosed()) {
-                        System.out.println("found socket, which was not closed");
+                        Log.put("found socket, which was not closed", 200);
                     } else {
-                        System.out.println("found closed socket");
+                        Log.put("found closed socket", 200);
                     }
                     try {
                         //socket isnt used by any Peer, can be closed and removed.

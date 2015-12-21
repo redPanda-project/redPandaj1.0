@@ -29,7 +29,7 @@ public class MessageDownloader {
     public static final ReentrantLock requestedMsgsLock = new ReentrantLock();
     private static boolean triggered = false;
     private static MyThread myThread = new MyThread();
-    public static int MAX_REQUEST_PER_PEER = 10;
+    public static int MAX_REQUEST_PER_PEER = 1;
     private static boolean allowInterrupt = false;
     private static final ReentrantLock syncInterrupt = new ReentrantLock();
     public static int publicMsgsLoaded = 0;
@@ -224,7 +224,7 @@ public class MessageDownloader {
                         for (Entry<Integer, RawMsg> entry : hm.entrySet()) {
 
                             //so not all MAX_REQUEST_PER_PEER are loaded from one peer.
-                            if (msgsRequestedThisCycle > 10) {
+                            if (msgsRequestedThisCycle > 20) {
                                 shortWait = true;
                                 //System.out.println("shortwait: msgsRequestedThisCycle");
                                 break;
@@ -252,6 +252,12 @@ public class MessageDownloader {
 //                        }
                             int myMessageId = MessageHolder.contains(m);
 
+                            //check if SQLTransactionRollbackException occured due to much message inserts
+                            if (myMessageId == -2) {
+                                sleep(500);
+                                continue;
+                            }
+
                             if (p.getPeerTrustData() == null) {
 
                                 Log.put("no trust data found, not downloading messages from node...", 80);
@@ -276,7 +282,9 @@ public class MessageDownloader {
                                     continue;
                                 }
 
+                          
                                 boolean removed = Test.messageStore.removeMessageToSend(p.getPeerTrustData().internalId, myMessageId);
+    
                                 Log.put("removed msg: " + p.ip + " " + p.getPeerTrustData().internalId + " - " + myMessageId + " -- " + m.public_type + " - " + removed, 80);
 
                                 if (!removed && !p.removedSendMessages.contains(myMessageId)) {

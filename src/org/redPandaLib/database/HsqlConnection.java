@@ -175,6 +175,10 @@ public class HsqlConnection {
         } catch (SQLSyntaxErrorException e) {
         }
         try {
+            stmt.executeUpdate("CREATE INDEX pubkeyBinaryIndex ON pubkey(pubkey)");
+        } catch (SQLSyntaxErrorException e) {
+        }
+        try {
             stmt.executeUpdate("CREATE INDEX messageTimestampIndex ON message(timestamp)");
         } catch (SQLSyntaxErrorException e) {
         }
