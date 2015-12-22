@@ -666,7 +666,7 @@ public class Test {
                 }
 
                 if (readLine.equals("rm")) {
-                    System.out.println("channel id?");
+                    System.out.println("channel id? - remove msg from channel");
                     try {
                         int chanid = Integer.parseInt(bufferedReader.readLine());
                         Channel toRem = null;
@@ -680,8 +680,7 @@ public class Test {
                         if (toRem == null) {
                             System.out.println("channel not found.");
                         } else {
-                            channels.remove(toRem);
-                            saver.saveIdentities(channels);
+                            Main.removeMessagesForChannel(toRem);
                             System.out.println("done");
                         }
 
@@ -848,7 +847,7 @@ public class Test {
 
                     System.out.println("Ok, writing to channel: " + channel.getName() + " EXPORT: " + channel.exportForHumans() + "\nContent:");
 
-                    readLine = bufferedReader.readLine();
+                    readLine = bufferedReader.readLine().replaceAll("#n", "\n");;
                     try {
                         Main.sendMessageToChannel(channel, readLine);
                     } catch (ChannelisNotWriteableException e) {
@@ -1850,10 +1849,10 @@ public class Test {
                 System.out.println("Generated new Master Key!");
             }
 
-//            if (Channel.getChannelById(-4) == null) {
-//                channels.add(SpecialChannels.getAnnouncementChannel());
-//                System.out.println("Added announcements channel!");
-//            }
+            if (Channel.getChannelById(-4) == null) {
+                channels.add(SpecialChannels.getAnnouncementChannel());
+                System.out.println("Added announcements channel!");
+            }
 //            if (channels.size() < 2) {
 //                channels.add(Channel.generateNew("Mine 1"));
 //                channels.add(Channel.generateNew("Mine 2"));

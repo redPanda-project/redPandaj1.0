@@ -64,7 +64,8 @@ public class MessageHolder {
 //                msgs.add(m);
 //            }
 //        }
-        DirectMessageStore.messageLock.lock();
+        //DirectMessageStore.messageLock.lock();
+        long time = System.currentTimeMillis();
         boolean done = false;
         while (!done) {
             try {
@@ -73,13 +74,14 @@ public class MessageHolder {
             } catch (SQLTransactionRollbackException ex) {
                 Log.put("rollback while inserting msg...", -2);
             }
-            try {
-                Thread.sleep(500);
-            } catch (InterruptedException ex) {
-                ex.printStackTrace();
+            if (!done) {
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException ex) {
+                    ex.printStackTrace();
+                }
             }
         }
-        DirectMessageStore.messageLock.unlock();
 
         int msgId = Test.messageStore.getMsgId(m);
 
@@ -92,6 +94,8 @@ public class MessageHolder {
         m.key = key;
         m.database_Id = msgId;
 
+        //DirectMessageStore.messageLock.unlock();
+        Log.put("                                                 Time needed to add msg to db: " + (System.currentTimeMillis() - time), -1);
         return m;
 
     }

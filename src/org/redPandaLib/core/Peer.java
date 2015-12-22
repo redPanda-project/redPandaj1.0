@@ -287,7 +287,7 @@ public class Peer implements Comparable<Peer> {
                 for (MessageDownloader.RawMsgEntry msg : (ArrayList<MessageDownloader.RawMsgEntry>) MessageDownloader.requestedMsgs.clone()) {
                     if (msg.requestedFromPeer == this) {
                         MessageDownloader.requestedMsgs.remove(msg);
-                        System.out.println("REMOVED MSG FROM REQUESTED, peer disconnected!!!!");
+                        System.out.print("R");
                     }
                 }
 

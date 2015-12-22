@@ -1201,8 +1201,6 @@ public class ConnectionHandler extends Thread {
             RawMsg get = peer.getPendingMessages().get(msgId);
             //RawMsg get = Test.messageStore.getMessageById(msgId);
 
-            peer.requestedMsgs--;
-
             if (get == null) {
 
                 get = peer.getPendingMessagesTimedOut().get(msgId);
@@ -1238,6 +1236,7 @@ public class ConnectionHandler extends Thread {
 
                     RawMsg addMessage = MessageHolder.addMessage(getFinal);
 
+                    peer.requestedMsgs--;
                     MessageDownloader.removeRequestedMessage(getFinal);
                     //System.out.println("DWGDYWGDYW " + addMessage.key.database_id);
 //                            synchronized (peer.getPendingMessages()) {

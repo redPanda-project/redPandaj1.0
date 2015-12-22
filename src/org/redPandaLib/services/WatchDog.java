@@ -44,7 +44,7 @@ public class WatchDog {
                             ownStackTrace += a.toString() + "\n";
                         }
                         String lastLine = stackTrace[stackTrace.length - 1].toString();
-                        if (!lastLine.contains("ConnectionHandler.java:169") && !lastLine.contains("ConnectionHandler.java:216")) {
+                        if (!lastLine.contains("ConnectionHandler.java:172") && !lastLine.contains("ConnectionHandler.java:219")) {
                             Main.sendBroadCastMsg("Wuff! Wuff! ConnectionHandler didn't run for quite a while: " + delay + "\nState: " + Test.connectionHandler.getState() + "\nStackTrace: " + ownStackTrace);
                             return;
                         } else {
