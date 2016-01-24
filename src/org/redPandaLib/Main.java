@@ -213,15 +213,23 @@ public class Main {
 
     public static ArrayList<Channel> getChannels() {
         ArrayList<Channel> channels = Test.getChannels();
-        if (channels == null) {
-            return null;
+        synchronized (channels) {
+
+            if (channels == null) {
+                return null;
+            }
+            ArrayList<Channel> channels2 = new ArrayList<>(channels.size() - 1);
+
+            int cnt = 0;
+            for (Channel c : channels) {
+                if (cnt != 0) {
+                    channels2.add(c);
+                }
+                cnt++;
+            }
+            return channels2;
         }
-        //channels.add(SpecialChannels.MAIN);
 
-        channels = (ArrayList<Channel>) channels.clone();
-        channels.remove(0);
-
-        return channels;
     }
 
     public static void sendMessageToChannel(Channel channel, String text) throws ChannelisNotWriteableException {

@@ -38,6 +38,7 @@ import org.redPandaLib.crypt.AESCrypt;
 import org.redPandaLib.crypt.ECKey;
 import org.redPandaLib.crypt.RC4;
 import org.redPandaLib.crypt.Sha256Hash;
+import org.redPandaLib.crypt.Utils;
 import org.redPandaLib.database.DirectMessageStore;
 
 /**
@@ -217,7 +218,6 @@ public class ConnectionHandler extends Thread {
 //                    }
                 try {
                     sleep(100);
-
                 } catch (InterruptedException ex) {
                     Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -1259,7 +1259,7 @@ public class ConnectionHandler extends Thread {
 
                     if (addMessage.key.database_id == -1) {
                         addMessage = MessageHolder.addMessage(addMessage);
-                        System.out.println("woooot");
+                        System.out.println("woooot " + Utils.bytesToHexString(getFinal.key.getPubKey()) + " " + getFinal.timestamp);
                     }
 
                     if (addMessage.key.database_id == -1) {
@@ -2426,6 +2426,10 @@ public class ConnectionHandler extends Thread {
     }
 
     public static void removeUnusedSockets() {
+
+        if (Test.getClonedPeerList() == null) {
+            return;
+        }
 
         ArrayList<Socket> toRemove = new ArrayList<Socket>();
 

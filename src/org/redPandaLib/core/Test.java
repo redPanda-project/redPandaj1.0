@@ -21,6 +21,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.security.SecureRandom;
 import java.security.Security;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -89,7 +90,7 @@ public class Test {
     //static ExecutorService threadPool = Executors.newFixedThreadPool(MAX_CONNECTIONS * 2 + 5);
     //static ExecutorService threadPool2 = Executors.newCachedThreadPool();
     //static ExecutorService threadPool3 = Executors.newCachedThreadPool();
-    static Random random = new Random();
+    public static Random random = new SecureRandom();
     public static String clientSeed;
     public static int clientVersion = 0;
     public static long outBytes = 0;
@@ -297,62 +298,58 @@ public class Test {
                                 p.writeBufferCrypted = null;
                             }
 
-                        } else {
+                        } else if (p.isConnected()) {
 
-                            if (p.isConnected()) {
+                            //                                System.out.println("Pinging: " + p.nonce);
+                            //p.ping();
+                            p.cnt++;
+                            if (p.cnt > Settings.peerListRequestDelay * 1000 / (Settings.pingDelay * 1000)) {
+                                //p.connectionThread.writeString(ConnectionThread.GETPEERS);
 
-                                //                                System.out.println("Pinging: " + p.nonce);
-                                //p.ping();
-                                p.cnt++;
-                                if (p.cnt > Settings.peerListRequestDelay * 1000 / (Settings.pingDelay * 1000)) {
-                                    //p.connectionThread.writeString(ConnectionThread.GETPEERS);
+                                if (p.isFullConnected()) {
 
-                                    if (p.isFullConnected()) {
-
-                                        synchronized (p.writeBuffer) {
-                                            if (p.writeBuffer.remaining() == 0) {
-                                                System.out.println("Konnte peers nicht abfragen, buffer voll.");
-                                            } else {
-                                                p.writeBufferLock.lock();
-                                                p.writeBuffer.put((byte) 1);
-                                                p.writeBufferLock.unlock();
-                                            }
+                                    synchronized (p.writeBuffer) {
+                                        if (p.writeBuffer.remaining() == 0) {
+                                            System.out.println("Konnte peers nicht abfragen, buffer voll.");
+                                        } else {
+                                            p.writeBufferLock.lock();
+                                            p.writeBuffer.put((byte) 1);
+                                            p.writeBufferLock.unlock();
                                         }
                                     }
+                                }
 
-                                    p.cnt = 0;
-                                } else {
+                                p.cnt = 0;
+                            } else {
 
 //                                    if (p.isFullConnected()) {
 //
 //                                        System.out.println("PING?: " + p.getLastAnswered() + " > " + Settings.pingDelay * 1000);
 //
 //                                    }
-                                    if (p.isFullConnected() && p.getLastAnswered() > Settings.pingDelay * 1000) {
-                                        p.ping();
-                                    }
-
-                                    if (p.isConnected() && !p.authed) {
-
-                                        p.trustRetries++;
-
-                                        if (p.trustRetries < 2) {
-                                            //                                            System.out.println("Found a bad guy... doing nothing...: " + p.nonce);
-                                        } else {
-                                            p.trustRetries = 0;
-                                            System.out.println("Found a bad guy... requesting new key: " + p.nonce);
-                                            //ConnectionHandler.sendNewAuthKey(p);
-                                            p.disconnect("not authed...");
-                                        }
-
-                                        //System.out.println("Found a bad guy... requesting new key: " + p.nonce);
-                                        //ConnectionHandler.sendNewAuthKey(p);
-                                        //p.disconnect();
-                                    }
-
+                                if (p.isFullConnected() && p.getLastAnswered() > Settings.pingDelay * 1000) {
+                                    p.ping();
                                 }
-                            }
 
+                                if (p.isConnected() && !p.authed) {
+
+                                    p.trustRetries++;
+
+                                    if (p.trustRetries < 2) {
+                                        //                                            System.out.println("Found a bad guy... doing nothing...: " + p.nonce);
+                                    } else {
+                                        p.trustRetries = 0;
+                                        System.out.println("Found a bad guy... requesting new key: " + p.nonce);
+                                        //ConnectionHandler.sendNewAuthKey(p);
+                                        p.disconnect("not authed...");
+                                    }
+
+                                    //System.out.println("Found a bad guy... requesting new key: " + p.nonce);
+                                    //ConnectionHandler.sendNewAuthKey(p);
+                                    //p.disconnect();
+                                }
+
+                            }
                         }
 
                         //                        }
@@ -690,8 +687,14 @@ public class Test {
                     continue;
                 }
 
+                if (readLine.equals("bt1")) {
+                    System.out.println("asd  " + Test.messageStore.getLatestBlocktime(19));
+                    continue;
+                }
+                
                 if (readLine.equals("rM")) {
                     channels.remove(SpecialChannels.MAIN);
+                    Test.saver.saveIdentities(channels);
                     continue;
                 }
 
@@ -803,6 +806,10 @@ public class Test {
                 }
 
                 if (readLine.equals("s")) {
+
+                    for (Channel c : Main.getChannels()) {
+                        System.out.println("" + c.getName());
+                    }
 
                     System.out.println("ChannelList: ");
                     for (Channel c : channels) {
@@ -1084,8 +1091,14 @@ public class Test {
 
                 if (readLine.equals("e")) {
                     System.out.println("e = exit ....");
-                    System.exit(77);
+                    System.exit(0);
                     return;
+                }
+
+                if (readLine.equals("badchanneltest")) {
+                    channels.add(0, new Channel(new ECKey(), "hans"));
+                    saver.saveIdentities(channels);
+                    continue;
                 }
 
 //                if (readLine.equals("P")) {
@@ -1400,6 +1413,23 @@ public class Test {
                     } catch (SQLException ex) {
                         Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
                     }
+                    continue;
+                }
+
+                if (readLine.equals("gs")) {
+                    //generate grouped stacktraces
+                    ArrayList<TextMessageContent> messages = Main.getMessages(Channel.getChannelById(-2));
+
+                    for (TextMessageContent t : messages) {
+
+                        if (!t.text.contains("ConnectionHandler.java:172") && !t.text.contains("pl.droidsonroids.gif.GifDrawable.<init>(GifDrawable.java:125)")) {
+
+                            System.out.println("" + t.text);
+
+                        }
+
+                    }
+
                     continue;
                 }
 
@@ -1840,13 +1870,8 @@ public class Test {
 //                channels.add(c);
 //            }
 
-            if (Channel.getChannelById(0) == null) {
-                Channel newMasterChannel = new Channel();
-                newMasterChannel.key = new ECKey();
-                newMasterChannel.name = "Master";
-                newMasterChannel.id = 0;
-                channels.add(newMasterChannel);
-                System.out.println("Generated new Master Key!");
+            if (channels.isEmpty() || channels.get(0) == null || !channels.get(0).getName().equals("Master")) {
+                createNewMasterChannel();
             }
 
             if (Channel.getChannelById(-4) == null) {
@@ -1864,6 +1889,15 @@ public class Test {
 //            }
             saver.saveIdentities(channels);
         }
+    }
+
+    private static void createNewMasterChannel() {
+        Channel newMasterChannel = new Channel();
+        newMasterChannel.key = new ECKey();
+        newMasterChannel.name = "Master";
+        newMasterChannel.id = 0;
+        channels.add(0, newMasterChannel);
+        System.out.println("Generated new Master Key!");
     }
 
     public static void broadcastMsg(RawMsg rawMsg) {

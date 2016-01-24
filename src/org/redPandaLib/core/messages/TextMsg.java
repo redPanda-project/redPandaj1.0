@@ -33,7 +33,7 @@ public class TextMsg extends RawMsg {
     public static TextMsg build(Channel channel, String messageContent) {
         try {
             ECKey key = channel.getKey();
-            TextMsg textMsg = new TextMsg(key, System.currentTimeMillis(), 105);
+            TextMsg textMsg = new TextMsg(key, System.currentTimeMillis(), Test.random.nextInt());
 
             textMsg.channel = channel;
             byte[] messageContentBytes = messageContent.getBytes("UTF-8");
@@ -68,7 +68,6 @@ public class TextMsg extends RawMsg {
         return out;
 
         //System.out.println("decrypted bytes: " + Msg.bytesToHexString(decryptedContent));
-
 //
 //        try {
 //            return new String(decryptedContent, 9, decryptedContent.length - 9, "UTF-8");

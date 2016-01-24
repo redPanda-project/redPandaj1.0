@@ -97,7 +97,7 @@ public class StatsGUI {
                             }
                         });
                     } catch (IllegalArgumentException e) {
-                        System.out.println("konnte nicht sortieren!!");
+                        //System.out.println("konnte nicht sortieren!!");
                     }
 
 //                    System.out.println("IP:PORT \t\t\t\t\t\t Nonce \t\t\t Last Answer \t Alive \t retries \t LoadedMsgs \t Ping \t Authed \t PMSG\n");
@@ -226,12 +226,12 @@ public class StatsGUI {
         //org.redPandaLib.Main.useMysqlDatabase();
         org.redPandaLib.Main.useHsqlDatabase();
 
-        Log.LEVEL = 10000;
+        Log.LEVEL = 0000;
         Settings.lightClient = false;
         Settings.SUPERNODE = true;
         Settings.REDUCE_TRAFFIC = false;
-        Settings.MIN_CONNECTIONS = 400;
-        Settings.MAX_CONNECTIONS = 500;
+        Settings.MIN_CONNECTIONS = 1;
+        Settings.MAX_CONNECTIONS = 10;
 
         Settings.pingDelay = 10;
 

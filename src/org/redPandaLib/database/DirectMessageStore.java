@@ -508,7 +508,7 @@ public class DirectMessageStore implements MessageStore {
         try {
             //get Key Id
             //String query = "SELECT message_id,pubkey.pubkey_id, pubkey,public_type,timestamp,nonce,signature,content,verified from message left join pubkey on (pubkey.pubkey_id = message.pubkey_id) WHERE timestamp > ? order by timestamp asc";
-            String query = "SELECT message.message_id,pubkey.pubkey_id, pubkey,public_type,timestamp,nonce,signature,verified from haveToSendMessageToPeer left join message on (haveToSendMessageToPeer.message_id = message.message_id) left join pubkey on (message.pubkey_id = pubkey.pubkey_id) WHERE timestamp > ? AND peer_id = ? order by timestamp asc LIMIT 300";
+            String query = "SELECT message.message_id,pubkey.pubkey_id, pubkey,public_type,timestamp,nonce,signature,verified from haveToSendMessageToPeer left join message on (haveToSendMessageToPeer.message_id = message.message_id) left join pubkey on (message.pubkey_id = pubkey.pubkey_id) WHERE timestamp > ? AND peer_id = ? order by timestamp asc LIMIT 600";
             PreparedStatement pstmt = connection.prepareStatement(query);
             //pstmt.setFetchSize(100);
             pstmt.setLong(1, from);

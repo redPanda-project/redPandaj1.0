@@ -95,6 +95,8 @@ public class Settings {
                 if (readLine.equals("removeOldMessages=true")) {
                     REMOVE_OLD_MESSAGES = true;
                     System.out.println("removing old messages automatically.");
+                } else if (readLine.equals("removeOldMessages=false")) {
+                    System.out.println("NOT removing old messages automatically.");
                 }
             }
 

@@ -95,7 +95,7 @@ public class MessageHolder {
         m.database_Id = msgId;
 
         //DirectMessageStore.messageLock.unlock();
-        Log.put("                                                 Time needed to add msg to db: " + (System.currentTimeMillis() - time), -1);
+        Log.put("                                                 Time needed to add msg to db: " + (System.currentTimeMillis() - time), 500);
         return m;
 
     }
