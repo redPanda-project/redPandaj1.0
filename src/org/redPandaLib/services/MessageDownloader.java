@@ -332,7 +332,7 @@ public class MessageDownloader {
                             }
 
                             m.key.database_id = Test.messageStore.getPubkeyId(m.key);
-                            System.out.println("int: " + m.key.database_id);
+                            //System.out.println("int: " + m.key.database_id);
 
                             if (m.public_type == 20 && getLatestBlockTime(m.key.database_id) > m.timestamp) {
                                 synchronized (p.getPendingMessages()) {
@@ -598,9 +598,9 @@ public class MessageDownloader {
                 System.out.println("search in db: " + key_databaseid);
                 latestBlockTime = Test.messageStore.getLatestBlocktime(key_databaseid);
                 channelIdToLatestBlockTime.put(key_databaseid, latestBlockTime);
-                System.out.println("latestblocktime: " + latestBlockTime);
+                Log.put("latestblocktime: " + latestBlockTime, 5);
             } else {
-                System.out.println("latestblocktime: " + latestBlockTime + " (restored from memory)");
+                Log.put("latestblocktime: " + latestBlockTime + " (restored from memory)", 5);
             }
             channelIdToLatestBlockTimeLock.unlock();
         }
@@ -618,7 +618,6 @@ public class MessageDownloader {
 
         @Override
         protected boolean removeEldestEntry(final Map.Entry<A, B> eldest) {
-            System.out.println("too many items, remove item...");
             return super.size() > maxEntries;
         }
     }

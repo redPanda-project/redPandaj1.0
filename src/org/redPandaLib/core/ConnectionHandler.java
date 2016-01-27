@@ -39,7 +39,6 @@ import org.redPandaLib.crypt.ECKey;
 import org.redPandaLib.crypt.RC4;
 import org.redPandaLib.crypt.Sha256Hash;
 import org.redPandaLib.crypt.Utils;
-import org.redPandaLib.database.DirectMessageStore;
 
 /**
  *

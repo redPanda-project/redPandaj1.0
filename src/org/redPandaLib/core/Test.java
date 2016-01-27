@@ -568,7 +568,7 @@ public class Test {
 //                            }
 //                            Main.useHsqlDatabase();
                             System.out.println("Processed messages: " + MessageHolder.getMessageCount() + " - Queue to verify: " + MessageHolder.getMessageCountToVerify());
-
+                            System.out.println("LRU Cache size: " + MessageDownloader.channelIdToLatestBlockTime.size());
                             //MessageVerifierHsqlDb.sem.release();
                         }
                     }.start();
@@ -691,7 +691,7 @@ public class Test {
                     System.out.println("asd  " + Test.messageStore.getLatestBlocktime(19));
                     continue;
                 }
-                
+
                 if (readLine.equals("rM")) {
                     channels.remove(SpecialChannels.MAIN);
                     Test.saver.saveIdentities(channels);

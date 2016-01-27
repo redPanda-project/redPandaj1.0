@@ -194,7 +194,7 @@ public class StatsGUI {
 //                            }
 //                            Main.useHsqlDatabase();
                     format += String.format("Processed messages: " + MessageHolder.getMessageCount() + " - Queue to verify: " + MessageHolder.getMessageCountToVerify());
-
+                    format += String.format("\nLRU Cache size: " + MessageDownloader.channelIdToLatestBlockTime.size());
                     //MessageVerifierHsqlDb.sem.release();
                     //String replaceAll = format.replaceAll("\n", "<br/>");
 //                    jLabel.setText("<html>" + replaceAll + "</html>");
@@ -213,13 +213,13 @@ public class StatsGUI {
         org.redPandaLib.Main.addListener(
                 new NewMessageListener() {
 
-                    @Override
-                    public void newMessage(TextMessageContent msg) {
+            @Override
+            public void newMessage(TextMessageContent msg) {
 
-                        System.out.println("###################\n# Neue Nachricht [" + msg.channel.getName() + " -- " + msg.identity + "]\n#   " + msg.text + "\n###################");
+                System.out.println("###################\n# Neue Nachricht [" + msg.channel.getName() + " -- " + msg.identity + "]\n#   " + msg.text + "\n###################");
 
-                    }
-                });
+            }
+        });
 
         Settings.readGeneralDotDat();
 
@@ -230,8 +230,8 @@ public class StatsGUI {
         Settings.lightClient = false;
         Settings.SUPERNODE = true;
         Settings.REDUCE_TRAFFIC = false;
-        Settings.MIN_CONNECTIONS = 1;
-        Settings.MAX_CONNECTIONS = 10;
+        Settings.MIN_CONNECTIONS = 10;
+        Settings.MAX_CONNECTIONS = 15;
 
         Settings.pingDelay = 10;
 

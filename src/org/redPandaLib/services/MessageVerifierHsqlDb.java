@@ -192,7 +192,6 @@ public class MessageVerifierHsqlDb {
 
                         final int message_id = executeQuery.getInt("message_id");
                         final int pubkey_id = executeQuery.getInt("pubkey.pubkey_id");
-                        System.out.println("pubkeyid: " + pubkey_id);
                         final byte[] pubkey = executeQuery.getBytes("pubkey");
                         ECKey ecKey = new ECKey(null, pubkey);
                         ecKey.database_id = pubkey_id;
