@@ -78,7 +78,7 @@ public class StatsGUI {
 
                     int actCons = 0;
 
-                    ArrayList<Peer> list = (ArrayList<Peer>) peerList.clone();
+                    ArrayList<Peer> list = getClonedPeerList();
 
                     try {
                         Collections.sort(list, new Comparator<Peer>() {
@@ -231,7 +231,7 @@ public class StatsGUI {
         Settings.SUPERNODE = true;
         Settings.REDUCE_TRAFFIC = false;
         Settings.MIN_CONNECTIONS = 10;
-        Settings.MAX_CONNECTIONS = 15;
+        Settings.MAX_CONNECTIONS = 12;
 
         Settings.pingDelay = 10;
 

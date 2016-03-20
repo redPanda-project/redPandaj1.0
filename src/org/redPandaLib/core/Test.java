@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.redPandaLib.ChannelisNotWriteableException;
@@ -82,6 +83,7 @@ public class Test {
     public static int MY_PORT;
     static String MAGIC = "k3gV";
     public static ArrayList<Peer> peerList = null;
+    public static ReentrantLock peerListLock = new ReentrantLock();
     public static ArrayList<Channel> channels;
     public static long NONCE;
     static int outConns = 0;
@@ -225,7 +227,7 @@ public class Test {
 
                 while (!Main.shutdown) {
 
-                    if (System.currentTimeMillis() - lastSaved > 120 * 1000) {
+                    if (System.currentTimeMillis() - lastSaved > 5 * 60 * 1000) {
 
                         if (ConnectionHandler.allSockets.size() > 10) {
                             ConnectionHandler.removeUnusedSockets();
@@ -241,6 +243,8 @@ public class Test {
                             }
                         }
 
+                        Test.messageStore.cleanupPeerConnectionInformation();
+                        
                         try {
                             savePeers();
                             saveTrustData();
@@ -264,7 +268,7 @@ public class Test {
                     }
 
                     //                    synchronized (peerList) {
-                    for (Peer p : (ArrayList<Peer>) peerList.clone()) {
+                    for (Peer p : getClonedPeerList()) {
 
                         //ToDo: remove
                         try {
@@ -467,7 +471,7 @@ public class Test {
 
                     int actCons = 0;
 
-                    ArrayList<Peer> list = (ArrayList<Peer>) peerList.clone();
+                    ArrayList<Peer> list = getClonedPeerList();
                     Collections.sort(list);
 
 //                    System.out.println("IP:PORT \t\t\t\t\t\t Nonce \t\t\t Last Answer \t Alive \t retries \t LoadedMsgs \t Ping \t Authed \t PMSG\n");
@@ -895,11 +899,16 @@ public class Test {
                     continue;
                 }
 
+                if (readLine.equals("f")) {
+                    Test.messageStore.cleanupPeerConnectionInformation();
+                    continue;
+                }
+
                 if (readLine.equals("B")) {
 
                     System.out.println("found peers:");
 
-                    for (Peer p : (ArrayList<Peer>) peerList.clone()) {
+                    for (Peer p : getClonedPeerList()) {
                         if (p.isAuthed() && p.isConnected() && p.syncMessagesSince == 0) {
                             System.out.println("IP: " + p.ip + " nonce: " + p.nonce);
                         }
@@ -998,7 +1007,9 @@ public class Test {
                     System.out.println("removing all peers + trust data...");
                     synchronized (peerList) {
                         ArrayList<Peer> peers = peerList;
+                        peerListLock.lock();
                         peerList = new ArrayList<Peer>();
+                        peerListLock.unlock();
                         peerTrusts = new ArrayList<PeerTrustData>();
                         saver.saveTrustedPeers(peerTrusts);
                         saver.savePeerss(peers);
@@ -1135,7 +1146,7 @@ public class Test {
 
                 if (readLine.equals("c")) {
                     System.out.println("closing all connections....");
-                    for (Peer peer : (ArrayList<Peer>) peerList.clone()) {
+                    for (Peer peer : getClonedPeerList()) {
                         peer.disconnect("c");
                     }
                     triggerOutboundthread();
@@ -1794,12 +1805,6 @@ public class Test {
                     continue;
                 }
 
-                if (readLine.equals("f")) {
-                    System.out.println("Init fullsync...");
-                    Settings.initFullNetworkSync = true;
-                    continue;
-                }
-
                 if (readLine.equals("+")) {
                     Settings.MIN_CONNECTIONS++;
                     Settings.MAX_CONNECTIONS++;
@@ -1994,7 +1999,9 @@ public class Test {
                 }
 
                 //port festgelegt...
+                peerListLock.lock();
                 peerList = Test.saver.loadPeers();
+                peerListLock.unlock();
                 peerTrusts = Test.saver.loadTrustedPeers();
 
                 if (DEBUG) {
@@ -2077,26 +2084,6 @@ public class Test {
                     continue;
                 }
 
-                //ToDo: remove, not working anymore
-                if (Settings.initFullNetworkSync) {
-                    //just a one time action
-                    Settings.initFullNetworkSync = false;
-                    System.out.println("init full sync, closing all connections");
-                    ArrayList<Peer> clone = (ArrayList<Peer>) peerList.clone();
-                    peerList = new ArrayList<Peer>();
-                    for (Peer peer : clone) {
-                        peer.disconnect("full sync");
-                    }
-
-                    for (PeerTrustData ptd : (ArrayList<PeerTrustData>) peerTrusts.clone()) {
-                        ptd.ips.clear();
-                        ptd.keyToIdHis.clear();
-                        ptd.keyToIdMine.clear();
-                        ptd.loadedMsgs.clear();
-                    }
-
-                }
-
                 if (peerList == null || NONCE == 0) {
                     try {
                         sleep(200);
@@ -2110,11 +2097,11 @@ public class Test {
                     addKnowNodes();
                 }
 
-                ArrayList<Peer> clonedPeerList = (ArrayList<Peer>) peerList.clone();
-
+                //ArrayList<Peer> clonedPeerList = getClonedPeerList();
                 //Collections.shuffle(peerList);
                 try {
-                    Collections.sort(clonedPeerList);
+                    peerListLock.lock();
+                    Collections.sort(peerList);
                 } catch (java.lang.IllegalArgumentException e) {
                     try {
                         sleep(200);
@@ -2122,12 +2109,16 @@ public class Test {
                         Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
                     }
                     continue;
+                } finally {
+                    peerListLock.unlock();
                 }
 
+                ArrayList<Peer> clonedPeerList = getClonedPeerList();
                 int actCons = 0;
                 int connectingCons = 0;
                 for (Peer peer : clonedPeerList) {
-                    if (peer.getLastAnswered() < Settings.pingTimeout * 1000 && peer.isConnected() && peer.isAuthed() && peer.isCryptedConnection()) {
+                    //if (peer.getLastAnswered() < Settings.pingTimeout * 1000 && peer.isConnected() && peer.isAuthed() && peer.isCryptedConnection()) {
+                    if (peer.isConnected()) {
 
 //                        String[] split = peer.ip.split("\\.");
 //                        if (split.length == 4 && split[0].equals("192")) {
@@ -2154,6 +2145,34 @@ public class Test {
 //                    System.out.println("search new peers....");
 //                }
                 actCons += connectingCons;
+
+                //get new Ip + ports from db!
+                int size = peerList.size();
+                if (size < Settings.MIN_CONNECTIONS) {
+                    ArrayList<DirectMessageStore.IpAndPort> goodPeerConnectionInformation = Test.messageStore.getGoodPeerConnectionInformation(Settings.MIN_CONNECTIONS - size);
+                    System.out.println("got ip+ports from db: " + goodPeerConnectionInformation.size() + " requested: " + (Settings.MIN_CONNECTIONS - actCons));
+                    for (DirectMessageStore.IpAndPort p : goodPeerConnectionInformation) {
+                        Peer peer1 = new Peer(p.ip, p.port);
+                        peer1.retries = p.status;
+                        peer1.ping = -1;
+
+                        //ToDo: this check for already in list can be removed?
+                        boolean inList = false;
+                        for (Peer p2 : getClonedPeerList()) {
+                            if (p2.equalsIpAndPort(peer1)) {
+                                inList = true;
+                            }
+                        }
+
+                        if (!inList) {
+                            peerListLock.lock();
+                            peerList.add(peer1);
+                            peerListLock.unlock();
+                        }
+
+                        Test.messageStore.deletePeerConnectionInformation(p.ip, p.port);
+                    }
+                }
 
                 int cnt = 0;
                 for (Peer peer : clonedPeerList) {
@@ -2205,7 +2224,9 @@ public class Test {
                         continue;
                     }
                     if (Settings.IPV6_ONLY && peer.ip.length() <= 15) {
+                        peerListLock.lock();
                         peerList.remove(peer);
+                        peerListLock.unlock();
                         if (DEBUG) {
                             System.out.println("removed peer from peerList, no ipv6 address: " + peer.ip + ":" + peer.port);
                         }
@@ -2213,7 +2234,9 @@ public class Test {
                     }
 
                     if (Settings.IPV4_ONLY && peer.ip.length() > 15) {
+                        peerListLock.lock();
                         peerList.remove(peer);
+                        peerListLock.unlock();
                         if (DEBUG) {
                             System.out.println("removed peer from peerList, no ipv4 address: " + peer.ip + ":" + peer.port);
                         }
@@ -2253,6 +2276,7 @@ public class Test {
 
                     if (alreadyConnectedToSameTrustedNode) {
                         //System.out.println("Prevented connecting to same node, connected to trusted node over another IP (v4-v6) already. ");
+                        removePeer(peer);
                         continue;
                     }
 
@@ -2266,14 +2290,18 @@ public class Test {
 
 //                    if (peerList.size() > 20) {
                     //(System.currentTimeMillis() - peer.lastActionOnConnection > 1000 * 60 * 60 * 4)
-                    if (peer.retries > 10 || (peer.nonce == 0 && peer.retries >= 1)) {
+                    if ((peer.retries > 10 || (peer.nonce == 0 && peer.retries >= 1)) && peer.ping != -1) {
                         //peerList.remove(peer);
                         removePeer(peer);
+                        Test.messageStore.insertPeerConnectionInformation(peer.ip, peer.port);
+                        Test.messageStore.setStatusForPeerConnectionInformation(peer.ip, peer.port, peer.retries, System.currentTimeMillis() + 1000 * 60 * peer.retries);
                         if (DEBUG) {
                             Log.put("removed peer from peerList, too many retries: " + peer.ip + ":" + peer.port, 20);
                         }
+
                         continue;
                     }
+                    peer.ping = 0;
 
 //                    }
                     if (peer.retries > 5 && actCons >= 2) {
@@ -2460,7 +2488,7 @@ public class Test {
 //    }
     public static synchronized Peer findPeer(Peer peer) {
 
-        for (Peer p : (ArrayList<Peer>) peerList.clone()) {
+        for (Peer p : getClonedPeerList()) {
 
             if (p.equalsIpAndPort(peer)) {
                 return p;
@@ -2468,43 +2496,57 @@ public class Test {
 
         }
 
+        peerListLock.lock();
         peerList.add(peer);
+        peerListLock.unlock();
         return peer;
     }
 
-    public static synchronized Peer findPeerNonce(Peer peer) {
-        synchronized (peerList) {
+    /**
+     * may block the peerlist a longer time!
+     *
+     * @param peer
+     * @return
+     */
+    public static Peer findPeerNonce(Peer peer) {
+        peerListLock.lock();
 
-            for (Peer p : (ArrayList<Peer>) peerList.clone()) {
+        for (Peer p : getClonedPeerList()) {
 
-                if (p.equalsNonce(peer)) {
-                    return p;
-                }
-
+            if (p.equalsNonce(peer)) {
+                peerListLock.unlock();
+                return p;
             }
 
-            peerList.add(peer);
         }
+
+        peerList.add(peer);
+        peerListLock.unlock();
         return peer;
     }
 
-    public static synchronized void removePeer(Peer peer) {
-        synchronized (peerList) {
-            peerList.remove(peer);
-        }
+    public static void removePeer(Peer peer) {
+        peerListLock.lock();
+        peerList.remove(peer);
+        peerListLock.unlock();
     }
 
+    /**
+     * may block the peerlist for a longer time
+     *
+     * @param peer
+     */
     public static synchronized void removeByIpAndPortPeer(Peer peer) {
-        synchronized (peerList) {
-            peerList.remove(peer);
+        peerListLock.lock();
+        peerList.remove(peer);
 
-            for (Peer p : getClonedPeerList()) {
-                if (peer.equalsIpAndPort(p)) {
-                    peerList.remove(p);
-                }
+        for (Peer p : getClonedPeerList()) {
+            if (peer.equalsIpAndPort(p)) {
+                peerList.remove(p);
             }
-
         }
+
+        peerListLock.unlock();
     }
 
 //
@@ -2607,7 +2649,10 @@ public class Test {
     }
 
     public static ArrayList<Peer> getClonedPeerList() {
-        return (ArrayList<Peer>) peerList.clone();
+        peerListLock.lock();
+        ArrayList<Peer> out = (ArrayList<Peer>) peerList.clone();
+        peerListLock.unlock();
+        return out;
     }
 
     private static void startedUpSuccessful() {
@@ -2626,7 +2671,7 @@ public class Test {
         outboundthread.start();
         MessageDownloader.start();
         MessageVerifierHsqlDb.start();
-        addKnowNodes();
+        //addKnowNodes();
         //ClusterBuilder.start();
 
 //        new Thread() {
@@ -2666,7 +2711,7 @@ public class Test {
             return;
         }
         if (peerList != null) {
-            Test.saver.savePeerss((ArrayList<Peer>) peerList.clone());
+            Test.saver.savePeerss(getClonedPeerList());
         }
 
     }

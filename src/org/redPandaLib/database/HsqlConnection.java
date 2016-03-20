@@ -151,13 +151,15 @@ public class HsqlConnection {
 
         stmt.executeUpdate("create CACHED table if not exists channelKnownLevel (forChannel INTEGER, identity BIGINT, fromChannel INTEGER, level INTEGER)");
 
-        stmt.executeUpdate("CREATE TABLE if not exists msgcounter (id INTEGER not null primary key)");
+        stmt.executeUpdate("create CACHED table if not exists peerConnectionInformation (ip VARCHAR(254), port INTEGER, status INTEGER, avoidUntil BIGINT)");
+
+        stmt.executeUpdate("CREATE CACHED TABLE if not exists msgcounter (id INTEGER not null primary key)");
         ResultSet executeQuery = stmt.executeQuery("SELECT * FROM msgcounter");
         if (!executeQuery.next()) {//only insert if empty
             stmt.executeUpdate("INSERT INTO msgcounter VALUES (1)");
         }
         executeQuery.close();
-        stmt.executeUpdate("CREATE TABLE if not exists msgcounterchannel (id INTEGER not null primary key)");
+        stmt.executeUpdate("CREATE CACHED TABLE if not exists msgcounterchannel (id INTEGER not null primary key)");
         executeQuery = stmt.executeQuery("SELECT * FROM msgcounterchannel");
         if (!executeQuery.next()) {//only insert if empty
             stmt.executeUpdate("INSERT INTO msgcounterchannel VALUES (2)");

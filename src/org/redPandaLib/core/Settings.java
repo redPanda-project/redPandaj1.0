@@ -25,7 +25,6 @@ public class Settings {
     public static long till = 0;//1397836192756L;
     public static boolean lightClient = false;
     public static long connectToNewClientsTill = Long.MAX_VALUE;
-    public static boolean initFullNetworkSync = false; //can cause huge traffic!
     public static boolean SEND_DELIVERED_MSG = false; //only for non special channels
     public static boolean IPV6_ONLY = false;
     public static boolean IPV4_ONLY = false;

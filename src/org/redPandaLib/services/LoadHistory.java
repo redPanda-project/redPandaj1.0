@@ -82,7 +82,7 @@ public class LoadHistory {
                         //System.out.println("go back in time...");
                         System.out.print("b");
 
-                        for (Peer p : (ArrayList<Peer>) Test.peerList.clone()) {
+                        for (Peer p : Test.getClonedPeerList()) {
                             if (p.isAuthed() && p.isConnected() && p.syncMessagesSince == 0) {
 
                                 long backSyncedTill = p.getPeerTrustData().backSyncedTill;

@@ -31,7 +31,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.redPandaLib.ByteUtils;
 import org.redPandaLib.Main;
+import static org.redPandaLib.core.Test.getClonedPeerList;
 import static org.redPandaLib.core.Test.peerList;
+import static org.redPandaLib.core.Test.peerListLock;
 import static org.redPandaLib.core.Test.saveTrustData;
 import org.redPandaLib.core.messages.RawMsg;
 import org.redPandaLib.crypt.AESCrypt;
@@ -449,26 +451,26 @@ public class ConnectionHandler extends Thread {
                                         boolean found = false;
 //                                            boolean closeNew = false;
 
-                                        synchronized (Test.peerList) {
+                                        Test.peerListLock.lock();
 
-                                            for (Peer pfromList : (ArrayList<Peer>) Test.peerList.clone()) {
+                                        for (Peer pfromList : Test.getClonedPeerList()) {
 
-                                                if (pfromList.equals(peer)) {
-                                                    continue;
-                                                }
+                                            if (pfromList.equals(peer)) {
+                                                continue;
+                                            }
 
-                                                if (peer.equalsNonce(pfromList)) {
-                                                    found = true;
+                                            if (peer.equalsNonce(pfromList)) {
+                                                found = true;
 
 //                                                        System.out.println("nonce1: " + peer.nonce + " nonce2: " + pfromList.nonce);
-                                                    if (pfromList.isConnected() || pfromList.isConnecting) {
-                                                        Log.put("Peer already in peerlist... closing old connection...", 22);
-                                                        pfromList.disconnect(" closing old con");
+                                                if (pfromList.isConnected() || pfromList.isConnecting) {
+                                                    Log.put("Peer already in peerlist... closing old connection...", 22);
+                                                    pfromList.disconnect(" closing old con");
 //                                                            System.out.println("Peer is already connected, closing new connection");
 //                                                            peer.disconnect();
 //                                                            closeNew = true;
 //                                                            break;
-                                                    }
+                                                }
 //
 //                                                        pfromList.setSocketChannel(peer.getSocketChannel());
 //                                                        pfromList.ip = peer.ip;
@@ -480,37 +482,37 @@ public class ConnectionHandler extends Thread {
 //                                                        //Test.peerList.remove(peer);//remove new generated peer
 //                                                        peer = pfromList;
 
-                                                    peer.migratePeer(pfromList);
+                                                peer.migratePeer(pfromList);
 
-                                                    //ToDo: block
-                                                    Test.removePeer(pfromList);
-                                                    Test.findPeerNonce(peer);
+                                                //ToDo: block
+                                                Test.removePeer(pfromList);
+                                                Test.findPeerNonce(peer);
 
 //                                                        System.out.println("dbwdwgzdw " + peer.isConnected());
 //
 //                                                        System.out.println("Migrated this connection to existend peer object...");
 //                                                        System.out.println("since: " + pfromList.lastAllMsgsQuerried);
-                                                    break;
-                                                }
-
+                                                break;
                                             }
 
-                                            if (!found) {
+                                        }
+
+                                        if (!found) {
 //                                                    System.out.println("Peer not found in list, adding new peer...");
-                                                //Test.peerList.add(peer);
-                                                Test.findPeerNonce(peer);
+                                            //Test.peerList.add(peer);
+                                            Test.findPeerNonce(peer);
 //                                                    System.out.println("IP: " + peer.ip + " nonce: " + peer.nonce);
-                                            }
+                                        }
 
 //                                                if (!closeNew) {
-                                            peer.port = port;
-                                            peer.connectedSince = System.currentTimeMillis();
-                                            peer.connectAble = 1;
-                                            peer.lastActionOnConnection = System.currentTimeMillis();
-                                            peer.firstCommandsProceeded = true;
+                                        peer.port = port;
+                                        peer.connectedSince = System.currentTimeMillis();
+                                        peer.connectAble = 1;
+                                        peer.lastActionOnConnection = System.currentTimeMillis();
+                                        peer.firstCommandsProceeded = true;
 
 //                                                }
-                                        }
+                                        Test.peerListLock.unlock();
 //                                        if (Settings.lightClient) {
 ////                                if (!found) { //new peer
 //                                            String out = ADDFILTERADDRESS + ":";
@@ -753,7 +755,7 @@ public class ConnectionHandler extends Thread {
         if (command == (byte) 1) {
             Log.put("Command: get PeerList", 8);
 
-            ByteBuffer tempWriteBuffer = ByteBuffer.allocate(2048);
+            ByteBuffer tempWriteBuffer = ByteBuffer.allocate(1024 * 10);
             tempWriteBuffer.put((byte) 2);
 
             ArrayList<Peer> clonedPeerList = Test.getClonedPeerList();
@@ -770,17 +772,14 @@ public class ConnectionHandler extends Thread {
                 }
 
                 if (p1.connectAble == 1 && p1.ip.split("\\.").length == 4) {
-                    validPeers.add(p1);
+                    if (validPeers.size() < 254) { //currently only 254 peers possible since the counter for it is just a byte. probably just send two seperated lists
+                        validPeers.add(p1);
+                    }
                 }
                 if (p1.connectAble == 1 && p1.ip.split("\\.").length != 4) {
                     validPeersIPv6.add(p1);
                 }
 
-            }
-
-            if (validPeers.size() > 254) {
-                System.out.println("WARNING, error code: Xj3GFc3xui (code must be extened for so much peers...)");
-                return 1;
             }
 
             tempWriteBuffer.put((byte) validPeers.size());
@@ -816,8 +815,8 @@ public class ConnectionHandler extends Thread {
                 putUnsignedShot(tempWriteBuffer, p1.port);
             }
 
-            peer.writeBufferLock.lock();
             tempWriteBuffer.flip();
+            peer.writeBufferLock.lock();
             writeBuffer.put(tempWriteBuffer);
             peer.writeBufferLock.unlock();
             return 1;
@@ -847,9 +846,24 @@ public class ConnectionHandler extends Thread {
                 int ipblock4 = (int) readBuffer.get() & 0xFF;
                 int port = readUnsignedShort(readBuffer);
                 String ip = ipblock1 + "." + ipblock2 + "." + ipblock3 + "." + ipblock4;
-                Peer newPeer = new Peer(ip, port);
-                //System.out.println("Peerexchange: new peer " + ip + ":" + port);
-                Test.findPeer(newPeer);
+                Peer peerToAdd = new Peer(ip, port);
+
+                boolean alreadyInList = false;
+
+                ArrayList<Peer> clonedPeerList = getClonedPeerList();
+
+                for (Peer tpeer : clonedPeerList) {
+
+                    if (tpeer.equalsIpAndPort(peerToAdd)) {
+                        alreadyInList = true;
+                    }
+
+                }
+
+                //System.out.println("asdasdasd " + alreadyInList + " " + ip);
+                if (!alreadyInList) {
+                    Test.messageStore.insertPeerConnectionInformation(ip, port);
+                }
 
             }
 

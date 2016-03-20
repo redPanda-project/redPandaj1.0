@@ -493,7 +493,7 @@ public class MessageVerifierHsqlDb {
 
                                                                 int actCons = 0;
 
-                                                                ArrayList<Peer> list = (ArrayList<Peer>) peerList.clone();
+                                                                ArrayList<Peer> list = Test.getClonedPeerList();
                                                                 Collections.sort(list);
 
                                                                 for (Peer peer : list) {

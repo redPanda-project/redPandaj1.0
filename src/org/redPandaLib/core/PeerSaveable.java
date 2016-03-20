@@ -19,7 +19,7 @@ public class PeerSaveable implements Serializable {
     int port;
     long lastAllMsgsQuerried;
     long nonce;
-    long retries;
+    int retries;
     //ArrayList<Integer> loadedMsgs;
     //ArrayList<Integer> sendMessages;
     //HashMap<Integer, RawMsg> pendingMessages;
@@ -28,7 +28,7 @@ public class PeerSaveable implements Serializable {
     //int synchronizedMessages;
 //    int lastSuccessfulySendMessageHeader;
 
-    public PeerSaveable(String ip, int port, long lastAllMsgsQuerried, long nonce, long retries) {
+    public PeerSaveable(String ip, int port, long lastAllMsgsQuerried, long nonce, int retries) {
         this.ip = ip;
         this.port = port;
         this.lastAllMsgsQuerried = lastAllMsgsQuerried;

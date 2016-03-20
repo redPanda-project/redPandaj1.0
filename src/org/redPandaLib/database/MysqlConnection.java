@@ -100,7 +100,6 @@ public class MysqlConnection {
         stmt.executeUpdate("create  table if not exists pubkey (pubkey_id integer PRIMARY KEY AUTO_INCREMENT, pubkey BINARY(33) UNIQUE)");
         stmt.executeUpdate("create  table if not exists channel (channel_id integer PRIMARY KEY AUTO_INCREMENT, pubkey_id INTEGER UNIQUE, private_key BINARY(32) UNIQUE, name MEDIUMBLOB)");
 
-
         stmt.executeUpdate("create  table if not exists message (message_id INTEGER PRIMARY KEY AUTO_INCREMENT, pubkey_id INTEGER, public_type TINYINT, timestamp BIGINT, nonce INTEGER,  signature BINARY(72), content MEDIUMBLOB, verified boolean)");
         stmt.executeUpdate("create  table if not exists channelmessage (pubkey_id INTEGER, message_id INTEGER PRIMARY KEY AUTO_INCREMENT, message_type INTEGER, public_type TINYINT, timestamp BIGINT, nonce INTEGER, decryptedContent MEDIUMBLOB, identity BIGINT, fromMe BOOLEAN, FOREIGN KEY (pubkey_id) REFERENCES pubkey(pubkey_id))");
 
@@ -113,6 +112,8 @@ public class MysqlConnection {
         stmt.executeUpdate("create  table if not exists notReadMessage (message_id INTEGER, FOREIGN KEY (message_id) REFERENCES channelmessage(message_id) ON DELETE CASCADE)");
 
         stmt.executeUpdate("create  table if not exists channelKnownLevel (forChannel INTEGER, identity BIGINT, fromChannel INTEGER, level INTEGER)");
+
+        stmt.executeUpdate("create  table if not exists peerConnectionInformation (ip VARCHAR(254), port INTEGER, status INTEGER)");
 
         stmt.executeUpdate("CREATE TABLE if not exists msgcounter (id INTEGER not null primary key)");
         ResultSet executeQuery = stmt.executeQuery("SELECT * FROM msgcounter");
