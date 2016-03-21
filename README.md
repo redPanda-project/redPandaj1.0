@@ -36,6 +36,8 @@ How can you help us?
 We are searching for people who are interested in this project and wants to contribute to.
 We also need to test the network. So, you can help us by setting up a node (which will update automatically) and set up a portforward if possible. RedPanda already supports ipv6 addresses. The default port is 59558 (TCP).
 
+We also need more bootstrap nodes via DNS or fixed IP address.
+Please write an email to redPandaProject@protonmail.com if you have a node which is online most of the time and is reachable via a fixed IP address or DNS entry.
 
 The System
 =========
