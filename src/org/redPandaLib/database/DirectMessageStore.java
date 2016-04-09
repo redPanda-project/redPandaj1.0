@@ -1614,8 +1614,19 @@ public class DirectMessageStore implements MessageStore {
         return -1;
     }
 
+    /**
+     * Inserts if not exists in db. If exists status and avoidUntil values are
+     * ignored! If values are important use
+     * setStatusForPeerConnectionInformation after this call!
+     *
+     * @param ip
+     * @param port
+     * @param status
+     * @param avoidUntil
+     */
     @Override
-    public void insertPeerConnectionInformation(String ip, int port) {
+    public void insertPeerConnectionInformation(String ip, int port, int status, long avoidUntil) {
+        //ToDo: transaction rollback!!
         try {
             //get Key Id
             String query = "SELECT ip,port from peerConnectionInformation WHERE ip like ? AND port = ?";
@@ -1627,7 +1638,19 @@ public class DirectMessageStore implements MessageStore {
             pstmt = connection.prepareStatement(query);
             pstmt.setString(1, ip);
             pstmt.setInt(2, port);
-            executeQuery = pstmt.executeQuery();
+
+            boolean done = false;
+            while (!done) {
+                try {
+                    executeQuery = pstmt.executeQuery();
+                    done = true;
+                } catch (SQLTransactionRollbackException e) {
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException ex) {
+                    }
+                }
+            }
 
             if (!executeQuery.next()) {
 
@@ -1638,8 +1661,8 @@ public class DirectMessageStore implements MessageStore {
                 pstmt = connection.prepareStatement(query);
                 pstmt.setString(1, ip);
                 pstmt.setInt(2, port);
-                pstmt.setInt(3, 0);
-                pstmt.setLong(4, 0);
+                pstmt.setInt(3, status);
+                pstmt.setLong(4, avoidUntil);
                 pstmt.execute();
 
             }
@@ -1697,7 +1720,18 @@ public class DirectMessageStore implements MessageStore {
             pstmt.setLong(1, System.currentTimeMillis());
             pstmt.setInt(2, count);
 
-            executeQuery = pstmt.executeQuery();
+            boolean done = false;
+            while (!done) {
+                try {
+                    executeQuery = pstmt.executeQuery();
+                    done = true;
+                } catch (SQLTransactionRollbackException e) {
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException ex) {
+                    }
+                }
+            }
 
             ArrayList<IpAndPort> arrayList = new ArrayList<IpAndPort>();
 
@@ -1761,7 +1795,7 @@ public class DirectMessageStore implements MessageStore {
                 int status = executeQuery.getInt(3);
                 long avoidUntil = executeQuery.getLong(4);
 
-                System.out.println("db entry: " + String.format("%45s", ip) + " " + port + " " + status + " " + avoidUntil);
+//                System.out.println("db entry: " + String.format("%45s", ip) + " " + port + " " + status + " " + avoidUntil);
             }
             executeQuery.close();
             pstmt.close();

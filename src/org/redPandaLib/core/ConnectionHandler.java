@@ -692,6 +692,7 @@ public class ConnectionHandler extends Thread {
                     Peer peer = ((Peer) key.attachment());
                     System.out.println("error! " + peer.ip + ":" + peer.port);
                     e.printStackTrace();
+                    peer.disconnect("IOException");
                 } catch (Throwable e) {
                     key.cancel();
                     Peer peer = ((Peer) key.attachment());
@@ -699,6 +700,7 @@ public class ConnectionHandler extends Thread {
                     e.printStackTrace();
                     //peer.disconnect(" IOException 4827f3fj");
                     Test.sendStacktrace("Fatal exception!", e);
+                    peer.disconnect("Fatal exception");
                 }
 
             }
@@ -862,7 +864,7 @@ public class ConnectionHandler extends Thread {
 
                 //System.out.println("asdasdasd " + alreadyInList + " " + ip);
                 if (!alreadyInList) {
-                    Test.messageStore.insertPeerConnectionInformation(ip, port);
+                    Test.messageStore.insertPeerConnectionInformation(ip, port, 0, System.currentTimeMillis());
                 }
 
             }

@@ -44,8 +44,25 @@ public class WatchDog {
                             ownStackTrace += a.toString() + "\n";
                         }
                         String lastLine = stackTrace[stackTrace.length - 1].toString();
-                        if (!lastLine.contains("ConnectionHandler.java:172") && !lastLine.contains("ConnectionHandler.java:219")) {
-                            Main.sendBroadCastMsg("Wuff! Wuff! ConnectionHandler didn't run for quite a while: " + delay + "\nState: " + Test.connectionHandler.getState() + "\nStackTrace: " + ownStackTrace);
+                        if ((!lastLine.contains("ConnectionHandler.java:174") && !lastLine.contains("ConnectionHandler.java:221")) || (Test.peerListLock.isLocked())) {
+
+                            String lockString = "";
+
+                            if (Test.peerListLock.isLocked()) {
+                                Thread ownerExtended = Test.peerListLock.getOwnerExtended();
+
+                                if (ownerExtended == null) {
+                                    Main.sendBroadCastMsg("peerlist is locked but getowner was null");
+                                } else {
+                                    lockString += "\n\n\npeerlist lockString: ";
+                                    lockString += ownerExtended.getName() + "\nstacktrace of thread: ";
+
+                                    lockString += Test.peerListLock.getLastSuccesfullLockThreadStack();
+                                }
+
+                            }
+
+                            Main.sendBroadCastMsg("Wuff! Wuff! ConnectionHandler didn't run for quite a while (" + Test.peerListLock.isLocked() + "): " + delay + "\nState: " + Test.connectionHandler.getState() + "\nStackTrace: " + ownStackTrace + lockString);
                             return;
                         } else {
                             //Main.sendBroadCastMsg("No Wuff!");

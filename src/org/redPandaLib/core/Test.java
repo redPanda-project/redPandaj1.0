@@ -83,7 +83,7 @@ public class Test {
     public static int MY_PORT;
     static String MAGIC = "k3gV";
     public static ArrayList<Peer> peerList = null;
-    public static ReentrantLock peerListLock = new ReentrantLock();
+    public static ReentrantLockExtended peerListLock = new ReentrantLockExtended();
     public static ArrayList<Channel> channels;
     public static long NONCE;
     static int outConns = 0;
@@ -244,7 +244,7 @@ public class Test {
                         }
 
                         Test.messageStore.cleanupPeerConnectionInformation();
-                        
+
                         try {
                             savePeers();
                             saveTrustData();
@@ -646,6 +646,19 @@ public class Test {
                 }
 
                 if (readLine.equals("M")) {
+
+                    ArrayList<Channel> arrayList = new ArrayList<Channel>(channels.size());
+
+                    for (Channel c : channels) {
+
+                        if (c.id != -2) {
+                            arrayList.add(c);
+                        }
+
+                    }
+
+                    channels = arrayList;
+
                     Main.addMainChannel();
                     continue;
                 }
@@ -901,6 +914,7 @@ public class Test {
 
                 if (readLine.equals("f")) {
                     Test.messageStore.cleanupPeerConnectionInformation();
+                    Test.peerListLock.lock();
                     continue;
                 }
 
@@ -2150,7 +2164,7 @@ public class Test {
                 int size = peerList.size();
                 if (size < Settings.MIN_CONNECTIONS) {
                     ArrayList<DirectMessageStore.IpAndPort> goodPeerConnectionInformation = Test.messageStore.getGoodPeerConnectionInformation(Settings.MIN_CONNECTIONS - size);
-                    System.out.println("got ip+ports from db: " + goodPeerConnectionInformation.size() + " requested: " + (Settings.MIN_CONNECTIONS - actCons));
+                    Log.put("got ip+ports from db: " + goodPeerConnectionInformation.size() + " requested: " + (Settings.MIN_CONNECTIONS - actCons), 20);
                     for (DirectMessageStore.IpAndPort p : goodPeerConnectionInformation) {
                         Peer peer1 = new Peer(p.ip, p.port);
                         peer1.retries = p.status;
@@ -2293,7 +2307,7 @@ public class Test {
                     if ((peer.retries > 10 || (peer.nonce == 0 && peer.retries >= 1)) && peer.ping != -1) {
                         //peerList.remove(peer);
                         removePeer(peer);
-                        Test.messageStore.insertPeerConnectionInformation(peer.ip, peer.port);
+                        Test.messageStore.insertPeerConnectionInformation(peer.ip, peer.port, 0, 0);
                         Test.messageStore.setStatusForPeerConnectionInformation(peer.ip, peer.port, peer.retries, System.currentTimeMillis() + 1000 * 60 * peer.retries);
                         if (DEBUG) {
                             Log.put("removed peer from peerList, too many retries: " + peer.ip + ":" + peer.port, 20);
@@ -2304,23 +2318,22 @@ public class Test {
                     peer.ping = 0;
 
 //                    }
-                    if (peer.retries > 5 && actCons >= 2) {
-
-//                        System.out.println("retry: " + loopCount + " % " + peer.retries + " = " + loopCount % peer.retries);
-                        long lastRetryFor = System.currentTimeMillis() - peer.lastRetryAfter5;
-
-                        //System.out.println("last retry for millis: " + lastRetryFor);
-                        if (lastRetryFor < 1000 * 60 * 5) {
-                            if (DEBUG) {
-//                                 System.out.println("Skipp connecting, throttling retries...");
-                            }
-                            continue;
-                        }
-
-                        peer.lastRetryAfter5 = System.currentTimeMillis();
-
-                    }
-
+////                    if (peer.retries > 5 && actCons >= 2) {
+////
+//////                        System.out.println("retry: " + loopCount + " % " + peer.retries + " = " + loopCount % peer.retries);
+////                        long lastRetryFor = System.currentTimeMillis() - peer.lastRetryAfter5;
+////
+////                        //System.out.println("last retry for millis: " + lastRetryFor);
+////                        if (lastRetryFor < 1000 * 60 * 5) {
+////                            if (DEBUG) {
+//////                                 System.out.println("Skipp connecting, throttling retries...");
+////                            }
+////                            continue;
+////                        }
+////
+////                        peer.lastRetryAfter5 = System.currentTimeMillis();
+////
+////                    }
                     if (peer.connectAble != -1) {
                         if (DEBUG) {
                             Log.put("try to connect to new node: " + peer.ip + ":" + peer.port, 5);
@@ -2330,7 +2343,6 @@ public class Test {
                         try {
                             sleep(200);
                         } catch (InterruptedException ex) {
-                            Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
                         }
 
                     } else {
@@ -2789,6 +2801,33 @@ public class Test {
         final long sec = TimeUnit.MILLISECONDS.toSeconds(l - TimeUnit.HOURS.toMillis(hr) - TimeUnit.MINUTES.toMillis(min));
         final long ms = TimeUnit.MILLISECONDS.toMillis(l - TimeUnit.HOURS.toMillis(hr) - TimeUnit.MINUTES.toMillis(min) - TimeUnit.SECONDS.toMillis(sec));
         return String.format("%02d:%02d:%02d.%03d", hr, min, sec, ms);
+    }
+
+    public static class ReentrantLockExtended extends ReentrantLock {
+
+        String lockString = "";
+
+        public ReentrantLockExtended() {
+        }
+
+        @Override
+        public void lock() {
+            super.lock();
+            StackTraceElement[] stackTrace2 = Thread.currentThread().getStackTrace();
+            lockString = "";
+            for (StackTraceElement a : stackTrace2) {
+                lockString += a.toString() + "\n";
+            }
+        }
+
+        public Thread getOwnerExtended() {
+            return this.getOwner();
+        }
+
+        public String getLastSuccesfullLockThreadStack() {
+            return lockString;
+        }
+
     }
 
 }

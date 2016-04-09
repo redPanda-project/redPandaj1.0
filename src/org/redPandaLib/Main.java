@@ -191,6 +191,8 @@ public class Main {
      */
     public static void sendBroadCastMsg(String text) {
 
+        System.out.println(text);
+        
 //        Test.clientVersion++;
 //
 //        if (Test.channels == null) {

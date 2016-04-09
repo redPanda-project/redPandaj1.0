@@ -118,7 +118,7 @@ public interface MessageStore {
 
     public int getNextChannelMessageId();
 
-    public void insertPeerConnectionInformation(String ip, int port);
+    public void insertPeerConnectionInformation(String ip, int port, int status, long avoidUntil);
 
     public void setStatusForPeerConnectionInformation(String ip, int port, int newStatus, long avoidUntil);
 
