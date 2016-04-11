@@ -28,6 +28,7 @@ import org.spongycastle.asn1.*;
 import org.spongycastle.asn1.sec.SECNamedCurves;
 import org.spongycastle.asn1.x9.X9ECParameters;
 import org.spongycastle.crypto.AsymmetricCipherKeyPair;
+import org.spongycastle.crypto.agreement.ECDHBasicAgreement;
 import org.spongycastle.crypto.digests.SHA256Digest;
 import org.spongycastle.crypto.ec.CustomNamedCurves;
 import org.spongycastle.crypto.generators.ECKeyPairGenerator;
@@ -830,5 +831,16 @@ public class ECKey implements Serializable {
         if (!b) {
             throw new IllegalArgumentException(a);
         }
+    }
+    
+    
+    public BigInteger deffiehelman(byte[] otherPublicBytes) {
+        ECPrivateKeyParameters privKey = new ECPrivateKeyParameters(priv, CURVE);
+        ECDHBasicAgreement agreementGenerator = new ECDHBasicAgreement();
+        agreementGenerator.init(privKey);
+        ECPublicKeyParameters params = new ECPublicKeyParameters(CURVE.getCurve().decodePoint(otherPublicBytes), CURVE);
+        BigInteger calculateAgreement = agreementGenerator.calculateAgreement(params);
+        //System.out.println("asd " + calculateAgreement);
+        return calculateAgreement;
     }
 }

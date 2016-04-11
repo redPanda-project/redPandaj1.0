@@ -8,6 +8,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.security.Key;
 import java.util.Arrays;
@@ -24,6 +25,8 @@ import javax.crypto.spec.SecretKeySpec;
  * @author robin
  */
 public class AESCrypt {
+
+    private static final int AES_BLOCK_SIZE = 16;
 
     public static void main(String[] args) {
         try {
@@ -50,6 +53,7 @@ public class AESCrypt {
 
     }
 
+    //ToDo: change IV to not inlcude pass but other 8 'random' bytes?
     public static byte[] encode(byte[] pass, long timestamp, byte[] toEncode) {
         try {
             byte[] ivBytes = new byte[16];
@@ -99,7 +103,6 @@ public class AESCrypt {
         OutputStream cos = new CipherOutputStream(out, c);
         cos.write(bytes);
         cos.close();
-
     }
 
     public static byte[] decode(byte[] pass, long timestamp, byte[] toDecode) {
@@ -147,6 +150,58 @@ public class AESCrypt {
 
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         CipherInputStream cis = new CipherInputStream(is, c);
+
+        for (int b; (b = cis.read()) != -1;) {
+            bos.write(b);
+        }
+
+        cis.close();
+
+        return bos.toByteArray();
+    }
+
+    public static byte[] encodeCTR(byte[] bytes, byte[] pass, long ivbytes) throws Exception {
+
+        byte[] ivBytes2 = new byte[16];
+        ByteBuffer buffer = ByteBuffer.wrap(ivBytes2);
+        buffer.putLong(12312L);
+        buffer.putLong(ivbytes);
+
+        IvParameterSpec iv = new IvParameterSpec(ivBytes2, 0, 16);
+
+        System.out.println("iv: " + Utils.bytesToHexString(ivBytes2));
+
+        Cipher c = Cipher.getInstance("AES/CTR/NoPadding");
+        Key k = new SecretKeySpec(pass, "AES");
+        c.init(Cipher.ENCRYPT_MODE, k, iv);
+
+        ByteArrayOutputStream encodedBytes = new ByteArrayOutputStream();
+        OutputStream cos = new CipherOutputStream(encodedBytes, c);
+        cos.write(bytes);
+        cos.close();
+
+        System.out.println("new: " + Utils.bytesToHexString(c.getIV()));
+
+        return encodedBytes.toByteArray();
+    }
+
+    public static byte[] decodeCTR(byte[] toDecode, byte[] pass, long ivbytes) throws Exception {
+
+        byte[] ivBytes2 = new byte[16];
+        ByteBuffer buffer = ByteBuffer.wrap(ivBytes2);
+        buffer.putLong(12312L);
+        buffer.putLong(ivbytes);
+
+        IvParameterSpec iv = new IvParameterSpec(ivBytes2, 0, 16);
+
+        Cipher c = Cipher.getInstance("AES/CTR/NoPadding");
+        Key k = new SecretKeySpec(pass, "AES");
+        c.init(Cipher.DECRYPT_MODE, k, iv);
+
+        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(toDecode);
+
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        CipherInputStream cis = new CipherInputStream(byteArrayInputStream, c);
 
         for (int b; (b = cis.read()) != -1;) {
             bos.write(b);
