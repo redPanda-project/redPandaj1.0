@@ -78,7 +78,7 @@ public class StatsGUI {
 
                     int actCons = 0;
 
-                    ArrayList<Peer> list = (ArrayList<Peer>) peerList.clone();
+                    ArrayList<Peer> list = getClonedPeerList();
 
                     try {
                         Collections.sort(list, new Comparator<Peer>() {
@@ -97,7 +97,7 @@ public class StatsGUI {
                             }
                         });
                     } catch (IllegalArgumentException e) {
-                        System.out.println("konnte nicht sortieren!!");
+                        //System.out.println("konnte nicht sortieren!!");
                     }
 
 //                    System.out.println("IP:PORT \t\t\t\t\t\t Nonce \t\t\t Last Answer \t Alive \t retries \t LoadedMsgs \t Ping \t Authed \t PMSG\n");
@@ -194,7 +194,7 @@ public class StatsGUI {
 //                            }
 //                            Main.useHsqlDatabase();
                     format += String.format("Processed messages: " + MessageHolder.getMessageCount() + " - Queue to verify: " + MessageHolder.getMessageCountToVerify());
-
+                    format += String.format("\nLRU Cache size: " + MessageDownloader.channelIdToLatestBlockTime.size());
                     //MessageVerifierHsqlDb.sem.release();
                     //String replaceAll = format.replaceAll("\n", "<br/>");
 //                    jLabel.setText("<html>" + replaceAll + "</html>");
@@ -213,25 +213,25 @@ public class StatsGUI {
         org.redPandaLib.Main.addListener(
                 new NewMessageListener() {
 
-                    @Override
-                    public void newMessage(TextMessageContent msg) {
+            @Override
+            public void newMessage(TextMessageContent msg) {
 
-                        System.out.println("###################\n# Neue Nachricht [" + msg.channel.getName() + " -- " + msg.identity + "]\n#   " + msg.text + "\n###################");
+                System.out.println("###################\n# Neue Nachricht [" + msg.channel.getName() + " -- " + msg.identity + "]\n#   " + msg.text + "\n###################");
 
-                    }
-                });
+            }
+        });
 
         Settings.readGeneralDotDat();
 
         //org.redPandaLib.Main.useMysqlDatabase();
         org.redPandaLib.Main.useHsqlDatabase();
 
-        Log.LEVEL = 10000;
+        Log.LEVEL = 0000;
         Settings.lightClient = false;
         Settings.SUPERNODE = true;
         Settings.REDUCE_TRAFFIC = false;
-        Settings.MIN_CONNECTIONS = 400;
-        Settings.MAX_CONNECTIONS = 500;
+        Settings.MIN_CONNECTIONS = 10;
+        Settings.MAX_CONNECTIONS = 12;
 
         Settings.pingDelay = 10;
 

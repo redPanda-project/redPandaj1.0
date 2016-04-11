@@ -6,6 +6,7 @@
 package org.redPandaLib.test;
 
 import org.redPandaLib.core.Channel;
+import org.redPandaLib.crypt.Base58;
 import org.redPandaLib.crypt.ECKey;
 
 /**
@@ -18,6 +19,7 @@ public class CreateNewChannel {
 
         Channel channel = new Channel(new ECKey(), "temp");
         System.out.println("new key to import: " + channel.exportForHumans());
+        System.out.println("priv key: " + channel.getPrivateKey());
 
     }
 }

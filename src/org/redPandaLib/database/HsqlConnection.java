@@ -151,13 +151,15 @@ public class HsqlConnection {
 
         stmt.executeUpdate("create CACHED table if not exists channelKnownLevel (forChannel INTEGER, identity BIGINT, fromChannel INTEGER, level INTEGER)");
 
-        stmt.executeUpdate("CREATE TABLE if not exists msgcounter (id INTEGER not null primary key)");
+        stmt.executeUpdate("create CACHED table if not exists peerConnectionInformation (ip VARCHAR(254), port INTEGER, status INTEGER, avoidUntil BIGINT)");
+
+        stmt.executeUpdate("CREATE CACHED TABLE if not exists msgcounter (id INTEGER not null primary key)");
         ResultSet executeQuery = stmt.executeQuery("SELECT * FROM msgcounter");
         if (!executeQuery.next()) {//only insert if empty
             stmt.executeUpdate("INSERT INTO msgcounter VALUES (1)");
         }
         executeQuery.close();
-        stmt.executeUpdate("CREATE TABLE if not exists msgcounterchannel (id INTEGER not null primary key)");
+        stmt.executeUpdate("CREATE CACHED TABLE if not exists msgcounterchannel (id INTEGER not null primary key)");
         executeQuery = stmt.executeQuery("SELECT * FROM msgcounterchannel");
         if (!executeQuery.next()) {//only insert if empty
             stmt.executeUpdate("INSERT INTO msgcounterchannel VALUES (2)");
@@ -170,6 +172,15 @@ public class HsqlConnection {
         //        System.out.println("d3uwne3quzne " + executeQuery.getFetchSize());
         //        executeQuery.close();
         //        stmt.executeUpdate("create CACHED table if not exists syncHash (channel_id integer, from BIGINT, to BIGINT, count INTEGER, hashcode INTEGER)");
+        String[] keys = {"ip", "status", "avoidUntil"};
+        String tableName = "peerConnectionInformation";
+        for (String key : keys) {
+            try {
+                stmt.executeUpdate("CREATE INDEX " + tableName + key + "Index ON " + tableName + "(" + key + ")");
+            } catch (SQLSyntaxErrorException e) {
+            }
+        }
+
         try {
             stmt.executeUpdate("CREATE INDEX messagePubkeyIndex ON message(pubkey_id)");
         } catch (SQLSyntaxErrorException e) {
@@ -207,11 +218,11 @@ public class HsqlConnection {
             stmt.executeUpdate("CREATE INDEX peerMessagesIntroducedToHimIndexForMsgId ON peerMessagesIntroducedToHim(message_id)");
         } catch (SQLSyntaxErrorException e) {
         }
-        String[] keys = {"pubkey_id", "message_type", "message_id", "timestamp"};
-        String tableName = "channelmessage";
-        for (String key : keys) {
+        String[] keys2 = {"pubkey_id", "message_type", "message_id", "timestamp"};
+        String tableName2 = "channelmessage";
+        for (String key : keys2) {
             try {
-                stmt.executeUpdate("CREATE INDEX " + tableName + key + "Index ON " + tableName + "(" + key + ")");
+                stmt.executeUpdate("CREATE INDEX " + tableName2 + key + "Index ON " + tableName2 + "(" + key + ")");
             } catch (SQLSyntaxErrorException e) {
             }
         }

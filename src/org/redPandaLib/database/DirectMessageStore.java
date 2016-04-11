@@ -508,7 +508,7 @@ public class DirectMessageStore implements MessageStore {
         try {
             //get Key Id
             //String query = "SELECT message_id,pubkey.pubkey_id, pubkey,public_type,timestamp,nonce,signature,content,verified from message left join pubkey on (pubkey.pubkey_id = message.pubkey_id) WHERE timestamp > ? order by timestamp asc";
-            String query = "SELECT message.message_id,pubkey.pubkey_id, pubkey,public_type,timestamp,nonce,signature,verified from haveToSendMessageToPeer left join message on (haveToSendMessageToPeer.message_id = message.message_id) left join pubkey on (message.pubkey_id = pubkey.pubkey_id) WHERE timestamp > ? AND peer_id = ? order by timestamp asc LIMIT 300";
+            String query = "SELECT message.message_id,pubkey.pubkey_id, pubkey,public_type,timestamp,nonce,signature,verified from haveToSendMessageToPeer left join message on (haveToSendMessageToPeer.message_id = message.message_id) left join pubkey on (message.pubkey_id = pubkey.pubkey_id) WHERE timestamp > ? AND peer_id = ? order by timestamp asc LIMIT 600";
             PreparedStatement pstmt = connection.prepareStatement(query);
             //pstmt.setFetchSize(100);
             pstmt.setLong(1, from);
@@ -1612,6 +1612,250 @@ public class DirectMessageStore implements MessageStore {
         }
 
         return -1;
+    }
+
+    /**
+     * Inserts if not exists in db. If exists status and avoidUntil values are
+     * ignored! If values are important use
+     * setStatusForPeerConnectionInformation after this call!
+     *
+     * @param ip
+     * @param port
+     * @param status
+     * @param avoidUntil
+     */
+    @Override
+    public void insertPeerConnectionInformation(String ip, int port, int status, long avoidUntil) {
+        //ToDo: transaction rollback!!
+        try {
+            //get Key Id
+            String query = "SELECT ip,port from peerConnectionInformation WHERE ip like ? AND port = ?";
+            //stmt.executeQuery("SELECT id,key from pubkey WHERE key EQUASLS "+ msg.getKey().getPubKey())
+
+            PreparedStatement pstmt = null;
+            ResultSet executeQuery = null;
+
+            pstmt = connection.prepareStatement(query);
+            pstmt.setString(1, ip);
+            pstmt.setInt(2, port);
+
+            boolean done = false;
+            while (!done) {
+                try {
+                    executeQuery = pstmt.executeQuery();
+                    done = true;
+                } catch (SQLTransactionRollbackException e) {
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException ex) {
+                    }
+                }
+            }
+
+            if (!executeQuery.next()) {
+
+                executeQuery.close();
+                pstmt.close();
+
+                query = "INSERT into peerConnectionInformation (ip,port,status,avoidUntil) VALUES (?,?,?,?)";
+                pstmt = connection.prepareStatement(query);
+                pstmt.setString(1, ip);
+                pstmt.setInt(2, port);
+                pstmt.setInt(3, status);
+                pstmt.setLong(4, avoidUntil);
+                pstmt.execute();
+
+            }
+        } catch (SQLException ex) {
+            Test.sendStacktrace(ex);
+        }
+
+    }
+
+    @Override
+    public void setStatusForPeerConnectionInformation(String ip, int port, int newStatus, long avoidUntil) {
+        try {
+            String query = "UPDATE peerConnectionInformation SET status = ?, avoidUntil = ?  WHERE ip like ? AND port = ?";
+
+            PreparedStatement pstmt = null;
+
+            pstmt = connection.prepareStatement(query);
+            pstmt.setInt(1, newStatus);
+            pstmt.setLong(2, avoidUntil);
+            pstmt.setString(3, ip);
+            pstmt.setInt(4, port);
+            pstmt.execute();
+        } catch (SQLException ex) {
+            Test.sendStacktrace(ex);
+        }
+
+    }
+
+    @Override
+    public void deletePeerConnectionInformation(String ip, int port) {
+        try {
+            String query = "DELETE from peerConnectionInformation WHERE ip like ? AND port = ?";
+
+            PreparedStatement pstmt = null;
+
+            pstmt = connection.prepareStatement(query);
+            pstmt.setString(1, ip);
+            pstmt.setInt(2, port);
+            pstmt.execute();
+        } catch (SQLException ex) {
+            Test.sendStacktrace(ex);
+        }
+
+    }
+
+    @Override
+    public ArrayList<IpAndPort> getGoodPeerConnectionInformation(int count) {
+        try {
+            String query = "SELECT ip, port, status, avoidUntil from peerConnectionInformation WHERE status >= 0 AND avoidUntil < ? ORDER BY status ASC LIMIT ?";
+
+            PreparedStatement pstmt = null;
+            ResultSet executeQuery = null;
+
+            pstmt = connection.prepareStatement(query);
+            pstmt.setLong(1, System.currentTimeMillis());
+            pstmt.setInt(2, count);
+
+            boolean done = false;
+            while (!done) {
+                try {
+                    executeQuery = pstmt.executeQuery();
+                    done = true;
+                } catch (SQLTransactionRollbackException e) {
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException ex) {
+                    }
+                }
+            }
+
+            ArrayList<IpAndPort> arrayList = new ArrayList<IpAndPort>();
+
+            while (executeQuery.next()) {
+
+                String ip = executeQuery.getString(1);
+                int port = executeQuery.getInt(2);
+                int status = executeQuery.getInt(3);
+                long avoidUntil = executeQuery.getLong(4);
+                IpAndPort ipAndPort = new IpAndPort(ip, port, status);
+                arrayList.add(ipAndPort);
+            }
+            return arrayList;
+        } catch (SQLException ex) {
+            Test.sendStacktrace(ex);
+        }
+        return null;
+    }
+
+    @Override
+    public int getPeerConnectionInformationSize() {
+        try {
+            String query = "SELECT count(ip) from peerConnectionInformation";
+
+            PreparedStatement pstmt = null;
+            ResultSet executeQuery = null;
+
+            pstmt = connection.prepareStatement(query);
+            executeQuery = pstmt.executeQuery();
+
+            executeQuery.next();
+
+            int size = executeQuery.getInt(1);
+            System.out.println("size: " + size);
+
+            executeQuery.close();
+            pstmt.close();
+            return size;
+        } catch (SQLException ex) {
+            Logger.getLogger(DirectMessageStore.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return -1;
+    }
+
+    @Override
+    public void cleanupPeerConnectionInformation() {
+
+        System.out.println("current db");
+        try {
+            String query = "SELECT ip, port, status, avoidUntil from peerConnectionInformation ORDER BY status ASC";
+
+            PreparedStatement pstmt = null;
+            ResultSet executeQuery = null;
+
+            pstmt = connection.prepareStatement(query);
+            executeQuery = pstmt.executeQuery();
+
+            while (executeQuery.next()) {
+                String ip = executeQuery.getString(1);
+                int port = executeQuery.getInt(2);
+                int status = executeQuery.getInt(3);
+                long avoidUntil = executeQuery.getLong(4);
+
+//                System.out.println("db entry: " + String.format("%45s", ip) + " " + port + " " + status + " " + avoidUntil);
+            }
+            executeQuery.close();
+            pstmt.close();
+        } catch (SQLException ex) {
+            Test.sendStacktrace(ex);
+        }
+
+        int toKeepAtLeast = 200;//ToDo: raise when the network grows...
+
+        try {
+            String query = "SELECT count(ip) from peerConnectionInformation";
+
+            PreparedStatement pstmt = null;
+            ResultSet executeQuery = null;
+
+            pstmt = connection.prepareStatement(query);
+            executeQuery = pstmt.executeQuery();
+
+            executeQuery.next();
+
+            int size = executeQuery.getInt(1);
+            System.out.println("size: " + size);
+
+            executeQuery.close();
+            pstmt.close();
+
+            if (size > toKeepAtLeast) {
+                pstmt = connection.prepareStatement("SELECT ip, port,status FROM peerConnectionInformation ORDER BY status DESC LIMIT ?");
+                pstmt.setInt(1, size - toKeepAtLeast);
+                executeQuery = pstmt.executeQuery();
+
+                while (executeQuery.next()) {
+                    String ip = executeQuery.getString(1);
+                    int port = executeQuery.getInt(2);
+                    int status = executeQuery.getInt(3);
+                    System.out.println("delete: " + String.format("%25s", ip) + " " + port + " status: " + status);
+                    deletePeerConnectionInformation(ip, port);
+                }
+                executeQuery.close();
+                pstmt.close();
+            }
+
+        } catch (SQLException ex) {
+            Test.sendStacktrace(ex);
+        }
+
+    }
+
+    public static class IpAndPort {
+
+        public String ip;
+        public int port;
+        public int status;
+
+        public IpAndPort(String ip, int port, int status) {
+            this.ip = ip;
+            this.port = port;
+            this.status = status;
+        }
+
     }
 
 }

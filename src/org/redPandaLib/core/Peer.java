@@ -33,7 +33,7 @@ public class Peer implements Comparable<Peer> {
     public String ip;
     public int port;
     public int connectAble = 0;
-    public long retries = 0;
+    public int retries = 0;
     long lastRetryAfter5 = 0;
     public long lastActionOnConnection = 0;
     int cnt = 0;
@@ -248,9 +248,13 @@ public class Peer implements Comparable<Peer> {
 //            } catch (IOException ex) {
 //            } catch (NotYetConnectedException e) {
 //            }
-                try {
-                    socketChannel.close();
-                } catch (IOException ex) {
+
+                if (socketChannel.isOpen()) {
+                    try {
+                        socketChannel.configureBlocking(false);//ToDo: hack
+                        socketChannel.close();
+                    } catch (IOException ex) {
+                    }
                 }
             }
 
@@ -272,6 +276,8 @@ public class Peer implements Comparable<Peer> {
         } catch (InterruptedException ex) {
             Logger.getLogger(Peer.class.getName()).log(Level.SEVERE, null, ex);
         }
+
+        Test.triggerOutboundthread();
 
     }
 

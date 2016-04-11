@@ -117,4 +117,16 @@ public interface MessageStore {
     public int getNextMessageId();
 
     public int getNextChannelMessageId();
+
+    public void insertPeerConnectionInformation(String ip, int port, int status, long avoidUntil);
+
+    public void setStatusForPeerConnectionInformation(String ip, int port, int newStatus, long avoidUntil);
+
+    public ArrayList<DirectMessageStore.IpAndPort> getGoodPeerConnectionInformation(int count);
+
+    public void deletePeerConnectionInformation(String ip, int port);
+
+    public void cleanupPeerConnectionInformation();
+
+    public int getPeerConnectionInformationSize();
 }

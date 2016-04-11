@@ -4,11 +4,14 @@
  */
 package org.redPandaLib.services;
 
+import com.mysql.jdbc.util.LRUCache;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 import java.util.concurrent.locks.ReentrantLock;
@@ -37,7 +40,7 @@ public class MessageDownloader {
     public static int messagesToVerify = 0;
     private static Random random = new Random();
     public static long lastRun = 0;
-    public static HashMap<Integer, Long> channelIdToLatestBlockTime = new HashMap<Integer, Long>();
+    public static Map<Integer, Long> channelIdToLatestBlockTime = Collections.synchronizedMap(new LruCache<Integer, Long>(500));
     public static ReentrantLock channelIdToLatestBlockTimeLock = new ReentrantLock();
     public static int WAIT_FOR_OTHER_NODES_TO_INTRODUCE = 0;
 
@@ -282,9 +285,8 @@ public class MessageDownloader {
                                     continue;
                                 }
 
-                          
                                 boolean removed = Test.messageStore.removeMessageToSend(p.getPeerTrustData().internalId, myMessageId);
-    
+
                                 Log.put("removed msg: " + p.ip + " " + p.getPeerTrustData().internalId + " - " + myMessageId + " -- " + m.public_type + " - " + removed, 80);
 
                                 if (!removed && !p.removedSendMessages.contains(myMessageId)) {
@@ -329,21 +331,10 @@ public class MessageDownloader {
                                 continue;
                             }
 
-                            Long latestBlockTime;
-                            if (Settings.DONT_REMOVE_UNUSED_MESSAGES) {
-                                latestBlockTime = Long.MIN_VALUE;
-                            } else {
-                                channelIdToLatestBlockTimeLock.lock();
-                                latestBlockTime = channelIdToLatestBlockTime.get(m.key.database_id);
-                                if (latestBlockTime == null) {
-                                    System.out.println("search in db: " + m.key.database_id);
-                                    latestBlockTime = Test.messageStore.getLatestBlocktime(m.key.database_id);
-                                    channelIdToLatestBlockTime.put(m.key.database_id, latestBlockTime);
-                                }
-                                channelIdToLatestBlockTimeLock.unlock();
-                            }
+                            m.key.database_id = Test.messageStore.getPubkeyId(m.key);
+                            //System.out.println("int: " + m.key.database_id);
 
-                            if (m.public_type == 20 && latestBlockTime > m.timestamp) {
+                            if (m.public_type == 20 && getLatestBlockTime(m.key.database_id) > m.timestamp) {
                                 synchronized (p.getPendingMessages()) {
                                     p.getPendingMessages().remove(messageId);
                                 }
@@ -434,9 +425,8 @@ public class MessageDownloader {
                                         get.requestedFromPeer.getPendingMessagesTimedOut().put(messageId, get.m);
                                         get.requestedFromPeer.getPendingMessages().remove(messageId);
                                         //ToDo: timeout for timeoutmessages
-                                    } else {
-
-                                        //System.out.println("MSG soft timeout... just requesting at another peer");
+                                    } else //System.out.println("MSG soft timeout... just requesting at another peer");
+                                    {
                                         if (get.requestedFromPeer == p) {
                                             //System.out.println("softtimeout, but already requested from this peer... " + p.nonce);
                                             System.out.print(":" + delay + ":");
@@ -596,4 +586,40 @@ public class MessageDownloader {
         MessageDownloader.requestedMsgs.remove(asEntryMsg);
         requestedMsgsLock.unlock();
     }
+
+    public static Long getLatestBlockTime(int key_databaseid) {
+        Long latestBlockTime;
+        if (Settings.DONT_REMOVE_UNUSED_MESSAGES) {
+            latestBlockTime = Long.MIN_VALUE;
+        } else {
+            channelIdToLatestBlockTimeLock.lock();
+            latestBlockTime = channelIdToLatestBlockTime.get(key_databaseid);
+            if (latestBlockTime == null) {
+                System.out.println("search in db: " + key_databaseid);
+                latestBlockTime = Test.messageStore.getLatestBlocktime(key_databaseid);
+                channelIdToLatestBlockTime.put(key_databaseid, latestBlockTime);
+                Log.put("latestblocktime: " + latestBlockTime, 5);
+            } else {
+                Log.put("latestblocktime: " + latestBlockTime + " (restored from memory)", 5);
+            }
+            channelIdToLatestBlockTimeLock.unlock();
+        }
+        return latestBlockTime;
+    }
+
+    private static class LruCache<A, B> extends LinkedHashMap<A, B> {
+
+        private final int maxEntries;
+
+        public LruCache(final int maxEntries) {
+            super(maxEntries + 1, 1.0f, true);
+            this.maxEntries = maxEntries;
+        }
+
+        @Override
+        protected boolean removeEldestEntry(final Map.Entry<A, B> eldest) {
+            return super.size() > maxEntries;
+        }
+    }
+
 }

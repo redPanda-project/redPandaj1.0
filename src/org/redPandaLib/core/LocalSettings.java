@@ -24,7 +24,7 @@ public class LocalSettings implements Serializable {
 
     public LocalSettings() {
         nonce = new Random().nextLong();
-        channelIdCounter = 0;
+        channelIdCounter = 1;
         PEX_ONLY = false;
         identity = new Random().nextLong();
         myIp = "";
