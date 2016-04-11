@@ -42,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.hsqldb.lib.tar.TarMalformatException;
 import org.redPandaLib.ChannelisNotWriteableException;
 import org.redPandaLib.ImageTooLargeException;
 import org.redPandaLib.Main;
@@ -914,7 +915,23 @@ public class Test {
 
                 if (readLine.equals("f")) {
                     Test.messageStore.cleanupPeerConnectionInformation();
+                    System.out.println("peerlist locked: " + Test.peerListLock.isLocked());
+                    continue;
+                }
+
+                if (readLine.equals("f2")) {
+
+                    System.out.println("peerlist locked: " + Test.peerListLock.isLocked());
                     Test.peerListLock.lock();
+                    for (Peer p : Test.getClonedPeerList()) {
+                        if (p.peerTrustData != null) {
+                            p.peerTrustData.keyToIdHis.clear();
+                            p.peerTrustData.keyToIdMine.clear();
+                        }
+                        p.disconnect("cleaned key lists");
+                    }
+                    Test.peerListLock.unlock();
+
                     continue;
                 }
 
@@ -1455,6 +1472,15 @@ public class Test {
 
                     }
 
+                    continue;
+                }
+
+                if (readLine.equals("bu")) {
+
+                    if (hsqlConnection != null) {
+                        hsqlConnection.createBackup();
+
+                    }
                     continue;
                 }
 

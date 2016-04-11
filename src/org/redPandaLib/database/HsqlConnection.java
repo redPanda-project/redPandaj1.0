@@ -1,6 +1,8 @@
 package org.redPandaLib.database;
 
+import java.io.EOFException;
 import java.io.File;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -11,6 +13,7 @@ import java.sql.Statement;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.hsqldb.HsqlException;
 import org.hsqldb.jdbc.JDBCConnection;
 import org.redPandaLib.core.Settings;
 import org.redPandaLib.core.Test;
@@ -70,6 +73,13 @@ public class HsqlConnection {
             System.err.println("Treiberklasse nicht gefunden!");
             return true;
         }
+
+        if (new File("loadbackup").exists()) {
+            new File("loadbackup").delete();
+            System.out.println("load backup !!!");
+            loadBackup();
+        }
+
         con = null;
         try {
             con = (JDBCConnection) DriverManager.getConnection(
@@ -84,6 +94,16 @@ public class HsqlConnection {
 //            System.out.println("REMOVE DATABASE FILE");
             con = (JDBCConnection) DriverManager.getConnection(
                     "jdbc:hsqldb:file:" + path + db_file + ";shutdown=true");
+        } catch (Exception e2) {
+            if (e2.getMessage().contains("error in script file line")) {
+                //try to load backup at next starup and exit, files may still be opened...
+                try {
+                    new File("loadbackup").createNewFile();
+                    System.exit(1);
+                } catch (IOException ex) {
+                    Logger.getLogger(HsqlConnection.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
         }
 
         Statement stmt = con.createStatement();
@@ -122,6 +142,10 @@ public class HsqlConnection {
 //                
 //            }
 // }.start();
+        if (!new File("data/backup", "messages.data").exists()) {
+            createBackup();
+        }
+
         return false;
     }
 
@@ -362,4 +386,84 @@ public class HsqlConnection {
     public Connection getConnection() {
         return con;
     }
+
+    public void createBackup() {
+
+        //move old backup
+        String[] files = new String[]{"messages.data", "messages.properties", "messages.script"};
+
+        for (String f : files) {
+            File backupfile = new File("data/backup/", f);
+            File backupfile2 = new File("data/backup/", f + ".bak");
+            backupfile.renameTo(backupfile2);
+        }
+
+        try {
+            Statement stmt = con.createStatement();
+            stmt.execute("CHECKPOINT DEFRAG");
+            System.out.println("checkpointed");
+            stmt.execute("BACKUP DATABASE TO 'backup/' BLOCKING AS FILES");
+            System.out.println("backed up");
+
+            //remove old backup
+            for (String f : files) {
+                File backupfile = new File("data/backup/", f + ".bak");
+                backupfile.delete();
+            }
+
+        } catch (SQLException ex) {
+            Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+    }
+
+    public void loadBackup() {
+        String[] files = new String[]{"messages.properties", "messages.script", "messages.data"};
+
+        boolean b1found = false;
+        boolean b2found = false;
+
+        for (String f : files) {
+            File backupfile = new File("data/backup/", f);
+            if (backupfile.exists()) {
+                b1found = true;
+            }
+        }
+
+        for (String f : files) {
+            File backupfile = new File("data/backup/", f + ".bak");
+            if (backupfile.exists()) {
+                b2found = true;
+            }
+        }
+
+        if (b1found) {
+            for (String f : files) {
+                File backupfile = new File("data/backup/", f);
+                File backupfile2 = new File("data/", f);
+                boolean deleted = backupfile2.delete();
+
+                if (!deleted) {
+                    System.out.println("database file not accessible, still opened? restart");
+
+                    System.exit(1);
+                }
+
+                System.out.println("moved: " + backupfile.renameTo(backupfile2));
+            }
+            System.out.println("loaded backup 1");
+        } else if (b2found) {
+            for (String f : files) {
+                File backupfile = new File("data/backup/", f + ".bak");
+                File backupfile2 = new File("data/", f);
+                backupfile2.delete();
+                backupfile.renameTo(backupfile2);
+            }
+            System.out.println("loaded backup 2");
+        } else {
+            System.out.println("no backup found...");
+        }
+
+    }
+
 }
