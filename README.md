@@ -6,7 +6,8 @@ redPanda - secure peer-to-peer chat
 ```html
 The work by the founders is on pause.
 ```
-More information: https://github.com/redPanda-project/redPandaj/issues/4
+More information on the issue: https://github.com/redPanda-project/redPandaj/issues/4
+
 
 Welcome to redPanda, the secure peer-to-peer chat. Our aim is to develop a messenger with the same comfort as commercial centralized messengers (cf. WhatsApp, Facebook Messenger, etc) but with a secure decentralized infrastructure.
 
