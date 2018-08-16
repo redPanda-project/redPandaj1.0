@@ -3,46 +3,17 @@ redPandaj
 
 redPanda - secure peer-to-peer chat
 
-```html
-The work by the founders is on pause.
-```
-More information on the issue: https://github.com/redPanda-project/redPandaj/issues/4
-
-
 Welcome to redPanda, the secure peer-to-peer chat. Our aim is to develop a messenger with the same comfort as commercial centralized messengers (cf. WhatsApp, Facebook Messenger, etc) but with a secure decentralized infrastructure.
-
-The white paper will be up in a couple of weeks. There we explain our decisions and ideas for this project.
-
-You can finde some stats about the network on http://redPanda.im.
-
-FAQ and answers are located in the wiki (http://git.io/vZpQY).
 
 Status
 =========
 
-There is currently a version for android and a desktop client for windows and linux based on java. The android version is functional at the moment and close to stable - so chatting should work. The client for linux and windows have an auto update system included.
+The restrictions by Google and Apple in reference to their mobile operating systems, i.e. Android and iOS, led us to pause the project in April ‘17, since it was clear that Google would change the behavior of background services. But since the direction in these limitations given mainly by android Ore and Pie is now a bit more clear, we have new plants to develop completely new light clients for mobile devices (android/iOS) based by shifting the main parts from the routing of messages to the full nodes.
 
-Compiled apks for android can be found on https://play.google.com/store/apps/details?id=org.redPanda which is a build of https://github.com/redPanda-project/android.
+In addition to the clarifications on the limitations by Google and Apple, the landscape of applications changed as well. At the moment there are already other applications that (now) satisfy certain important criteria, see WhatsApp or Threema. However, it is our belief that our project still serves a purpose as a decentralized alternative that goes beyond the emerging minimal industry standard. Therefore, the work on the project is ongoing but limited in scope. In particular, our efforts are split between working on the white paper and the application.
 
-Hint: Long press on name to change it. Small names in a new line indicate delivered messages.
+The android application is deprecated and was removed from the play store.
 
-
-Desktop/Console (Linux, Windows) client can be found on http://files.redPanda.im.
-
-We are still in an early stage of development, meaning we are looking for people who are interessted in this project who wants to contribute to this project and want to set up a solid network for the peer-to-peer communication.
-
-As of now the system is not scaleable because we didn't implement a routing algorithm yet. So, at 200 user the peers will generate a lot of traffic and at 2000 users the supernodes will not be able to serve any messages at all. These numbers are just a brief estimate.
-We are currently fixing this by working on the first routing method for messages, which should be ready in a couple of month.
-
-
-
-How can you help us?
-=========
-We are searching for people who are interested in this project and wants to contribute to.
-We also need to test the network. So, you can help us by setting up a node (which will update automatically) and set up a portforward if possible. RedPanda already supports ipv6 addresses. The default port is 59558 (TCP).
-
-We also need more bootstrap nodes via DNS or fixed IP address.
-Please write an email to redPandaProject@protonmail.com if you have a node which is online most of the time and is reachable via a fixed IP address or DNS entry.
 
 The System
 =========
