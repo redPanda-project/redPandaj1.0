@@ -8,7 +8,7 @@ Welcome to redPanda, the secure peer-to-peer chat. Our aim is to develop a messe
 Status
 =========
 
-The restrictions by Google and Apple in reference to their mobile operating systems, i.e. Android and iOS, led us to pause the project in April ‘17, since it was clear that Google would change the behavior of background services. But since the direction in these limitations given mainly by android Oreo and Pie is now a bit more clear, we have new plants to develop completely new light clients for mobile devices (android/iOS) based by shifting the main parts from the routing of messages to the full nodes.
+The restrictions by Google and Apple in reference to their mobile operating systems, i.e. Android and iOS, led us to pause the project in April ‘17, since it was clear that Google would change the behavior of background services. But since the direction in these limitations given mainly by android Oreo and Pie is now a bit more clear, we have new plants to develop completely new light clients for mobile devices (android/iOS) by shifting the main parts from the routing of messages to the full nodes.
 
 In addition to the clarifications on the limitations by Google and Apple, the landscape of applications changed as well. At the moment there are already other applications that (now) satisfy certain important criteria, see WhatsApp or Threema. However, it is our belief that our project still serves a purpose as a decentralized alternative that goes beyond the emerging minimal industry standard. Therefore, the work on the project is ongoing but limited in scope. In particular, our efforts are split between working on the white paper and the application.
 
