@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.Cipher;
+
 import org.redPandaLib.core.*;
 import org.redPandaLib.core.messages.ImageMsg;
 import org.redPandaLib.core.messages.RawMsg;
@@ -27,9 +28,9 @@ import org.redPandaLib.crypt.AddressFormatException;
 import org.redPandaLib.database.DirectMessageStore;
 import org.redPandaLib.database.HsqlConnection;
 import org.redPandaLib.database.MysqlConnection;
+import org.redPandaLib.kademlia.Kad;
 
 /**
- *
  * @author robin
  */
 public class Main {
@@ -192,7 +193,7 @@ public class Main {
     public static void sendBroadCastMsg(String text) {
 
         System.out.println(text);
-        
+
 //        Test.clientVersion++;
 //
 //        if (Test.channels == null) {
@@ -363,6 +364,11 @@ public class Main {
         System.out.println("done");
         System.out.println("save trustdata...");
         Test.saveTrustData();
+        System.out.println("done");
+
+
+        System.out.println("save kademlia state...");
+        Kad.shutdown();
         System.out.println("done");
 
         System.out.println("finished shutdown sequenze...");

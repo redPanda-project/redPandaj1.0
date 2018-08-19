@@ -42,6 +42,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import kademlia.node.KademliaId;
+import kademlia.simulations.DHTContentImpl;
 import org.redPandaLib.ChannelisNotWriteableException;
 import org.redPandaLib.ImageTooLargeException;
 import org.redPandaLib.Main;
@@ -62,6 +65,8 @@ import org.redPandaLib.crypt.Utils;
 import org.redPandaLib.database.DirectMessageStore;
 import org.redPandaLib.database.HsqlConnection;
 import org.redPandaLib.database.MessageStore;
+import org.redPandaLib.kademlia.Kad;
+import org.redPandaLib.kademlia.KadContentTest;
 import org.redPandaLib.services.ClusterBuilder;
 import org.redPandaLib.services.LoadHistory;
 import org.redPandaLib.services.MessageDownloader;
@@ -71,7 +76,6 @@ import org.redPandaLib.services.WatchDog;
 //import org.redPandaLib.upnp.Portforward;
 
 /**
- *
  * @author rflohr
  */
 public class Test {
@@ -115,6 +119,7 @@ public class Test {
         Security.insertProviderAt(new org.spongycastle.jce.provider.BouncyCastleProvider(), 1);
         //Security.insertProviderAt(new org.bouncycastle.jce.provider.BouncyCastleProvider(), 2);
     }
+
     public static boolean STARTED_UP_SUCCESSFUL = false;
     private static long lastAddedKnownNodes;
     public static HsqlConnection hsqlConnection;
@@ -579,6 +584,11 @@ public class Test {
 
 //                    System.out.println("reconnect!!");
 //                    hsqlConnection.reconnect();
+
+                    System.out.println("DHT state: ");
+                    System.out.println(Kad.node);
+//                    Kad.node.refresh();
+
                     continue;
                 }
 
@@ -871,7 +881,8 @@ public class Test {
 
                     System.out.println("Ok, writing to channel: " + channel.getName() + " EXPORT: " + channel.exportForHumans() + "\nContent:");
 
-                    readLine = bufferedReader.readLine().replaceAll("#n", "\n");;
+                    readLine = bufferedReader.readLine().replaceAll("#n", "\n");
+                    ;
                     try {
                         Main.sendMessageToChannel(channel, readLine);
                     } catch (ChannelisNotWriteableException e) {
@@ -1835,6 +1846,18 @@ public class Test {
                     continue;
                 }
 
+                if (readLine.equals("kp")) {
+
+                    System.out.println("kademlia put test entry");
+
+
+                    KadContentTest c = new KadContentTest("data 1");
+                    Kad.node.put(c);
+
+                    continue;
+
+                }
+
                 //clientVersion++;
                 //Msg msg = new Msg(System.currentTimeMillis(), 55, SpecialChannels.MAIN, clientSeed, clientVersion, "[" + getNick() + "] " + readLine);
                 //processNewMessage(msg, true);
@@ -2403,7 +2426,7 @@ public class Test {
 //        threadPool2.submit(
         peer.connectinThread = new Thread() {
 
-//            @Override
+            //            @Override
 //            public UncaughtExceptionHandler getUncaughtExceptionHandler() {
 //                return new UncaughtExceptionHandler() {
 //
@@ -2458,7 +2481,7 @@ public class Test {
 
     }
 
-//    static void writeAll(final String msg) {
+    //    static void writeAll(final String msg) {
 //
 //
 //        ArrayList<Peer> dd = (ArrayList<Peer>) peerList.clone();
@@ -2561,7 +2584,7 @@ public class Test {
         peerListLock.unlock();
     }
 
-//
+    //
 //    /**
 //     * Nachricht darf noch nicht vorhanden sein!
 //     */

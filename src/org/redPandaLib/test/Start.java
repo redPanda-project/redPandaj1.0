@@ -10,6 +10,7 @@ import java.security.SignatureException;
 import java.sql.SQLException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import org.redPandaLib.NewMessageListener;
 import org.redPandaLib.core.Log;
 import org.redPandaLib.core.Saver;
@@ -17,9 +18,9 @@ import org.redPandaLib.core.Settings;
 import org.redPandaLib.core.messages.TextMessageContent;
 import org.redPandaLib.crypt.Main;
 import org.redPandaLib.database.HsqlConnection;
+import org.redPandaLib.kademlia.Kad;
 
 /**
- *
  * @author rflohr
  */
 public class Start {
@@ -180,8 +181,13 @@ public class Start {
 
         Settings.pingDelay = 30;
 
+        Kad.startAsync();
+
         org.redPandaLib.Main.startUp(
                 true, saver);
+
+
+
 
     }
 }

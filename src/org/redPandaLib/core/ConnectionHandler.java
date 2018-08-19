@@ -6,8 +6,10 @@ package org.redPandaLib.core;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+
 import org.redPandaLib.services.MessageVerifierHsqlDb;
 import org.redPandaLib.services.MessageDownloader;
+
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.management.ManagementFactory;
@@ -29,12 +31,15 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import org.redPandaLib.ByteUtils;
 import org.redPandaLib.Main;
+
 import static org.redPandaLib.core.Test.getClonedPeerList;
 import static org.redPandaLib.core.Test.peerList;
 import static org.redPandaLib.core.Test.peerListLock;
 import static org.redPandaLib.core.Test.saveTrustData;
+
 import org.redPandaLib.core.messages.RawMsg;
 import org.redPandaLib.crypt.AESCrypt;
 import org.redPandaLib.crypt.ECKey;
@@ -43,7 +48,6 @@ import org.redPandaLib.crypt.Sha256Hash;
 import org.redPandaLib.crypt.Utils;
 
 /**
- *
  * @author robin
  */
 public class ConnectionHandler extends Thread {
@@ -51,8 +55,8 @@ public class ConnectionHandler extends Thread {
     public static final int READ_BUFFER_SIZE = 1024 * 205;
     public Selector selector;
     public static ArrayList<Socket> allSockets = new ArrayList<Socket>();
-    ExecutorService threadPool = new ThreadPoolExecutor(1, 3, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());//Executors.newFixedThreadPool(4);
-    ExecutorService threadPool2 = new ThreadPoolExecutor(1, 6, 30, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());//Executors.newFixedThreadPool(4);
+    public static ExecutorService threadPool = new ThreadPoolExecutor(1, 3, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());//Executors.newFixedThreadPool(4);
+    public static ExecutorService threadPool2 = new ThreadPoolExecutor(1, 6, 30, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());//Executors.newFixedThreadPool(4);
     private boolean exit = false;
     public static long lastRun = 0;
     public static HashMap<ECKey, HashMap<PeerTrustData, Long>> ratingData = new HashMap<ECKey, HashMap<PeerTrustData, Long>>();

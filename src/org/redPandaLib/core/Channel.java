@@ -7,6 +7,7 @@ package org.redPandaLib.core;
 import org.redPandaLib.crypt.AddressFormatException;
 import org.redPandaLib.crypt.Base58;
 import org.redPandaLib.crypt.ECKey;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.math.BigInteger;
@@ -15,12 +16,12 @@ import java.security.*;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import org.redPandaLib.Main;
 import org.redPandaLib.crypt.RSAKey;
 import org.redPandaLib.crypt.Sha256Hash;
 
 /**
- *
  * @author rflohr
  */
 public class Channel implements Serializable, Comparable<Channel> {

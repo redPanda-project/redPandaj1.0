@@ -7,6 +7,7 @@ package org.redPandaLib;
 import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import org.redPandaLib.core.Channel;
 import org.redPandaLib.crypt.AddressFormatException;
 import org.redPandaLib.crypt.Base58;
@@ -14,7 +15,6 @@ import org.redPandaLib.crypt.ECKey;
 import org.redPandaLib.crypt.RSAKey;
 
 /**
- *
  * @author robin
  */
 public class SpecialChannels {
@@ -61,6 +61,38 @@ public class SpecialChannels {
             Channel channel = new Channel(ecKey, "Announcements");
             channel.setExtraEncryptionKey(Base58.decode("GWW85eVRSQVtpxuEJi2L9HGfzRjNZ9ug2ubp7A75Q2vC"));
             channel.setId(-4);
+            channel.setPublic(true);
+            return channel;
+        } catch (AddressFormatException ex) {
+            Logger.getLogger(SpecialChannels.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return null;
+    }
+
+    //Channel id = -5
+    public static Channel getUpdateChannel() {
+        try {
+            byte[] publicKey = Base58.decode("evkUMf9Zr6LgCeJgxH2DYGT37GY8VaCHP3vhh3wRHGYS");
+            ECKey ecKey = new ECKey(null, publicKey);
+            Channel channel = new Channel(ecKey, "Updates");
+            channel.setId(-5);
+            channel.setPublic(true);
+            return channel;
+        } catch (AddressFormatException ex) {
+            Logger.getLogger(SpecialChannels.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return null;
+    }
+
+    public static Channel getUpdateChannel(String privateKeyString) {
+
+        try {
+            byte[] publicKey = Base58.decode("evkUMf9Zr6LgCeJgxH2DYGT37GY8VaCHP3vhh3wRHGYS");
+            ECKey ecKey = new ECKey(Base58.decode(privateKeyString), publicKey);
+            Channel channel = new Channel(ecKey, "Updates");
+            channel.setId(-5);
             channel.setPublic(true);
             return channel;
         } catch (AddressFormatException ex) {

@@ -1,4 +1,5 @@
 .svn/
+.idea/
 private/
 nbproject/
 /build.xml
@@ -6,4 +7,9 @@ nbproject/
 /build/
 /dist/
 /data/
+/out/
+/libs/
 error.log
+privateSigningKey.txt
+update
+redPandaj.jar

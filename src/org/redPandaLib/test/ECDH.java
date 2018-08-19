@@ -84,27 +84,32 @@ public class ECDH {
 //        System.out.println("" + a.getPubKey().length);
 //
 //
-        byte[] pass = new byte[32];
 
-        new SecureRandom().nextBytes(pass);
 
-        byte[] encodeCTR = AESCrypt.encodeCTR("te".getBytes(), pass, 0L, false);
 
-        byte[] var2 = new byte[2];
 
-        ByteBuffer wrap = ByteBuffer.wrap(var2);
 
-        wrap.put(AESCrypt.encodeCTR("t".getBytes(), pass, 0L, false));
-        wrap.put(AESCrypt.encodeCTR("e".getBytes(), pass, 0L, false));
-
-        System.out.println("" + encodeCTR.length + " " + Utils.bytesToHexString(encodeCTR));
-
-        byte[] plain = AESCrypt.decodeCTR(encodeCTR, pass, 0L);
-
-        byte[] var2plain = AESCrypt.decodeCTR(var2, pass, 0L);
-
-        System.out.println(":" + new String(plain));
-        System.out.println(":" + new String(var2plain));
+//        byte[] pass = new byte[32];
+//
+//        new SecureRandom().nextBytes(pass);
+//
+//        byte[] encodeCTR = AESCrypt.encodeCTR("te".getBytes(), pass, 0L, false);
+//
+//        byte[] var2 = new byte[2];
+//
+//        ByteBuffer wrap = ByteBuffer.wrap(var2);
+//
+//        wrap.put(AESCrypt.encodeCTR("t".getBytes(), pass, 0L, false));
+//        wrap.put(AESCrypt.encodeCTR("e".getBytes(), pass, 0L, false));
+//
+//        System.out.println("" + encodeCTR.length + " " + Utils.bytesToHexString(encodeCTR));
+//
+//        byte[] plain = AESCrypt.decodeCTR(encodeCTR, pass, 0L);
+//
+//        byte[] var2plain = AESCrypt.decodeCTR(var2, pass, 0L);
+//
+//        System.out.println(":" + new String(plain));
+//        System.out.println(":" + new String(var2plain));
 
     }
 
