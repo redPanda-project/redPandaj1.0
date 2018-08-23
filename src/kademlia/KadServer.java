@@ -241,6 +241,7 @@ public class KadServer {
                             } catch (ClassCastException e) {
                                 System.out.println("We expected another answer: " + comm);
                                 e.printStackTrace();
+
                             }
                         }
                     }

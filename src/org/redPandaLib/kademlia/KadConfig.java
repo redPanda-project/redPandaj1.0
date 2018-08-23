@@ -10,7 +10,7 @@ public class KadConfig implements KadConfiguration {
     private final static long RESTORE_INTERVAL = 20 * 1000; // in milliseconds
     private final static long RESPONSE_TIMEOUT = 2000;
     public static long OPERATION_TIMEOUT = 2000;
-    private final static int CONCURRENCY = 10;
+    private final static int CONCURRENCY = 3;
     private final static int K = 10;
     private final static int RCSIZE = 3;
     private final static int STALE = 10;

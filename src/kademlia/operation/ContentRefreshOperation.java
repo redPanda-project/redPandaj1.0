@@ -14,6 +14,7 @@ import kademlia.exceptions.ContentNotFoundException;
 import kademlia.message.Message;
 import kademlia.message.StoreContentMessage;
 import kademlia.node.Node;
+import org.redPandaLib.Main;
 import org.redPandaLib.kademlia.KadContentUpdate;
 
 /**
@@ -68,6 +69,11 @@ public class ContentRefreshOperation implements Operation {
         /* For each storage entry, distribute it */
         for (KademliaStorageEntryMetadata e : entries) {
 
+            if (Main.shutdown) {
+                break;
+            }
+
+
             if (KadContentUpdate.updateInProgress) {
                 System.out.println("content refresh aborted, update in progress");
                 //resume refresh later
@@ -79,13 +85,13 @@ public class ContentRefreshOperation implements Operation {
 
             boolean isSystemUpdate = e.getType().equals(KadContentUpdate.TYPE);
 
-            if ((System.currentTimeMillis() / 1000L) - e.getLastUpdatedTimestamp() > 60 * 60 * 24 * 7 && !isSystemUpdate) {
+            if ((System.currentTimeMillis() / 1000L) - e.getLastUpdatedTimestamp() > 60 * 60 * 24 * 1 && !isSystemUpdate) {
                 try {
                     this.dht.remove(e);
                 } catch (ContentNotFoundException e1) {
                     e1.printStackTrace();
                 }
-                System.out.println("removed content because it was older than 1 week, seconds: " + ((System.currentTimeMillis() / 1000L) - e.getLastUpdatedTimestamp()));
+                System.out.println("removed content because it was older than 1 day, seconds: " + ((System.currentTimeMillis() / 1000L) - e.getLastUpdatedTimestamp()));
                 continue;
             }
 
@@ -139,6 +145,9 @@ public class ContentRefreshOperation implements Operation {
 //                    System.out.println("sendmsg!: " + msg.toString());
                     bytesSend += jKademliaStorageEntry.getContent().length;
 //                    System.out.println("bytes send: " + bytesSend);
+                    if (Main.shutdown) {
+                        break;
+                    }
                     checkSpeedAndWait();
                 }
 //                System.out.println("refresh sent to node");
@@ -161,7 +170,8 @@ public class ContentRefreshOperation implements Operation {
 
     private void checkSpeedAndWait() {
 
-        sleep = (int) ((double) bytesSend / ((double) (12)));
+
+        sleep = (int) ((double) bytesSend / ((double) (600)));
         try {
             Thread.sleep(sleep);
         } catch (InterruptedException e1) {
@@ -186,8 +196,8 @@ public class ContentRefreshOperation implements Operation {
 //
         bytesSend = 0;
         timestart = System.currentTimeMillis();
-        if (Math.random() < 0.05) {
-            System.out.println("kbsec: " + l);
-        }
+//        if (Math.random() < 0.10) {
+        System.out.println("kbsec: " + l);
+//        }
     }
 }

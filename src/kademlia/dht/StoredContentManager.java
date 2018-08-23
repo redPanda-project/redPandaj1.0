@@ -136,7 +136,7 @@ class StoredContentManager {
         this.remove(new StorageEntryMetadata(content));
     }
 
-    public void remove(KademliaStorageEntryMetadata entry) throws ContentNotFoundException {
+    public synchronized void remove(KademliaStorageEntryMetadata entry) throws ContentNotFoundException {
         if (contains(entry)) {
             this.entries.get(entry.getKey()).remove(entry);
         } else {

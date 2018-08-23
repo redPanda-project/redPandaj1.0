@@ -109,7 +109,8 @@ public class Node implements Streamable, Serializable {
             }
             return this.getNodeId().equals(n.getNodeId());
         }
-        return false;
+        throw new RuntimeException("g6hde3t634");
+//        return false;
     }
 
     @Override

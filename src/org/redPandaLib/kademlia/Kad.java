@@ -91,8 +91,8 @@ public class Kad {
                             try {
                                 if (cnt < 5) {
                                     cnt++;
-                                    Node bootstrapnode = new Node(new KademliaId(Utils.parseAsHexOrBase58("216A210C8516924E9D71E8C2237F963C824E39E8")), InetAddress.getByName("91.250.113.186"), 12050);
-                                    if (!bootstrapnode.equals(node)) {
+                                    Node bootstrapnode = new Node(new KademliaId(Utils.parseAsHexOrBase58("0E3D9A1C26528192602B326B356275E4548B4D61")), InetAddress.getByName("91.250.113.186"), 12050);
+                                    if (!bootstrapnode.equals(node.getNode())) {
                                         System.out.println("bootstrap...");
                                         Kad.node.bootstrap(bootstrapnode);
                                     } else {

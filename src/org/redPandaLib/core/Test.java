@@ -1851,12 +1851,23 @@ public class Test {
                     System.out.println("kademlia put test entry");
 
 
-                    KadContentTest c = new KadContentTest("data 1");
-                    Kad.node.put(c);
+                    for (int i = 0; i < 10; i++) {
+                        KadContentTest c = new KadContentTest("data " + i);
+                        Kad.node.put(c);
+                    }
 
                     continue;
 
                 }
+
+
+//                if (readLine.equals("kd")) {
+//
+//                 Kad.node.getRoutingTable().
+//
+//                    continue;
+//
+//                }
 
                 //clientVersion++;
                 //Msg msg = new Msg(System.currentTimeMillis(), 55, SpecialChannels.MAIN, clientSeed, clientVersion, "[" + getNick() + "] " + readLine);

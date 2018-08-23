@@ -211,8 +211,8 @@ public class KadContentUpdate implements KadContent {
                 long time = System.currentTimeMillis();
                 sendSpeed++;
 
-                if (sendSpeed > 400) {
-                    sendSpeed = 200;
+                if (sendSpeed > 800) {
+                    sendSpeed = 800;
                 }
 
 //                if (i < 5) {
@@ -390,7 +390,7 @@ public class KadContentUpdate implements KadContent {
 //                Kad.node.putLocally(kadContentUpdate);
                 notFound = 0;
 //                if (i % 10 == 0) {
-                    System.out.print(".");
+                System.out.print(".");
 //                }
 //                System.out.println("content: " + new String(kadContentUpdate.data));
 

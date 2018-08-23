@@ -4,9 +4,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.TreeSet;
+import java.util.concurrent.locks.ReentrantLock;
 
 import kademlia.KadConfiguration;
 import kademlia.node.Node;
+import org.redPandaLib.crypt.Utils;
 
 /**
  * A bucket in the Kademlia routing table
@@ -26,11 +28,13 @@ public class JKademliaBucket implements KademliaBucket {
     private final TreeSet<Contact> replacementCache;
 
     private final KadConfiguration config;
+    private ReentrantLock lock;
 
 
     {
         contacts = new TreeSet<>();
         replacementCache = new TreeSet<>();
+        lock = new ReentrantLock(false);
     }
 
     /**
@@ -44,42 +48,68 @@ public class JKademliaBucket implements KademliaBucket {
 
     @Override
     public synchronized void insert(Contact c) {
-        if (this.contacts.contains(c)) {
-            /**
-             * If the contact is already in the bucket, lets update that we've seen it
-             * We need to remove and re-add the contact to get the Sorted Set to update sort order
-             */
-            Contact tmp = this.removeFromContacts(c.getNode());
-            tmp.setSeenNow();
-            tmp.resetStaleCount();
-            this.contacts.add(tmp);
-        } else {
-            /* If the bucket is filled, so put the contacts in the replacement cache */
-            if (contacts.size() >= this.config.k()) {
-                /* If the cache is empty, we check if any contacts are stale and replace the stalest one */
-                Contact stalest = null;
-                for (Contact tmp : this.contacts) {
-                    if (tmp.staleCount() >= this.config.stale()) {
-                        /* Contact is stale */
-                        if (stalest == null) {
-                            stalest = tmp;
-                        } else if (tmp.staleCount() > stalest.staleCount()) {
-                            stalest = tmp;
-                        }
+        lock.lock();
+        try {
+
+            boolean contains = false;
+            for (Contact cc : this.contacts) {
+//                if (Utils.bytesToHexString(cc.getNode().getNodeId().getBytes()).equals(Utils.bytesToHexString(c.getNode().getNodeId().getBytes()))) {
+                if (c.equals(cc)) {
+                    contains = true;
+                    break;
+                }
+            }
+
+//            this.contacts.contains(c);
+
+            if (contains) {
+                /**
+                 * If the contact is already in the bucket, lets update that we've seen it
+                 * We need to remove and re-add the contact to get the Sorted Set to update sort order
+                 */
+                Contact tmp = this.removeFromContacts(c.getNode());
+                tmp.setSeenNow();
+                tmp.resetStaleCount();
+                this.contacts.add(tmp);
+            } else {
+
+                //check again?
+                for (Contact cc : this.contacts) {
+                    if (Utils.bytesToHexString(cc.getNode().getNodeId().getBytes()).equals(Utils.bytesToHexString(c.getNode().getNodeId().getBytes()))) {
+                        throw new RuntimeException("contains method not working! ! !r745");
                     }
                 }
 
-                /* If we have a stale contact, remove it and add the new contact to the bucket */
-                if (stalest != null) {
-                    this.contacts.remove(stalest);
-                    this.contacts.add(c);
+
+                /* If the bucket is filled, so put the contacts in the replacement cache */
+                if (contacts.size() >= this.config.k()) {
+                    /* If the cache is empty, we check if any contacts are stale and replace the stalest one */
+                    Contact stalest = null;
+                    for (Contact tmp : this.contacts) {
+                        if (tmp.staleCount() >= this.config.stale()) {
+                            /* Contact is stale */
+                            if (stalest == null) {
+                                stalest = tmp;
+                            } else if (tmp.staleCount() > stalest.staleCount()) {
+                                stalest = tmp;
+                            }
+                        }
+                    }
+
+                    /* If we have a stale contact, remove it and add the new contact to the bucket */
+                    if (stalest != null) {
+                        this.contacts.remove(stalest);
+                        this.contacts.add(c);
+                    } else {
+                        /* No stale contact, lets insert this into replacement cache */
+                        this.insertIntoReplacementCache(c);
+                    }
                 } else {
-                    /* No stale contact, lets insert this into replacement cache */
-                    this.insertIntoReplacementCache(c);
+                    this.contacts.add(c);
                 }
-            } else {
-                this.contacts.add(c);
             }
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -116,9 +146,9 @@ public class JKademliaBucket implements KademliaBucket {
             /* There is no replacement, just increment the contact's stale count */
             this.getFromContacts(c.getNode()).incrementStaleCount();
 
-            if (this.getFromContacts(c.getNode()).staleCount() > 50) {
+            if (this.getFromContacts(c.getNode()).staleCount() > 500) {
                 this.contacts.remove(c);
-                System.out.println("removed contact because stale was over 50....");
+                System.out.println("removed contact because stale was over 500....");
             }
 
         }
@@ -138,11 +168,24 @@ public class JKademliaBucket implements KademliaBucket {
     }
 
     private synchronized Contact removeFromContacts(Node n) {
+        Contact found = null;
+
+        ArrayList<Contact> toRemove = new ArrayList<>(1);
+
         for (Contact c : this.contacts) {
             if (c.getNode().equals(n)) {
-                this.contacts.remove(c);
-                return c;
+
+                toRemove.add(c);
+                found = c;
+//                return c;
             }
+        }
+
+        if (found != null) {
+            for (Contact c : toRemove) {
+                this.contacts.remove(c);
+            }
+            return found;
         }
 
         /* We got here means this element does not exist */
@@ -185,21 +228,36 @@ public class JKademliaBucket implements KademliaBucket {
      * When the bucket is filled, we keep extra contacts in the replacement cache.
      */
     private synchronized void insertIntoReplacementCache(Contact c) {
-        /* Just return if this contact is already in our replacement cache */
-        if (this.replacementCache.contains(c)) {
-            /**
-             * If the contact is already in the bucket, lets update that we've seen it
-             * We need to remove and re-add the contact to get the Sorted Set to update sort order
-             */
-            Contact tmp = this.removeFromReplacementCache(c.getNode());
-            tmp.setSeenNow();
-            this.replacementCache.add(tmp);
-        } else if (this.replacementCache.size() > this.config.k()) {
-            /* if our cache is filled, we remove the least recently seen contact */
-            this.replacementCache.remove(this.replacementCache.last());
-            this.replacementCache.add(c);
-        } else {
-            this.replacementCache.add(c);
+        lock.lock();
+        try {
+
+            /* Just return if this contact is already in our replacement cache */
+            boolean contains = false;
+            for (Contact cc : this.replacementCache) {
+//                if (Utils.bytesToHexString(cc.getNode().getNodeId().getBytes()).equals(Utils.bytesToHexString(c.getNode().getNodeId().getBytes()))) {
+                if (c.equals(cc)) {
+                    contains = true;
+                    break;
+                }
+            }
+//            this.replacementCache.contains(c)
+            if (contains) {
+                /**
+                 * If the contact is already in the bucket, lets update that we've seen it
+                 * We need to remove and re-add the contact to get the Sorted Set to update sort order
+                 */
+                Contact tmp = this.removeFromReplacementCache(c.getNode());
+                tmp.setSeenNow();
+                this.replacementCache.add(tmp);
+            } else if (this.replacementCache.size() > this.config.k()) {
+                /* if our cache is filled, we remove the least recently seen contact */
+                this.replacementCache.remove(this.replacementCache.last());
+                this.replacementCache.add(c);
+            } else {
+                this.replacementCache.add(c);
+            }
+        } finally {
+            lock.unlock();
         }
     }
 

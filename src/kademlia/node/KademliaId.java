@@ -88,6 +88,7 @@ public class KademliaId implements Streamable, Serializable {
             return this.hashCode() == nid.hashCode();
 //            return Arrays.equals(this.getBytes(), nid.getBytes());
         }
+        System.out.println("fznusgfzur56");
         return false;
     }
 
