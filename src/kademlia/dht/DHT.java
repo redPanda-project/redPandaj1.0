@@ -67,12 +67,14 @@ public class DHT implements KademliaDHT {
 
             if (current.getLastUpdatedTimestamp() >= content.getContentMetadata().getLastUpdatedTimestamp()) {
                 /* We have the current content, no need to update it! just leave this method now */
+                System.out.println("our content is newer");
                 return false;
             } else {
                 /* We have this content, but not the latest version, lets delete it so the new version will be added below */
                 try {
                     //System.out.println("Removing older content to update it");
                     this.remove(content.getContentMetadata());
+                    System.out.println("removed");
                 } catch (ContentNotFoundException ex) {
                     /* This won't ever happen at this point since we only get here if the content is found, lets ignore it  */
                 }
@@ -102,6 +104,7 @@ public class DHT implements KademliaDHT {
              * This won't happen because above takes care of removing the content if it's older and needs to be updated,
              * or returning if we already have the current content version.
              */
+            e.printStackTrace();
             return false;
         }
     }

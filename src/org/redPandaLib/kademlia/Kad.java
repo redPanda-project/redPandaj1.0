@@ -63,6 +63,7 @@ public class Kad {
             String ip = IpChecker.getIp();
             System.out.println("my ip: " + ip);
             node.getNode().setInetAddress(InetAddress.getByName(ip));
+            node.getRoutingTable().insert(node.getNode());
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -89,7 +90,7 @@ public class Kad {
                         try {
                             KadContentUpdate.checkForUpdate();
                             try {
-                                if (cnt < 5) {
+                                if (cnt < 1) {
                                     cnt++;
                                     Node bootstrapnode = new Node(new KademliaId(Utils.parseAsHexOrBase58("0E3D9A1C26528192602B326B356275E4548B4D61")), InetAddress.getByName("91.250.113.186"), 12050);
                                     if (!bootstrapnode.equals(node.getNode())) {

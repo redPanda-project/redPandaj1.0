@@ -165,6 +165,8 @@ public class KadServer {
 
             byte[] data = bout.toByteArray();
 
+//            System.out.println("send: " + data.length);
+
             if (data.length > DATAGRAM_BUFFER_SIZE) {
                 throw new IOException("Message is too big");
             }
@@ -173,6 +175,8 @@ public class KadServer {
             DatagramPacket pkt = new DatagramPacket(data, 0, data.length);
             pkt.setSocketAddress(to.getSocketAddress());
             socket.send(pkt);
+
+//            System.out.println("address: " + to.getSocketAddress());
 
             /* Lets inform the statistician that we've sent some data */
             this.statistician.sentData(data.length);
@@ -190,6 +194,8 @@ public class KadServer {
                     byte[] buffer = new byte[DATAGRAM_BUFFER_SIZE];
                     DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                     socket.receive(packet);
+
+//                    System.out.println("incoming package");
 
                     /* Lets inform the statistician that we've received some data */
                     this.statistician.receivedData(packet.getLength());
@@ -218,9 +224,13 @@ public class KadServer {
                         Message msg = messageFactory.createMessage(messCode, din);
                         din.close();
 
+
+//                        System.out.println("incoming msg: " + msg.code());
+
                         /* Get a receiver for this message */
                         Receiver receiver;
                         if (this.receivers.containsKey(comm)) {
+//                            System.out.println("receiver found");
                             /* If there is a reciever in the receivers to handle this */
                             synchronized (this) {
                                 receiver = this.receivers.remove(comm);
@@ -241,18 +251,20 @@ public class KadServer {
                             } catch (ClassCastException e) {
                                 System.out.println("We expected another answer: " + comm);
                                 e.printStackTrace();
-
                             }
+
+                        } else {
+                            System.out.println("receiving not possible!");
                         }
                     }
                 } catch (IOException e) {
 
                     //this.isRunning = false;
                     if (e.getMessage() != null) {
-                        if (e.getMessage().equals("socket closed")) {
+                        if (e.getMessage().toLowerCase().equals("socket closed")) {
                             System.out.println("Kad listen socket closed...");
                         } else {
-
+                            e.printStackTrace();
                         }
                     } else {
                         System.err.println("Server ran into a problem in listener method. Message: " + e.getMessage());

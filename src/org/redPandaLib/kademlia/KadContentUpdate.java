@@ -121,7 +121,19 @@ public class KadContentUpdate implements KadContent {
 
 
     public static void insertNewUpdate() throws IOException {
+
+
+        //lets test if we have the priv key before generating update
+        String keyString = new String(Files.readAllBytes(Paths.get("privateSigningKey.txt")));
+        keyString = keyString.replace("\n", "").replace("\r", "");
+        System.out.println("privKey: '" + keyString + "'");
+        if (SpecialChannels.getUpdateChannel(keyString) == null) {
+            throw new RuntimeException("privkey not available!");
+        }
+
+
         updateInProgress = true;
+
 
         File file = new File("out/artifacts/redPandaj_jar/redPandaj.jar");
 
@@ -141,7 +153,7 @@ public class KadContentUpdate implements KadContent {
 
         int i = 0;
 
-        int chunks = 15240;
+        final int chunkSize = 14240;
 
         KademliaId kademliaId = new KademliaId("ASF456789djem45674DH");
         byte[] keyBytes = kademliaId.getBytes();
@@ -163,8 +175,11 @@ public class KadContentUpdate implements KadContent {
 
         int sendSpeed = 2000;
         int countSendToNodes = 0;
-        while (d.hasRemaining()) {
 
+        int cnt = 0;
+
+        while (d.hasRemaining()) {
+            cnt++;
             try {
                 Thread.sleep(5);
             } catch (InterruptedException e) {
@@ -178,9 +193,13 @@ public class KadContentUpdate implements KadContent {
             System.out.println("generating chunk: " + i + " progress: " + df.format(progress) + " remaining: " + df.format(remainingTime / 1000.));
 
 
-            chunks = Math.min(chunks, d.remaining());
+            int currentCunkSize = Math.min(chunkSize, d.remaining());
 
-            byte[] bytes = new byte[chunks];
+            if (cnt == 1) {
+                currentCunkSize = 50;
+            }
+
+            byte[] bytes = new byte[currentCunkSize];
 
             d.get(bytes);
 
@@ -211,27 +230,27 @@ public class KadContentUpdate implements KadContent {
                 long time = System.currentTimeMillis();
                 sendSpeed++;
 
-                if (sendSpeed > 800) {
-                    sendSpeed = 800;
-                }
+//                if (sendSpeed > 800) {
+//                    sendSpeed = 800;
+//                }
 
 //                if (i < 5) {
                 countSendToNodes = 0;
                 Kad.node.putLocally(c);
-                while (countSendToNodes < 3) {
-                    countSendToNodes = Kad.node.put(c);
-//                    System.out.println("countSendToNodes to n nodes: " + countSendToNodes);
-
-                    if (countSendToNodes < 3) {
-                        sendSpeed -= 5;
-                        try {
-                            Thread.sleep(250);
-                        } catch (InterruptedException e1) {
-                            e1.printStackTrace();
-                        }
-                        System.out.println("send to " + countSendToNodes + " send again!");
-                    }
-                }
+//                while (countSendToNodes < 3) {
+//                    countSendToNodes = Kad.node.put(c);
+////                    System.out.println("countSendToNodes to n nodes: " + countSendToNodes);
+//
+//                    if (countSendToNodes < 3) {
+//                        sendSpeed -= 5;
+//                        try {
+//                            Thread.sleep(250);
+//                        } catch (InterruptedException e1) {
+//                            e1.printStackTrace();
+//                        }
+//                        System.out.println("send to " + countSendToNodes + " send again!");
+//                    }
+//                }
 
                 int sleep = (int) ((double) (bytes.length * countSendToNodes) / ((double) (sendSpeed)));
                 System.out.println("sendSpeed: " + sendSpeed + " sleep: " + sleep);
@@ -251,10 +270,10 @@ public class KadContentUpdate implements KadContent {
             } catch (IOException e) {
 
                 if (e.getMessage().equals("Message is too big")) {
-                    System.out.println("Message is too big: " + chunks);
+                    System.out.println("Message is too big: " + currentCunkSize);
 
-                    d.position(d.position() - chunks);
-                    chunks -= 1024;
+                    d.position(d.position() - currentCunkSize);
+                    currentCunkSize -= 1024;
 
                 }
 
@@ -266,7 +285,7 @@ public class KadContentUpdate implements KadContent {
 
         //get priv key from external file:
         try {
-            String keyString = new String(Files.readAllBytes(Paths.get("privateSigningKey.txt")));
+//            String keyString = new String(Files.readAllBytes(Paths.get("privateSigningKey.txt")));
 
 
             //lets build the signing chunk:
@@ -340,7 +359,17 @@ public class KadContentUpdate implements KadContent {
             gp.setOwnerId("main");
 
             try {
-                KademliaStorageEntry conte = Kad.node.get(gp);
+                KademliaStorageEntry conte;
+                if (i == 0) {
+                    /**
+                     * lets not use the local cache because it may be outdated,
+                     * since the new update may have a smaller k value and
+                     * we would never drop the current entry
+                     */
+                    conte = Kad.node.getExternally(gp);
+                } else {
+                    conte = Kad.node.get(gp);
+                }
 
                 if (lastUpdateTimestamp == 0) {
                     lastUpdateTimestamp = conte.getContentMetadata().getLastUpdatedTimestamp() * 1000;
@@ -387,10 +416,11 @@ public class KadContentUpdate implements KadContent {
 
 
                 KadContentUpdate kadContentUpdate = new KadContentUpdate().fromSerializedForm(conte.getContent());
-//                Kad.node.putLocally(kadContentUpdate);
+                Kad.node.putLocally(kadContentUpdate);
                 notFound = 0;
 //                if (i % 10 == 0) {
                 System.out.print(".");
+                System.out.println("progess: " + storeBuffer.position());
 //                }
 //                System.out.println("content: " + new String(kadContentUpdate.data));
 

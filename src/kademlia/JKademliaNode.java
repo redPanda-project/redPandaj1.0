@@ -280,6 +280,16 @@ public class JKademliaNode implements KademliaNode {
     }
 
     @Override
+    public JKademliaStorageEntry getExternally(GetParameter param) throws NoSuchElementException, IOException, ContentNotFoundException {
+        long startTime = System.nanoTime();
+        ContentLookupOperation clo = new ContentLookupOperation(server, this, param, this.config);
+        clo.execute();
+        long endTime = System.nanoTime();
+        this.statistician.addContentLookup(endTime - startTime, clo.routeLength(), clo.isContentFound());
+        return clo.getContentFound();
+    }
+
+    @Override
     public void refresh() throws IOException {
         new KadRefreshOperation(this.server, this, this.dht, this.config).execute();
     }
