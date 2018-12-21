@@ -43,7 +43,12 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import kademlia.dht.GetParameter;
+import kademlia.dht.JKademliaStorageEntry;
+import kademlia.dht.KademliaStorageEntry;
+import kademlia.exceptions.ContentNotFoundException;
 import kademlia.node.KademliaId;
+import kademlia.operation.ContentRefreshOperation;
 import kademlia.simulations.DHTContentImpl;
 import org.redPandaLib.ChannelisNotWriteableException;
 import org.redPandaLib.ImageTooLargeException;
@@ -67,6 +72,7 @@ import org.redPandaLib.database.HsqlConnection;
 import org.redPandaLib.database.MessageStore;
 import org.redPandaLib.kademlia.Kad;
 import org.redPandaLib.kademlia.KadContentTest;
+import org.redPandaLib.kademlia.KadContentUpdate;
 import org.redPandaLib.services.ClusterBuilder;
 import org.redPandaLib.services.LoadHistory;
 import org.redPandaLib.services.MessageDownloader;
@@ -1855,6 +1861,44 @@ public class Test {
                         KadContentTest c = new KadContentTest("data " + i);
                         Kad.node.put(c);
                     }
+
+                    continue;
+
+                }
+
+                if (readLine.equals("kp")) {
+
+                    System.out.println("kademlia put test entry");
+
+
+                    for (int i = 0; i < 10; i++) {
+                        KadContentTest c = new KadContentTest("data " + i);
+                        Kad.node.put(c);
+                    }
+
+                    continue;
+
+                }
+                if (readLine.equals("kr")) {
+
+
+                    GetParameter gp = new GetParameter(KadContentUpdate.INITIAL_UPDATE_KEY, KadContentUpdate.TYPE);
+                    gp.setOwnerId("main");
+
+
+
+                    ContentRefreshOperation.waitForRefresh = 4;
+
+
+                    try {
+                        JKademliaStorageEntry c = (JKademliaStorageEntry) Kad.node.get(gp);
+                        int put = Kad.node.put(c);
+                        System.out.println("put!!!: " + put);
+                    } catch (ContentNotFoundException e) {
+                        e.printStackTrace();
+                    }
+
+//                    ContentRefreshOperation.waitForRefresh = 4;
 
                     continue;
 

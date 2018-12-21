@@ -1,0 +1,19 @@
+<<<<<<< HEAD
+.svn/
+private/
+nbproject/
+/build.xml
+/manifest.mf
+/build/
+/dist/
+=======
+.svn/
+private/
+nbproject/
+/build.xml
+/manifest.mf
+/build/
+/dist/
+/data/
+error.log
+>>>>>>> 69c615b808c4eee1398f50a3371eef7886831344

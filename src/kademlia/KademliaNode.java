@@ -111,6 +111,18 @@ public interface KademliaNode
     public JKademliaStorageEntry get(GetParameter param) throws NoSuchElementException, IOException, ContentNotFoundException;
 
     /**
+     * Get some content stored on the DHT but skips the local search
+     *
+     * @param param The parameters used to search for the content
+     *
+     * @return DHTContent The content
+     *
+     * @throws java.io.IOException
+     * @throws kademlia.exceptions.ContentNotFoundException
+     */
+    public JKademliaStorageEntry getExternally(GetParameter param) throws NoSuchElementException, IOException, ContentNotFoundException;
+
+    /**
      * Allow the user of the System to call refresh even out of the normal Kad refresh timing
      *
      * @throws java.io.IOException

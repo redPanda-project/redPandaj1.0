@@ -64,6 +64,7 @@ public class StoreOperation implements Operation {
                  * @todo Create a receiver that receives a store acknowledgement message to count how many nodes a content have been stored at
                  */
                 this.server.sendMessage(n, msg, null);
+                System.out.println("send to node: " + n.getNodeId());
 
             }
         }

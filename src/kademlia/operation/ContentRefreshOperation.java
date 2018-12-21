@@ -25,6 +25,7 @@ import org.redPandaLib.kademlia.KadContentUpdate;
  */
 public class ContentRefreshOperation implements Operation {
 
+    public static int waitForRefresh = 60 * 4; //in mins
     private final KadServer server;
     private final KademliaNode localNode;
     private final KademliaDHT dht;
@@ -61,7 +62,7 @@ public class ContentRefreshOperation implements Operation {
 
         /* If a content was last republished before this time, then we need to republish it */
 //        final long minRepublishTime = (System.currentTimeMillis() / 1000L) - this.config.restoreInterval();
-        long minRepublishTime = (System.currentTimeMillis() / 1000L) - 60 * 60 * 8;
+        long minRepublishTime = (System.currentTimeMillis() / 1000L) - 60 * waitForRefresh;
 
 
         System.out.println("refresh content...");
@@ -137,6 +138,7 @@ public class ContentRefreshOperation implements Operation {
             }
 //            System.out.println("refresh!: " + entries.toString());
             /*Store the message on all of the K-Nodes*/
+            int cnt = 0;
             for (Node n : closestNodes) {
                 /*We don't need to again store the content locally, it's already here*/
                 if (!n.equals(this.localNode.getNode())) {
@@ -149,10 +151,13 @@ public class ContentRefreshOperation implements Operation {
                         break;
                     }
                     checkSpeedAndWait();
+                    cnt++;
                 }
 //                System.out.println("refresh sent to node");
+
             }
 
+            System.out.println("refresh send to nodes: " + cnt);
 
             /* Delete any content on this node that this node is not one of the K-Closest nodes to */
             try {
@@ -171,7 +176,7 @@ public class ContentRefreshOperation implements Operation {
     private void checkSpeedAndWait() {
 
 
-        sleep = (int) ((double) bytesSend / ((double) (600)));
+        sleep = (int) ((double) bytesSend / ((double) (1000)));
         try {
             Thread.sleep(sleep);
         } catch (InterruptedException e1) {
