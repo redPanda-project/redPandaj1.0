@@ -56,7 +56,8 @@ public class BucketRefreshOperation implements Operation {
             };
 
 
-            ConnectionHandler.threadPool.execute(runnable);
+//            ConnectionHandler.threadPool.execute(runnable);
+            new Thread(runnable).start();
 
         }
     }

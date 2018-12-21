@@ -4,10 +4,11 @@
  */
 package org.redPandaLib.core;
 
+import kademlia.node.KademliaId;
 import org.redPandaLib.services.MessageDownloader;
-import java.util.Map.Entry;
-import java.util.Set;
+
 import org.redPandaLib.core.messages.RawMsg;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
@@ -16,16 +17,14 @@ import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.redPandaLib.Main;
+
 import org.redPandaLib.crypt.ECKey;
 import org.redPandaLib.crypt.RC4;
 
 /**
- *
  * @author rflohr
  */
 public class Peer implements Comparable<Peer> {
@@ -39,10 +38,10 @@ public class Peer implements Comparable<Peer> {
     int cnt = 0;
     public long connectedSince = 0;
     long lastAllMsgsQuerried = Settings.till;
-    public long nonce;
+    public KademliaId nonce;
     private ArrayList<String> filterAdresses;
     private SocketChannel socketChannel;
-//    public ArrayList<ByteBuffer> readBuffers = new ArrayList<ByteBuffer>();
+    //    public ArrayList<ByteBuffer> readBuffers = new ArrayList<ByteBuffer>();
 //    public ArrayList<ByteBuffer> writeBuffers = new ArrayList<ByteBuffer>();
     public ByteBuffer readBuffer;
     public ByteBuffer writeBuffer;
@@ -75,6 +74,8 @@ public class Peer implements Comparable<Peer> {
     public long sendBytes = 0;
     public long receivedBytes = 0;
 
+    public boolean isConnectionInitializedByMe = false;
+
     public Peer(String ip, int port) {
         this.ip = ip;
         this.port = port;
@@ -100,8 +101,12 @@ public class Peer implements Comparable<Peer> {
 
             Peer n2 = (Peer) obj;
 
+            if (nonce == null || n2.nonce == null) {
+                return false;
+            }
+
             //return (ip.equals(n2.ip) && port == n2.port && nonce == n2.nonce);
-            return nonce == n2.nonce;
+            return nonce.equals(n2.nonce);
 
         } else {
             return false;
@@ -113,7 +118,7 @@ public class Peer implements Comparable<Peer> {
         return System.currentTimeMillis() - lastActionOnConnection;
     }
 
-//    void writeTo(String out) {
+    //    void writeTo(String out) {
 //        if (connectionThread != null) {
 //            connectionThread.writeString(out);
 ////            if (Test.DEBUG) {
@@ -166,7 +171,7 @@ public class Peer implements Comparable<Peer> {
             a += 2000;
         }
 
-        if (nonce == 0) {
+        if (nonce == null) {
             a -= 1000;
         }
 
@@ -637,7 +642,17 @@ public class Peer implements Comparable<Peer> {
     }
 
     public boolean peerIsHigher() {
-        return Test.NONCE > nonce;
+//        return isConnectionInitializedByMe;
+        for (int i = 0; i < KademliaId.ID_LENGTH / 8; i++) {
+            int compare = Byte.compare(Test.NONCE.getBytes()[i], nonce.getBytes()[i]);
+            if (compare > 0) {
+                return true;
+            } else if (compare < 0) {
+                return false;
+            }
+        }
+        System.out.println("could not compare!!!");
+        return false;
     }
 
     public boolean isFullConnected() {

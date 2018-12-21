@@ -7,6 +7,7 @@ package org.redPandaLib.core;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import kademlia.node.KademliaId;
 import org.redPandaLib.services.MessageVerifierHsqlDb;
 import org.redPandaLib.services.MessageDownloader;
 
@@ -25,10 +26,7 @@ import java.nio.channels.spi.AbstractSelectableChannel;
 import java.security.SecureRandom;
 import java.sql.SQLTransactionRollbackException;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -55,8 +53,10 @@ public class ConnectionHandler extends Thread {
     public static final int READ_BUFFER_SIZE = 1024 * 205;
     public Selector selector;
     public static ArrayList<Socket> allSockets = new ArrayList<Socket>();
-    public static ExecutorService threadPool = new ThreadPoolExecutor(1, 3, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());//Executors.newFixedThreadPool(4);
-    public static ExecutorService threadPool2 = new ThreadPoolExecutor(1, 6, 30, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());//Executors.newFixedThreadPool(4);
+    //    public static ExecutorService threadPool = new ThreadPoolExecutor(1, 3, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());//Executors.newFixedThreadPool(4);
+//    public static ExecutorService threadPool2 = new ThreadPoolExecutor(1, 6, 30, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());//Executors.newFixedThreadPool(4);
+    public static ExecutorService threadPool = Executors.newFixedThreadPool(20);
+    public static ExecutorService threadPool2 = Executors.newFixedThreadPool(20);
     private boolean exit = false;
     public static long lastRun = 0;
     public static HashMap<ECKey, HashMap<PeerTrustData, Long>> ratingData = new HashMap<ECKey, HashMap<PeerTrustData, Long>>();
@@ -425,10 +425,15 @@ public class ConnectionHandler extends Thread {
 
                             if (!peer.firstCommandsProceeded) {
 
-                                if (peer.readBuffer.limit() > 14) { //start needs to be 15 bytes!
+                                if (peer.readBuffer.limit() > 14 - 8 + KademliaId.ID_LENGTH / 8) { //start needs to be 15 bytes!
                                     String magic = readString(peer.readBuffer, 4);
                                     int version = (int) peer.readBuffer.get();
-                                    long nonce = readBuffer.getLong();
+
+                                    byte[] nonceBytes = new byte[KademliaId.ID_LENGTH / 8];
+                                    readBuffer.get(nonceBytes);
+
+                                    KademliaId nonce = new KademliaId(nonceBytes);
+
 //                                    byte[] nonce = new byte[10];
 //                                    peer.readBuffer.get(nonce);
                                     int port = readUnsignedShort(readBuffer);
@@ -441,7 +446,7 @@ public class ConnectionHandler extends Thread {
                                         peer.port = port;
                                         peer.nonce = nonce;
 
-                                        if (nonce == Test.NONCE) {
+                                        if (nonce.equals(Test.NONCE)) {
                                             Log.put("found myself!" + peer.ip + ":" + peer.port, 200);
 
                                             Test.removeByIpAndPortPeer(peer);
@@ -573,12 +578,12 @@ public class ConnectionHandler extends Thread {
                                     } else {
 
                                         peer.port = port;
-                                        System.out.println("WRONG magic and or protocoll - VERSION, deleting peer.... " + peer.ip + " " + peer.port);
+                                        System.out.println("WRONG magic and or protocol - VERSION, deleting peer.... " + peer.ip + " " + peer.port);
                                         Test.removeByIpAndPortPeer(peer);
-                                        peer.disconnect("WRONG magic and or protocoll");
+                                        peer.disconnect("WRONG magic and or protocol");
 
                                     }
-                                    parsedBytes = 15;
+                                    parsedBytes = 15 - 8 + KademliaId.ID_LENGTH / 8;
                                 }
 
                             } else {
@@ -721,6 +726,8 @@ public class ConnectionHandler extends Thread {
 
         byte[] myPart = new byte[16];
         r.nextBytes(myPart);
+
+        System.out.println("higher: " + peer.peerIsHigher());
 
         if (peer.peerIsHigher()) {
             System.arraycopy(myPart, 0, peer.peerTrustData.authKey, 0, 16);
@@ -1292,7 +1299,7 @@ public class ConnectionHandler extends Thread {
                         return;
                     }
 
-                    if (!Settings.BROADCAST_MSGS_AFTER_VERIFICATION) {
+                    if (Settings.BROADCAST_MSGS_AFTER_VERIFICATION) {
                         Test.broadcastMsg(addMessage);
                     }
 
@@ -1308,7 +1315,7 @@ public class ConnectionHandler extends Thread {
             };
 
             threadPool.execute(runnable);
-            //runnable.run();
+//            runnable.run();
 
 //            new Thread() {
 //
@@ -1607,7 +1614,7 @@ public class ConnectionHandler extends Thread {
             boolean send = false;
             for (PeerTrustData pt : Test.peerTrusts) {
 
-                if (pt.nonce != peer.nonce) {
+                if (!pt.nonce.equals(peer.nonce)) {
                     continue;
                 }
 
@@ -2396,7 +2403,7 @@ public class ConnectionHandler extends Thread {
         peer.writeBufferLock.lock();
         writeBuffer.put(Test.MAGIC.getBytes());
         writeBuffer.put((byte) Test.VERSION);
-        writeBuffer.putLong(Test.NONCE);
+        writeBuffer.put(Test.NONCE.getBytes());
         putUnsignedShot(writeBuffer, Test.MY_PORT);
         peer.writeBufferLock.unlock();
     }

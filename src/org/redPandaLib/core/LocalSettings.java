@@ -4,17 +4,18 @@
  */
 package org.redPandaLib.core;
 
+import kademlia.node.KademliaId;
+
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Random;
 
 /**
- *
  * @author robin
  */
 public class LocalSettings implements Serializable {
 
-    public long nonce;
+    public KademliaId nonce;
     public int channelIdCounter;
     public boolean PEX_ONLY;
     public long identity;
@@ -23,7 +24,7 @@ public class LocalSettings implements Serializable {
     public HashMap<Long, String> identity2Name;
 
     public LocalSettings() {
-        nonce = new Random().nextLong();
+        nonce = new KademliaId();
         channelIdCounter = 1;
         PEX_ONLY = false;
         identity = new Random().nextLong();

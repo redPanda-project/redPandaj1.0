@@ -9,13 +9,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+
+import kademlia.node.KademliaId;
 import org.redPandaLib.core.messages.RawMsg;
 import org.redPandaLib.crypt.ECKey;
 import org.redPandaLib.crypt.Utils;
 import org.redPandaLib.services.MessageDownloader;
 
 /**
- *
  * @author rflohr
  */
 public class PeerTrustData implements Serializable {
@@ -23,7 +24,7 @@ public class PeerTrustData implements Serializable {
     private static final long serialVersionUID = -2628506219264601849L;
 
     public int internalId = -1;
-    long nonce;
+    KademliaId nonce;
     byte[] authKey;
     int trustLevel;
     public long lastSeen = System.currentTimeMillis();
@@ -42,6 +43,7 @@ public class PeerTrustData implements Serializable {
     public HashMap<Integer, RawMsg> getPendingMessagesTimedOut() {
         return pendingMessagesTimedOut;
     }
+
     public int synchronizedMessages = 0;
     public int badMessages = 0;
     public ArrayList<Integer> sendChannelsToFilter = new ArrayList<Integer>();

@@ -196,8 +196,8 @@ public class ContentRefreshOperation implements Operation {
 //
         bytesSend = 0;
         timestart = System.currentTimeMillis();
-//        if (Math.random() < 0.10) {
-        System.out.println("kbsec: " + l);
-//        }
+        if (Math.random() < 0.10) {
+            System.out.println("kbsec: " + l);
+        }
     }
 }

@@ -83,13 +83,13 @@ public class Test {
     static boolean DEBUG = true;
     static int DEBUG_LEVEL = 100;
     static boolean PORTFORWARD = false;
-    static final int VERSION = 20;
+    static final int VERSION = 21;
     public static int MY_PORT;
     static String MAGIC = "k3gV";
     public static ArrayList<Peer> peerList = null;
     public static ReentrantLockExtended peerListLock = new ReentrantLockExtended();
     public static ArrayList<Channel> channels;
-    public static long NONCE;
+    public static KademliaId NONCE;
     static int outConns = 0;
     static int inConns = 0;
     //static ExecutorService threadPool = Executors.newCachedThreadPool();
@@ -295,7 +295,7 @@ public class Test {
                                     Log.put(Settings.pingTimeout + " sec timeout reached! " + p.ip, 10);
                                 }
                                 p.disconnect("timeout");
-                                if (p.nonce == 0) {
+                                if (p.nonce == null) {
                                     Log.put("removed peer from peerList, tried once and peer never connected before: " + p.ip + ":" + p.port, 20);
                                 }
 
@@ -496,9 +496,9 @@ public class Test {
                         }
 
                         if (peer.getPeerTrustData() == null) {
-                            System.out.format("%50s %22d %12s %12s %7d %8s %10s %10d %10d %10d\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), "-", peer.sendBytes, peer.receivedBytes, peer.removedSendMessages.size());
+                            System.out.format("%50s %22s %12s %12s %7d %8s %10s %10d %10d %10d\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), "-", peer.sendBytes, peer.receivedBytes, peer.removedSendMessages.size());
                         } else {
-                            System.out.format("%50s %22d %12s %12s %7d %8s %10d %10d %10d %8s %10d %10d %10s %10s %10s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.removedSendMessages.size(),
+                            System.out.format("%50s %22s %12s %12s %7d %8s %10d %10d %10d %8s %10d %10d %10s %10s %10s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce.toString(), c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.removedSendMessages.size(),
                                     //peer.peerTrustData.backSyncedTill == Long.MAX_VALUE ? "-" : formatInterval(System.currentTimeMillis() - peer.peerTrustData.backSyncedTill),
                                     peer.peerTrustData.rating,
                                     peer.peerTrustData.pendingMessagesTimedOut.size(), peer.peerTrustData.pendingMessagesTimedOut.size());
@@ -2132,7 +2132,7 @@ public class Test {
                     continue;
                 }
 
-                if (peerList == null || NONCE == 0) {
+                if (peerList == null || NONCE == null) {
                     try {
                         sleep(200);
                     } catch (InterruptedException ex) {
@@ -2338,7 +2338,7 @@ public class Test {
 
 //                    if (peerList.size() > 20) {
                     //(System.currentTimeMillis() - peer.lastActionOnConnection > 1000 * 60 * 60 * 4)
-                    if ((peer.retries > 10 || (peer.nonce == 0 && peer.retries >= 1)) && peer.ping != -1) {
+                    if ((peer.retries > 10 || (peer.nonce == null && peer.retries >= 1)) && peer.ping != -1) {
                         //peerList.remove(peer);
                         removePeer(peer);
                         Test.messageStore.insertPeerConnectionInformation(peer.ip, peer.port, 0, 0);
@@ -2426,6 +2426,7 @@ public class Test {
 
         peer.retries++;
         peer.isConnecting = true;
+        peer.isConnectionInitializedByMe = true;
 
 //        if (peer.retries > 20 && peerList.size() > 3) {
 //            removePeer(peer);

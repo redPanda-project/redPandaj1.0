@@ -7,10 +7,11 @@ package org.redPandaLib.core;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
+
+import kademlia.node.KademliaId;
 import org.redPandaLib.core.messages.RawMsg;
 
 /**
- *
  * @author robin
  */
 public class PeerSaveable implements Serializable {
@@ -18,7 +19,7 @@ public class PeerSaveable implements Serializable {
     String ip;
     int port;
     long lastAllMsgsQuerried;
-    long nonce;
+    KademliaId nonce;
     int retries;
     //ArrayList<Integer> loadedMsgs;
     //ArrayList<Integer> sendMessages;
@@ -28,7 +29,7 @@ public class PeerSaveable implements Serializable {
     //int synchronizedMessages;
 //    int lastSuccessfulySendMessageHeader;
 
-    public PeerSaveable(String ip, int port, long lastAllMsgsQuerried, long nonce, int retries) {
+    public PeerSaveable(String ip, int port, long lastAllMsgsQuerried, KademliaId nonce, int retries) {
         this.ip = ip;
         this.port = port;
         this.lastAllMsgsQuerried = lastAllMsgsQuerried;
