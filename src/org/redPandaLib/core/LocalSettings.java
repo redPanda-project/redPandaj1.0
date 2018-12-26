@@ -22,6 +22,7 @@ public class LocalSettings implements Serializable {
     public String myIp;
     public long lastSendAllMyChannels;
     public HashMap<Long, String> identity2Name;
+    public byte[] updateSignature;
 
     public LocalSettings() {
         nonce = new KademliaId();
@@ -30,6 +31,14 @@ public class LocalSettings implements Serializable {
         identity = new Random().nextLong();
         myIp = "";
         identity2Name = new HashMap<Long, String>();
+    }
+
+    public void setUpdateSignature(byte[] updateSignature) {
+        this.updateSignature = updateSignature;
+    }
+
+    public byte[] getUpdateSignature() {
+        return updateSignature;
     }
 
     public void save() {

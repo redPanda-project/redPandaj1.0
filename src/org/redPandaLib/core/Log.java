@@ -13,9 +13,9 @@ public class Log {
     public static int LEVEL = 300;
 
     public static void put(String msg, int level) {
-//        if (level > LEVEL) {
-//            return;
-//        }
+        if (level > LEVEL) {
+            return;
+        }
         System.out.println(msg);
     }
 }

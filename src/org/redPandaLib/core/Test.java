@@ -5,7 +5,6 @@
 package org.redPandaLib.core;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -18,7 +17,6 @@ import java.lang.management.ThreadMXBean;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.security.SecureRandom;
@@ -34,7 +32,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.ConcurrentModificationException;
 import java.util.Date;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
@@ -45,11 +42,9 @@ import java.util.logging.Logger;
 
 import kademlia.dht.GetParameter;
 import kademlia.dht.JKademliaStorageEntry;
-import kademlia.dht.KademliaStorageEntry;
 import kademlia.exceptions.ContentNotFoundException;
 import kademlia.node.KademliaId;
 import kademlia.operation.ContentRefreshOperation;
-import kademlia.simulations.DHTContentImpl;
 import org.redPandaLib.ChannelisNotWriteableException;
 import org.redPandaLib.ImageTooLargeException;
 import org.redPandaLib.Main;
@@ -63,7 +58,6 @@ import org.redPandaLib.core.messages.RawMsg;
 import org.redPandaLib.core.messages.TextMessageContent;
 import org.redPandaLib.core.messages.TextMsg;
 import org.redPandaLib.crypt.AddressFormatException;
-import org.redPandaLib.crypt.Base58;
 import org.redPandaLib.crypt.ECKey;
 import org.redPandaLib.crypt.Sha256Hash;
 import org.redPandaLib.crypt.Utils;
@@ -301,7 +295,7 @@ public class Test {
                                     Log.put(Settings.pingTimeout + " sec timeout reached! " + p.ip, 10);
                                 }
                                 p.disconnect("timeout");
-                                if (p.nonce == null) {
+                                if (p.nodeId == null) {
                                     Log.put("removed peer from peerList, tried once and peer never connected before: " + p.ip + ":" + p.port, 20);
                                 }
 
@@ -354,7 +348,7 @@ public class Test {
                                         //                                            System.out.println("Found a bad guy... doing nothing...: " + p.nonce);
                                     } else {
                                         p.trustRetries = 0;
-                                        System.out.println("Found a bad guy... requesting new key: " + p.nonce);
+                                        System.out.println("Found a bad guy... requesting new key: " + p.nodeId);
                                         //ConnectionHandler.sendNewAuthKey(p);
                                         p.disconnect("not authed...");
                                     }
@@ -502,9 +496,9 @@ public class Test {
                         }
 
                         if (peer.getPeerTrustData() == null) {
-                            System.out.format("%50s %22s %12s %12s %7d %8s %10s %10d %10d %10d\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), "-", peer.sendBytes, peer.receivedBytes, peer.removedSendMessages.size());
+                            System.out.format("%50s %22s %12s %12s %7d %8s %10s %10d %10d %10d\n", "[" + peer.ip + "]:" + peer.port, peer.nodeId, c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), "-", peer.sendBytes, peer.receivedBytes, peer.removedSendMessages.size());
                         } else {
-                            System.out.format("%50s %22s %12s %12s %7d %8s %10d %10d %10d %8s %10d %10d %10s %10s %10s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce.toString(), c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.removedSendMessages.size(),
+                            System.out.format("%50s %22s %12s %12s %7d %8s %10d %10d %10d %8s %10d %10d %10s %10s %10s\n", "[" + peer.ip + "]:" + peer.port, peer.nodeId.toString(), c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.removedSendMessages.size(),
                                     //peer.peerTrustData.backSyncedTill == Long.MAX_VALUE ? "-" : formatInterval(System.currentTimeMillis() - peer.peerTrustData.backSyncedTill),
                                     peer.peerTrustData.rating,
                                     peer.peerTrustData.pendingMessagesTimedOut.size(), peer.peerTrustData.pendingMessagesTimedOut.size());
@@ -520,7 +514,7 @@ public class Test {
 //                        }
                     }
 
-                    System.out.println("Not connected trust data:");
+                    System.out.println("Not connected trust data: " + peerTrusts.size());
 
                     ArrayList<Peer> clonedPeerList = getClonedPeerList();
 
@@ -536,7 +530,11 @@ public class Test {
                         }
                     });
 
+                    int cnt = 0;
+
                     for (PeerTrustData ptd : peerTrustsCloned) {
+
+
 
                         boolean found = false;
                         for (Peer p : clonedPeerList) {
@@ -548,6 +546,11 @@ public class Test {
 
                         if (found) {
                             continue;
+                        }
+
+                        cnt++;
+                        if (cnt > 4) {
+                            break;
                         }
 
                         int messagesToSync = messagesToSync(ptd.internalId);
@@ -941,7 +944,7 @@ public class Test {
 
                     for (Peer p : getClonedPeerList()) {
                         if (p.isAuthed() && p.isConnected() && p.syncMessagesSince == 0) {
-                            System.out.println("IP: " + p.ip + " nonce: " + p.nonce);
+                            System.out.println("IP: " + p.ip + " nonce: " + p.nodeId);
                         }
                     }
 
@@ -1671,7 +1674,7 @@ public class Test {
                         }
                         if (messagesToSync(peer.peerTrustData.internalId) != 0) {
 
-                            System.out.println("found: " + peer.nonce);
+                            System.out.println("found: " + peer.nodeId);
                             peer.removedSendMessages.clear();
                             peer.disconnect("teeest3123");
 
@@ -1713,7 +1716,7 @@ public class Test {
                             continue;
                         }
 
-                        System.out.println("peer: " + peer.nonce + " locked: " + peer.writeBufferLock.isLocked() + " holdcnt: " + peer.writeBufferLock.getHoldCount() + " queue: " + peer.writeBufferLock.getQueueLength());
+                        System.out.println("peer: " + peer.nodeId + " locked: " + peer.writeBufferLock.isLocked() + " holdcnt: " + peer.writeBufferLock.getHoldCount() + " queue: " + peer.writeBufferLock.getQueueLength());
 
                     }
                     continue;
@@ -1728,7 +1731,7 @@ public class Test {
                             continue;
                         }
 
-                        System.out.println("peer: " + peer.nonce + " pending msgs: " + peer.getPeerTrustData().pendingMessages.size() + " - timeouted: " + peer.getPeerTrustData().pendingMessagesTimedOut);
+                        System.out.println("peer: " + peer.nodeId + " pending msgs: " + peer.getPeerTrustData().pendingMessages.size() + " - timeouted: " + peer.getPeerTrustData().pendingMessagesTimedOut);
 
                     }
                     continue;
@@ -1741,7 +1744,7 @@ public class Test {
                             continue;
                         }
 
-                        System.out.println("peer: " + peer.nonce + " requsted: " + peer.requestedMsgs);
+                        System.out.println("peer: " + peer.nodeId + " requsted: " + peer.requestedMsgs);
 
                     }
                     continue;
@@ -1756,7 +1759,7 @@ public class Test {
                             continue;
                         }
 
-                        System.out.println("found: " + peer.nonce);
+                        System.out.println("found: " + peer.nodeId);
                         //peer.removedSendMessages.clear();
                         //peer.disconnect("teeest3123");
                         //triggerOutboundthread();
@@ -1884,7 +1887,6 @@ public class Test {
 
                     GetParameter gp = new GetParameter(KadContentUpdate.INITIAL_UPDATE_KEY, KadContentUpdate.TYPE);
                     gp.setOwnerId("main");
-
 
 
                     ContentRefreshOperation.waitForRefresh = 4;
@@ -2382,7 +2384,7 @@ public class Test {
 
 //                    if (peerList.size() > 20) {
                     //(System.currentTimeMillis() - peer.lastActionOnConnection > 1000 * 60 * 60 * 4)
-                    if ((peer.retries > 10 || (peer.nonce == null && peer.retries >= 1)) && peer.ping != -1) {
+                    if ((peer.retries > 10 || (peer.nodeId == null && peer.retries >= 1)) && peer.ping != -1) {
                         //peerList.remove(peer);
                         removePeer(peer);
                         Test.messageStore.insertPeerConnectionInformation(peer.ip, peer.port, 0, 0);

@@ -554,7 +554,7 @@ public class KadContentUpdate implements KadContent {
         KadConfig.OPERATION_TIMEOUT = 300;
         Kad.startAsync();
         Thread.sleep(1000);
-        insertNewUpdate();
+//        insertNewUpdate();
 //        checkForUpdate();
         Thread.sleep(10000);
         Kad.shutdown();

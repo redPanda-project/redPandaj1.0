@@ -38,7 +38,7 @@ public class Peer implements Comparable<Peer> {
     int cnt = 0;
     public long connectedSince = 0;
     long lastAllMsgsQuerried = Settings.till;
-    public KademliaId nonce;
+    public KademliaId nodeId;
     private ArrayList<String> filterAdresses;
     private SocketChannel socketChannel;
     //    public ArrayList<ByteBuffer> readBuffers = new ArrayList<ByteBuffer>();
@@ -101,12 +101,12 @@ public class Peer implements Comparable<Peer> {
 
             Peer n2 = (Peer) obj;
 
-            if (nonce == null || n2.nonce == null) {
+            if (nodeId == null || n2.nodeId == null) {
                 return false;
             }
 
             //return (ip.equals(n2.ip) && port == n2.port && nonce == n2.nonce);
-            return nonce.equals(n2.nonce);
+            return nodeId.equals(n2.nodeId);
 
         } else {
             return false;
@@ -131,7 +131,7 @@ public class Peer implements Comparable<Peer> {
 //        ArrayList<Integer> sendMessagesCloned = (ArrayList<Integer>) peerTrustData.sendMessages.clone();
 //        HashMap<Integer, RawMsg> pendingMessagesCloned = (HashMap<Integer, RawMsg>) peerTrustData.pendingMessages.clone();
 //        HashMap<Integer, RawMsg> pendingMessagesPublicCloned = (HashMap<Integer, RawMsg>) peerTrustData.pendingMessagesPublic.clone();
-        return new PeerSaveable(ip, port, lastAllMsgsQuerried, nonce, retries);
+        return new PeerSaveable(ip, port, lastAllMsgsQuerried, nodeId, retries);
     }
 
     public boolean isConnected() {
@@ -171,7 +171,7 @@ public class Peer implements Comparable<Peer> {
             a += 2000;
         }
 
-        if (nonce == null) {
+        if (nodeId == null) {
             a -= 1000;
         }
 
@@ -434,16 +434,16 @@ public class Peer implements Comparable<Peer> {
             writtenBytes = getSocketChannel().write(writeBuffer);
         } else {
             //TODO groesse anpassen vom crypted buffer
-            byte[] buffer = new byte[writeBuffer.remaining()];
+            byte[] buffer = new byte[Math.min(writeBuffer.remaining(),writeBufferCrypted.remaining())];
             writeBuffer.get(buffer);
             byte[] encryptedBytes = writeKey.encrypt(buffer);
 
-            if (writeBufferCrypted.remaining() < encryptedBytes.length) {
-                //buffer zu klein :(
-                ByteBuffer newBuffer = ByteBuffer.allocate(writeBufferCrypted.capacity() + encryptedBytes.length);
-                newBuffer.put(writeBufferCrypted);
-                writeBufferCrypted = newBuffer;
-            }
+//            if (writeBufferCrypted.remaining() < encryptedBytes.length) {
+//                //buffer zu klein :(
+//                ByteBuffer newBuffer = ByteBuffer.allocate(writeBufferCrypted.capacity() + encryptedBytes.length);
+//                newBuffer.put(writeBufferCrypted);
+//                writeBufferCrypted = newBuffer;
+//            }
 
             writeBufferCrypted.put(encryptedBytes);
             writeBufferCrypted.flip();
@@ -562,7 +562,7 @@ public class Peer implements Comparable<Peer> {
 
             writeBufferLock.unlock();
 
-            Log.put("Introduced message to node: " + m.database_Id + " " + nonce, 40);
+            Log.put("Introduced message to node: " + m.database_Id + " " + nodeId, 40);
 
             //should be run later manually...
 ////        boolean sureWrittenToPeer = setWriteBufferFilled();
@@ -644,7 +644,7 @@ public class Peer implements Comparable<Peer> {
     public boolean peerIsHigher() {
 //        return isConnectionInitializedByMe;
         for (int i = 0; i < KademliaId.ID_LENGTH / 8; i++) {
-            int compare = Byte.compare(Test.NONCE.getBytes()[i], nonce.getBytes()[i]);
+            int compare = Byte.compare(Test.NONCE.getBytes()[i], nodeId.getBytes()[i]);
             if (compare > 0) {
                 return true;
             } else if (compare < 0) {
@@ -735,7 +735,7 @@ public class Peer implements Comparable<Peer> {
             }
             getPeerTrustData().loadedMsgs = loadedMsgsNew;
             getPeerTrustData().loadedMsgsCount += loadedMsgs.size() - 200;
-            Log.put("shrinked loadedmsgs: " + nonce, 3);
+            Log.put("shrinked loadedmsgs: " + nodeId, 3);
         }
 
     }

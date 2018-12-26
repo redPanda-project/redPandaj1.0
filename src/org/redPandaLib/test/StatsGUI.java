@@ -14,11 +14,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
 import javax.swing.JTextArea;
-import javax.swing.UIManager;
-import javax.swing.text.StyleConstants;
-import javax.swing.text.StyleContext;
+
 import org.redPandaLib.NewMessageListener;
 import org.redPandaLib.core.ConnectionHandler;
 import org.redPandaLib.core.Log;
@@ -117,10 +114,10 @@ public class StatsGUI {
                         }
 
                         if (peer.getPeerTrustData() == null) {
-                            format += String.format("%50s %22d %12s %12s %7d %8s %10s %10s %10d %10d %10d\n", "[" + peer.ip + "]:" + peer.port, peer.nonce.hashCode(), c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), "-", "-", peer.sendBytes, peer.receivedBytes, peer.removedSendMessages.size());
+                            format += String.format("%50s %22d %12s %12s %7d %8s %10s %10s %10d %10d %10d\n", "[" + peer.ip + "]:" + peer.port, peer.nodeId.hashCode(), c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), "-", "-", peer.sendBytes, peer.receivedBytes, peer.removedSendMessages.size());
                         } else {
                             //format += String.format("%50s %22d %12s %12s %7d %8s %10d %10d %10d %8s %10d %10d %10s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.removedSendMessages.size(), formatInterval(System.currentTimeMillis() - peer.peerTrustData.backSyncedTill));
-                            format += String.format("%50s %22d %12s %12s %7d %8s %10d %10s %10d %10d %8s %10d %10d %10s %10s %10s %10s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce.hashCode(), c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().getMessageLoadedCount(), peer.getPeerTrustData().pendingMessages.size() + " " + peer.getPeerTrustData().pendingMessagesPublic.size() + " " + peer.getPeerTrustData().pendingMessagesTimedOut.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.peerTrustData.rating, peer.removedSendMessages.size(),
+                            format += String.format("%50s %22d %12s %12s %7d %8s %10d %10s %10d %10d %8s %10d %10d %10s %10s %10s %10s\n", "[" + peer.ip + "]:" + peer.port, peer.nodeId.hashCode(), c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().getMessageLoadedCount(), peer.getPeerTrustData().pendingMessages.size() + " " + peer.getPeerTrustData().pendingMessagesPublic.size() + " " + peer.getPeerTrustData().pendingMessagesTimedOut.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.peerTrustData.rating, peer.removedSendMessages.size(),
                                     peer.peerTrustData.backSyncedTill == Long.MAX_VALUE ? "-" : formatInterval(System.currentTimeMillis() - peer.peerTrustData.backSyncedTill),
                                     peer.peerTrustData.pendingMessagesTimedOut.size(), peer.peerTrustData.pendingMessagesTimedOut.size());
                         }

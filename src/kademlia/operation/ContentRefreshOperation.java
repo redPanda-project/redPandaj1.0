@@ -157,7 +157,7 @@ public class ContentRefreshOperation implements Operation {
 
             }
 
-            System.out.println("refresh send to nodes: " + cnt);
+//            System.out.println("refresh send to nodes: " + cnt);
 
             /* Delete any content on this node that this node is not one of the K-Closest nodes to */
             try {
@@ -201,7 +201,7 @@ public class ContentRefreshOperation implements Operation {
 //
         bytesSend = 0;
         timestart = System.currentTimeMillis();
-        if (Math.random() < 0.10) {
+        if (Math.random() < 0.01) {
             System.out.println("kbsec: " + l);
         }
     }

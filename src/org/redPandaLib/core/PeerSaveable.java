@@ -5,11 +5,8 @@
 package org.redPandaLib.core;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.HashMap;
 
 import kademlia.node.KademliaId;
-import org.redPandaLib.core.messages.RawMsg;
 
 /**
  * @author robin
@@ -47,7 +44,7 @@ public class PeerSaveable implements Serializable {
 
         Peer out = new Peer(ip, port);
         out.lastAllMsgsQuerried = lastAllMsgsQuerried;
-        out.nonce = nonce;
+        out.nodeId = nonce;
         out.retries = retries;
 //        out.sendMessages = sendMessages;
 //        out.pendingMessages = pendingMessages;

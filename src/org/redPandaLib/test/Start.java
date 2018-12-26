@@ -181,7 +181,7 @@ public class Start {
 
         Settings.pingDelay = 30;
 
-        Kad.startAsync();
+//        Kad.startAsync();
 
         org.redPandaLib.Main.startUp(
                 true, saver);

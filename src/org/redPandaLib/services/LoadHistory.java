@@ -6,7 +6,6 @@ package org.redPandaLib.services;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.logging.Level;
@@ -103,7 +102,7 @@ public class LoadHistory {
 
                                 lastRequesteFrom.put(p, backSyncedTill);
 
-                                Log.put("requested new sync back: " + p.nonce + " time: " + backSyncedTill, 0);
+                                Log.put("requested new sync back: " + p.nodeId + " time: " + backSyncedTill, 0);
 
                             } else {
                                 lastRequesteFrom.remove(p);

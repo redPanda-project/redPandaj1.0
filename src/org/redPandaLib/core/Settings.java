@@ -28,7 +28,7 @@ public class Settings {
     public static boolean IPV6_ONLY = false;
     public static boolean IPV4_ONLY = false;
     //    public static String[] knownNodes = {"redPanda.im", "91.250.113.186", "2a01:488:66:1000:5bfa:71ba:0:1", "fabulous.h4ck.me", "geeq.de", "redpanda.ignorelist.com", "redpanda.ip-v6.eu", "redpanda-ipv6only.allowed.org"};
-    public static String[] knownNodes = {"127.0.0.1"};
+    public static String[] knownNodes = {"195.201.25.223"};
     public static int STARTPORT = 59558;//default value if not overwritten by general.dat
     public static int MAXPUBLICMSGS = 15000;//default value if not overwritten by general.dat
     public static boolean TESTNET = false;
@@ -38,6 +38,38 @@ public class Settings {
     public static String EXTERNAL_DATABASE_LOGIN_CREDENTIALS = null; //format: user,dbname,password
     public static boolean REDUCE_TRAFFIC = false; //This is currenlty only a hack. This allows to not load images when mobile internet is used. (Messages will be introduced from all peers every time they reconnect to us!!!)
     public static boolean DONT_REMOVE_UNUSED_MESSAGES = false; //dont remove unused messages (messages which are doublicates within blocks)
+
+    private static long myCurrentVersionTimestamp = 0; // -1 == disable autoupdate, 0 == unknown
+    public static boolean seedNode = false;
+
+
+    public static long getMyCurrentVersionTimestamp() {
+
+
+        if (myCurrentVersionTimestamp == 0)
+        //get timestamp of own version
+        {
+            File file = new File("redPandaj.jar");
+            myCurrentVersionTimestamp = file.lastModified();
+
+
+            if (!file.exists()) {
+                System.out.println("No jar to update found, disable auto update");
+                myCurrentVersionTimestamp = -1;
+
+
+                file = new File("out/artifacts/redPandaj_jar/redPandaj.jar");
+                if (file.exists()) {
+                    myCurrentVersionTimestamp = file.lastModified();
+                    seedNode = true;
+                }
+            }
+        }
+
+
+        return myCurrentVersionTimestamp;
+    }
+
 
     public static void readGeneralDotDat() {
         try {

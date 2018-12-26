@@ -4,16 +4,22 @@
  */
 package org.redPandaLib.core;
 
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.SignatureException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import kademlia.exceptions.ContentNotFoundException;
 import kademlia.node.KademliaId;
+import org.redPandaLib.SpecialChannels;
+import org.redPandaLib.kademlia.Kad;
+import org.redPandaLib.kademlia.KadConfig;
 import org.redPandaLib.services.MessageVerifierHsqlDb;
 import org.redPandaLib.services.MessageDownloader;
 
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.net.Socket;
 import java.nio.ByteBuffer;
@@ -24,19 +30,14 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
 import java.security.SecureRandom;
-import java.sql.SQLTransactionRollbackException;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.redPandaLib.ByteUtils;
 import org.redPandaLib.Main;
-
-import static org.redPandaLib.core.Test.getClonedPeerList;
-import static org.redPandaLib.core.Test.peerList;
-import static org.redPandaLib.core.Test.peerListLock;
-import static org.redPandaLib.core.Test.saveTrustData;
 
 import org.redPandaLib.core.messages.RawMsg;
 import org.redPandaLib.crypt.AESCrypt;
@@ -44,6 +45,9 @@ import org.redPandaLib.crypt.ECKey;
 import org.redPandaLib.crypt.RC4;
 import org.redPandaLib.crypt.Sha256Hash;
 import org.redPandaLib.crypt.Utils;
+import org.redPandaLib.test.Start;
+
+import static org.redPandaLib.core.Test.*;
 
 /**
  * @author robin
@@ -60,6 +64,7 @@ public class ConnectionHandler extends Thread {
     private boolean exit = false;
     public static long lastRun = 0;
     public static HashMap<ECKey, HashMap<PeerTrustData, Long>> ratingData = new HashMap<ECKey, HashMap<PeerTrustData, Long>>();
+    private static ReentrantLock updateUploadLock = new ReentrantLock();
 
     public ConnectionHandler() {
         try {
@@ -349,9 +354,9 @@ public class ConnectionHandler extends Thread {
 
                             peer.readBufferCrypted.flip();
 
-                            if (peer.readBuffer.remaining() <= 1024) {
-                                System.out.println("############### readBuffer nearly full!! - " + peer.readBuffer.remaining());
-                            }
+//                            if (peer.readBuffer.remaining() <= 1024) {
+//                                System.out.println("############### readBuffer nearly full!! - " + peer.readBuffer.remaining());
+//                            }
 
                             int readCryptBytes = Math.min(peer.readBufferCrypted.remaining(), peer.readBuffer.remaining());
 
@@ -382,19 +387,21 @@ public class ConnectionHandler extends Thread {
 
                         if (read == 0) {
 
-                            if (readBuffer.hasRemaining()) {
-                                //System.out.println("dgqdgqzudg23c365nx367t34t53 " + peer.readBuffer + " " + key.isReadable() + " " + key.isValid());
-                                System.out.println("dafuq!");
-                                //closeConnection(peer, key);
-                                peer.disconnect("dafuq 2332");
+//                            if (readBuffer.hasRemaining()) {
+//                                //System.out.println("dgqdgqzudg23c365nx367t34t53 " + peer.readBuffer + " " + key.isReadable() + " " + key.isValid());
+//                                System.out.println("dafuq!");
+//                                //closeConnection(peer, key);
+//                                peer.disconnect("dafuq 2332");
+//                                continue;
+//                            }
+
+                            if (peer.readBuffer.capacity() * 2 > 1024 * 1024 * 200) {
+                                //throw new RuntimeException("buffer to high exiting!!!!");
+//                                System.exit(-199);
+                                peer.disconnect("readbuffer to high, prevent too high memory usage!");
                                 continue;
                             }
-
-                            if (peer.readBuffer.capacity() * 2 > 1024 * 1024) {
-                                //throw new RuntimeException("buffer to high exiting!!!!");
-                                System.exit(-199);
-                            }
-                            System.out.println("readbuffer raised!!!");
+                            System.out.println("we have to double the readbuffer...");
                             ByteBuffer allocate = ByteBuffer.allocate(peer.readBuffer.capacity() * 2);
                             allocate.put(peer.readBuffer.array());
                             allocate.position(peer.readBuffer.position());
@@ -444,7 +451,7 @@ public class ConnectionHandler extends Thread {
                                         //System.out.println("ready! " + magic);
 
                                         peer.port = port;
-                                        peer.nonce = nonce;
+                                        peer.nodeId = nonce;
 
                                         if (nonce.equals(Test.NONCE)) {
                                             Log.put("found myself!" + peer.ip + ":" + peer.port, 200);
@@ -546,7 +553,7 @@ public class ConnectionHandler extends Thread {
                                         //init auth
                                         boolean foundAuthKey = false;
                                         for (PeerTrustData pt : Test.peerTrusts) {
-                                            if (pt.nonce == peer.nonce) {
+                                            if (pt.nonce == peer.nodeId) {
                                                 foundAuthKey = true;
 
 //                                                        System.out.println("authkey found for nonce: " + peer.nonce);
@@ -683,7 +690,7 @@ public class ConnectionHandler extends Thread {
                             //System.out.println("write from buffer...");
                             writtenBytes = peer.writeBytesToPeer(writeBuffer);
                         }
-                        writeBuffer.compact();
+                        peer.writeBuffer.compact();
 //                                peer.writeBuffer.flip(); //switch buffer for writing
 //                                writeBuffer.limit(writeBuffer.capacity());
 //                            writeBuffer.limit(limit);
@@ -744,7 +751,7 @@ public class ConnectionHandler extends Thread {
         peer.writeBufferLock.unlock();
 
         //peer.authed = true;
-        Log.put("requested new authkey... " + peer.nonce, 150);
+        Log.put("requested new authkey... " + peer.nodeId, 150);
 
     }
 
@@ -754,7 +761,7 @@ public class ConnectionHandler extends Thread {
 
         if (peer.getPeerTrustData() == null || !peer.authed) {
 
-            if (command == (byte) 1 || command == (byte) 2 || command == (byte) 10 || command == (byte) 51 || command == (byte) 52 || command == (byte) 53 || command == (byte) 55 || command == (byte) 100 || command == (byte) 101) {
+            if (command == (byte) 1 || command == (byte) 2 || command == (byte) 10 || command == (byte) 51 || command == (byte) 52 || command == (byte) 53 || command == (byte) 55 || command == Command.PING || command == Command.PONG) {
                 // erlaubte befehle welche ohne verschluesselung ausgefuehrt werden duerfen
             } else {
                 System.out.println("PEER wanted to send a command (" + command + ") which is only allowed after auth. : " + peer.ip);
@@ -765,7 +772,7 @@ public class ConnectionHandler extends Thread {
         }
 
         //System.out.println(peer.ip + " incoming command: " + command);
-        if (command == (byte) 1) {
+        if (command == Command.GET_PEER_LIST) {
             Log.put("Command: get PeerList", 8);
 
             ByteBuffer tempWriteBuffer = ByteBuffer.allocate(1024 * 10);
@@ -833,7 +840,7 @@ public class ConnectionHandler extends Thread {
             writeBuffer.put(tempWriteBuffer);
             peer.writeBufferLock.unlock();
             return 1;
-        } else if (command == (byte) 2) {
+        } else if (command == Command.PEERLIST) {
             Log.put("Command: peerList", 8);
 
             if (2 > readBuffer.remaining()) {
@@ -999,7 +1006,7 @@ public class ConnectionHandler extends Thread {
                     //int my_pubkeyId = Test.messageStore.getPubkeyId(id2KeyHis);
                     if (Test.channels.contains(new Channel(id2KeyHis, null))) {
                         peer.myInterestedChannelsCodedInHisIDs.add(pubkey_id_local);
-                        Log.put("added !! " + pubkey_id_local + " node: " + peer.nonce, 100);
+                        Log.put("added !! " + pubkey_id_local + " node: " + peer.nodeId, 100);
                     } else {
 
                         int pubkeyId = Test.messageStore.getPubkeyId(id2KeyHis);
@@ -1022,7 +1029,7 @@ public class ConnectionHandler extends Thread {
 
                         dontAddMessage = true;
 
-                        Log.put("channel was removed, sending to node.... " + pubkeyId + " node: " + peer.nonce, 0);
+                        Log.put("channel was removed, sending to node.... " + pubkeyId + " node: " + peer.nodeId, 0);
 
                         //There may be still messages to sync to other nodes, we have to remove them!!
                         //ToDo: replace this hack!
@@ -1032,7 +1039,7 @@ public class ConnectionHandler extends Thread {
 
                 }
 
-                Log.put("contains!!! " + pubkey_id_local + " node: " + peer.nonce, 100);
+                Log.put("contains!!! " + pubkey_id_local + " node: " + peer.nodeId, 100);
             }
 
             if (!dontAddMessage) {
@@ -1565,7 +1572,7 @@ public class ConnectionHandler extends Thread {
 
             if (!peer.requestedNewAuth) {
                 //dafuq, thought I had an authkey for node. Generating new AuthKey
-                System.out.println("dafuq, thought I had an authkey for node. Generating new AuthKey: " + peer.nonce);
+                System.out.println("dafuq, thought I had an authkey for node. Generating new AuthKey: " + peer.nodeId);
                 //peer.peerTrustData = new PeerTrustData();
 
                 sendNewAuthKey(peer);
@@ -1578,15 +1585,15 @@ public class ConnectionHandler extends Thread {
                 System.arraycopy(otherAuthKeyBytes, 0, peer.peerTrustData.authKey, 0, 16);
             }
 
-            peer.peerTrustData.nonce = peer.nonce;
+            peer.peerTrustData.nonce = peer.nodeId;
             Test.peerTrusts.add(peer.peerTrustData);
             peer.peerTrustData.initInternalId();
 
             saveTrustData();
 
-            System.out.println("added key from other side... " + peer.nonce);
+            System.out.println("added key from other side... " + peer.nodeId);
 
-            System.out.println("requesting auth ...: " + peer.nonce);
+            System.out.println("requesting auth ...: " + peer.nodeId);
 
             Random r = new SecureRandom();
 
@@ -1614,7 +1621,7 @@ public class ConnectionHandler extends Thread {
             boolean send = false;
             for (PeerTrustData pt : Test.peerTrusts) {
 
-                if (!pt.nonce.equals(peer.nonce)) {
+                if (!pt.nonce.equals(peer.nodeId)) {
                     continue;
                 }
 
@@ -1657,7 +1664,7 @@ public class ConnectionHandler extends Thread {
             boolean found = false;
             for (PeerTrustData pt : Test.peerTrusts) {
 
-                if (pt.nonce != peer.nonce) {
+                if (pt.nonce != peer.nodeId) {
                     continue;
                 }
 
@@ -1790,6 +1797,7 @@ public class ConnectionHandler extends Thread {
 
                     //FULL CONNECTED TO NODE!
                     //NUN darf die Verbindung genutzt werden zum syncen usw...
+                    writeBuffer.put(Command.UPDATE_REQUEST_TIMESTAMP);
                     writeBuffer.put((byte) 8);
 
                     peer.writeBufferLock.unlock();
@@ -1941,7 +1949,7 @@ public class ConnectionHandler extends Thread {
             System.out.println("setted back sync time to: " + timestamp);
 
             return 1 + 8;
-        } else if (command == (byte) 101) {
+        } else if (command == Command.PONG) {
 
             double a = ((System.currentTimeMillis() - peer.lastPinged) / 10.);
             double b = peer.ping * 9 / 10.;
@@ -1950,7 +1958,7 @@ public class ConnectionHandler extends Thread {
 //            System.out.println("ping: " + (System.currentTimeMillis() - peer.lastPinged) + " avg.: " + Math.round(c*100)/100.);
 
             return 1;
-        } else if (command == (byte) 100) {
+        } else if (command == Command.PING) {
             //            System.out.println("Antworte auf ping...");
 //            ByteBuffer allocate = ByteBuffer.allocate(1);
 //            allocate.put((byte) 101);
@@ -1970,6 +1978,276 @@ public class ConnectionHandler extends Thread {
             System.out.println("closing, other side init it...");
             peer.disconnect("closing, other side init it...");
             return 1;
+
+        } else if (command == Command.UPDATE_REQUEST_TIMESTAMP) {
+            peer.writeBufferLock.lock();
+            writeBuffer.put(Command.UPDATE_ANSWER_TIMESTAMP);
+            writeBuffer.putLong(Settings.getMyCurrentVersionTimestamp());
+            peer.writeBufferLock.unlock();
+            peer.setWriteBufferFilled();
+            return 1;
+        } else if (command == Command.UPDATE_ANSWER_TIMESTAMP) {
+
+            if (8 > readBuffer.remaining()) {
+                return 0;
+            }
+
+            long othersTimestamp = readBuffer.getLong();
+
+            System.out.println("Update found from: " + new Date(othersTimestamp) + " our version is from: " + new Date(Settings.getMyCurrentVersionTimestamp()));
+
+            if (othersTimestamp > Settings.getMyCurrentVersionTimestamp() && Settings.getMyCurrentVersionTimestamp() != -1 && !Settings.seedNode) {
+                System.out.println("we get the new update!");
+                peer.writeBufferLock.lock();
+                writeBuffer.put(Command.UPDATE_REQUEST_CONTENT);
+                peer.writeBufferLock.unlock();
+                peer.setWriteBufferFilled();
+            }
+
+
+            return 1 + 8;
+        } else if (command == Command.UPDATE_REQUEST_CONTENT) {
+
+            if (Settings.getMyCurrentVersionTimestamp() == -1) {
+                return 1;
+            }
+
+            if (localSettings.getUpdateSignature() == null) {
+                System.out.println("we dont have an official signature to upload that update to other peers!");
+                return 1;
+            }
+
+
+            Runnable runnable = new Runnable() {
+                @Override
+                public void run() {
+
+                    updateUploadLock.lock();
+
+                    try {
+                        Thread.sleep(2000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+
+                    Path path;
+                    if (Settings.seedNode) {
+                        path = Paths.get("out/artifacts/redPandaj_jar/redPandaj.jar");
+                    } else {
+                        path = Paths.get("redPandaj.jar");
+                    }
+
+                    try {
+                        System.out.println("we send the update to a peer!");
+                        byte[] data = Files.readAllBytes(path);
+
+                        ByteBuffer a = ByteBuffer.allocate(1 + 8 + 4 + RawMsg.SIGNATURE_LENGRTH + data.length);
+                        a.put(Command.UPDATE_ANSWER_CONTENT);
+                        a.putLong(Settings.getMyCurrentVersionTimestamp());
+                        a.putInt(data.length);
+                        a.put(localSettings.getUpdateSignature());
+                        a.put(data);
+                        a.flip();
+
+                        peer.writeBufferLock.lock();
+
+
+                        try {
+
+//                            int pos = 0, toSend = 0;
+//
+//
+//                            byte[] array = a.array();
+//
+//                            System.out.println("length: " + array.length);
+//
+//
+//                            while (array.length - pos > 0) {
+//                                System.out.println("pos: " + pos);
+//
+//                                toSend = Math.min(writeBuffer.remaining(), array.length - pos);
+//
+//                                System.out.println("writebuffer r: " + writeBuffer.remaining());
+//
+//                                System.out.println("toSend: " + toSend);
+//
+//                                writeBuffer.put(array, pos, toSend);
+//
+//                                pos += toSend;
+//
+//                                peer.setWriteBufferFilled();
+//                                try {
+//                                    Thread.sleep(200);
+//                                } catch (InterruptedException e) {
+//                                    e.printStackTrace();
+//                                }
+//                            }
+
+
+                            if (peer.writeBuffer.remaining() < a.remaining()) {
+                                ByteBuffer allocate = ByteBuffer.allocate(peer.writeBuffer.capacity() + a.remaining() + 1024 * 1024 * 10);
+                                peer.writeBuffer.flip();
+                                allocate.put(peer.writeBuffer);
+                                peer.writeBuffer = allocate;
+                            }
+
+
+                            System.out.println("" + writeBuffer);
+
+                            System.out.println("writing bytes: " + a.remaining());
+
+                            peer.writeBuffer.put(a.array());
+                            peer.setWriteBufferFilled();
+
+                        } finally {
+                            peer.writeBufferLock.unlock();
+                        }
+
+
+                        // we only upload every 30 seconds one update!
+                        try {
+                            Thread.sleep(30000);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        updateUploadLock.unlock();
+
+
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            };
+
+            threadPool.submit(runnable);
+
+            return 1;
+        } else if (command == Command.UPDATE_ANSWER_CONTENT) {
+
+//            System.out.println("we get a update from node!");
+
+            if (8 + 4 + RawMsg.SIGNATURE_LENGRTH > readBuffer.remaining()) {
+                return 0;
+            }
+
+
+//            System.out.println("we get a update from node 2");
+            long othersTimestamp = readBuffer.getLong();
+            int toReadBytes = readBuffer.getInt();
+
+
+            byte[] signature = new byte[RawMsg.SIGNATURE_LENGRTH];
+            readBuffer.get(signature);
+
+//            System.out.println("download in pipe: " + new Date(othersTimestamp));
+
+            if (toReadBytes > readBuffer.remaining()) {
+                return 0;
+            }
+
+            System.out.println("update completely in buffer!");
+
+            byte[] data = new byte[toReadBytes];
+            readBuffer.get(data);
+
+
+            if (othersTimestamp > Settings.getMyCurrentVersionTimestamp() && Settings.getMyCurrentVersionTimestamp() != -1 && !Settings.seedNode) {
+                System.out.println("we got the update successfully, install it!");
+
+
+                System.out.println("signature found: " + Utils.bytesToHexString(signature));
+
+                //lets check the signature chunk:
+                Channel updateChannel = SpecialChannels.getUpdateChannel();
+
+
+                ByteBuffer bytesToHash = ByteBuffer.allocate(8 + toReadBytes);
+
+                bytesToHash.putLong(othersTimestamp);
+                bytesToHash.put(data);
+
+
+                Sha256Hash hash = Sha256Hash.create(bytesToHash.array());
+                System.out.println("hash: " + Utils.bytesToHexString(hash.getBytes()));
+
+                boolean verify = updateChannel.getKey().verify(hash.getBytes(), signature);
+
+                System.out.println("update verfified: " + verify);
+
+                File file = new File("redPandaj.jar");
+                long myCurrentVersionTimestamp = file.lastModified();
+                if (!file.exists()) {
+                    System.out.println("No jar to update found, exiting auto update!");
+                    return 1 + 8 + 4 + RawMsg.SIGNATURE_LENGRTH + data.length;
+                }
+
+                if (myCurrentVersionTimestamp >= othersTimestamp) {
+                    System.out.println("update not required, aborting...");
+                    return 1 + 8 + 4 + RawMsg.SIGNATURE_LENGRTH + data.length;
+                }
+
+
+                if (verify) {
+
+                    try (FileOutputStream fos = new FileOutputStream("update")) {
+                        fos.write(data);
+                        //fos.close(); There is no more need for this line since you had created the instance of "fos" inside the try. And this will automatically close the OutputStream
+                        System.out.println("updated store in update file");
+
+                        File f = new File("update");
+                        f.setLastModified(othersTimestamp);
+
+                        Test.localSettings.setUpdateSignature(signature);
+                        Test.localSettings.save();
+
+                        try {
+                            Thread.sleep(3000);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        System.exit(0);
+                    } catch (FileNotFoundException e) {
+                        e.printStackTrace();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                }
+
+
+//                ECKey.ECDSASignature sign = updateChannel.getKey().sign(hash);
+//
+//                byte[] encodeToDER = new byte[RawMsg.SIGNATURE_LENGRTH];
+//                byte[] sigBytes = sign.encodeToDER();
+//                System.arraycopy(sigBytes, 0, encodeToDER, 0, sigBytes.length);
+//
+//                byte[] newBytes = new byte[encodeToDER.length];
+//
+//                int index = encodeToDER.length - 1;
+//                while (true) {
+//                    System.arraycopy(encodeToDER, 0, newBytes, 0, index + 1);
+//                    if (newBytes[index] == (byte) 0) {
+//                        newBytes = new byte[index];
+//
+//                        index--;
+//                    } else {
+//                        break;
+//                    }
+//
+//                }
+//
+//                //System.out.println("Sigbytes len: " + sigBytes.length + " " + Utils.bytesToHexString(encodeToDER));
+//                //System.out.println("Sigbytes len: " + sigBytes.length + " " + Utils.bytesToHexString(newBytes));
+//                byte[] signature = encodeToDER;
+//
+//                System.out.println("signature: " + Utils.bytesToHexString(signature));
+
+
+            }
+
+
+            return 1 + 8 + 4 + RawMsg.SIGNATURE_LENGRTH + data.length;
+
         }
 
         byte nextByte = 0;
@@ -1979,7 +2257,7 @@ public class ConnectionHandler extends Thread {
         }
 
         System.out.println(
-                "Wrong protocol, disconnecting + removing peer, nonce: " + peer.nonce + " Command was: " + command + " next byte: " + nextByte + " remaining: " + readBuffer.remaining() + " crypt-Stauts: out: " + (peer.writeBufferCrypted != null) + ", in: " + (peer.readBufferCrypted != null));
+                "Wrong protocol, disconnecting + removing peer, nonce: " + peer.nodeId + " Command was: " + command + " next byte: " + nextByte + " remaining: " + readBuffer.remaining() + " crypt-Stauts: out: " + (peer.writeBufferCrypted != null) + ", in: " + (peer.readBufferCrypted != null));
         ByteBuffer a = ByteBuffer.allocate(1);
 
         a.put(
@@ -2505,5 +2783,123 @@ public class ConnectionHandler extends Thread {
 
             allSockets.removeAll(toRemove);
         }
+    }
+
+
+    public static void insertNewUpdate() throws IOException {
+
+
+        //lets test if we have the priv key before generating update
+        String keyString = new String(Files.readAllBytes(Paths.get("privateSigningKey.txt")));
+        keyString = keyString.replace("\n", "").replace("\r", "");
+        System.out.println("privKey: '" + keyString + "'");
+        if (SpecialChannels.getUpdateChannel(keyString) == null) {
+            throw new RuntimeException("privkey not available!");
+        }
+
+
+        File file = new File("out/artifacts/redPandaj_jar/redPandaj.jar");
+
+        long timestamp = file.lastModified();
+
+        System.out.println("timestamp : " + timestamp);
+
+        Path path = Paths.get("out/artifacts/redPandaj_jar/redPandaj.jar");
+        byte[] data = Files.readAllBytes(path);
+
+        int updateSize = data.length;
+
+//        data = new byte[32000];
+
+
+        ByteBuffer toHash = ByteBuffer.allocate(8 + data.length);
+        toHash.putLong(timestamp);
+        toHash.put(data);
+
+
+//        System.out.println(kademliaId.toString());
+//        System.out.println(Utils.bytesToHexString(keyBytes));
+//
+//        System.out.println(Utils.bytesToHexString(keyBytes));
+
+
+        //get priv key from external file:
+//            String keyString = new String(Files.readAllBytes(Paths.get("privateSigningKey.txt")));
+
+
+        //lets build the signing chunk:
+        Channel updateChannel = SpecialChannels.getUpdateChannel(keyString);
+
+        Sha256Hash hash = Sha256Hash.create(toHash.array());
+        System.out.println("hash: " + Utils.bytesToHexString(hash.getBytes()));
+        ECKey.ECDSASignature sign = updateChannel.getKey().sign(hash);
+
+        byte[] encodeToDER = new byte[RawMsg.SIGNATURE_LENGRTH];
+        byte[] sigBytes = sign.encodeToDER();
+        System.arraycopy(sigBytes, 0, encodeToDER, 0, sigBytes.length);
+
+        byte[] newBytes = new byte[encodeToDER.length];
+
+        int index = encodeToDER.length - 1;
+        while (true) {
+            System.arraycopy(encodeToDER, 0, newBytes, 0, index + 1);
+            if (newBytes[index] == (byte) 0) {
+                newBytes = new byte[index];
+
+                index--;
+            } else {
+                break;
+            }
+
+        }
+
+        //System.out.println("Sigbytes len: " + sigBytes.length + " " + Utils.bytesToHexString(encodeToDER));
+        //System.out.println("Sigbytes len: " + sigBytes.length + " " + Utils.bytesToHexString(newBytes));
+        byte[] signature = encodeToDER;
+
+        System.out.println("signature: " + Utils.bytesToHexString(signature));
+        Test.localSettings.setUpdateSignature(signature);
+        Test.localSettings.save();
+        System.out.println("saved in local settings!");
+
+
+    }
+
+
+    public static void main(String[] args) throws IOException, InterruptedException, ContentNotFoundException, SignatureException {
+
+
+//        ByteBuffer writ = ByteBuffer.allocate(4 + 4);
+//        writ.putInt(4).putInt(5);
+//
+//
+//        writ.position(4);
+//
+//        int pos = writ.position();
+//
+//        ByteBuffer a = ByteBuffer.allocate(4 * 3);
+//
+//        a.put(writ.array());
+//        a.position(pos);
+//        a.putInt(6);
+//
+//
+//        writ = a;
+//
+//
+//        writ.flip();
+//        System.out.println("" + writ.getInt());
+//        System.out.println("" + writ.getInt());
+
+
+        Saver saver = new Saver();
+
+        Test.saver = saver;
+        Test.localSettings = saver.loadLocalSettings();
+
+        Thread.sleep(1000);
+        insertNewUpdate();
+        Thread.sleep(1000);
+        Start.main(null);
     }
 }
