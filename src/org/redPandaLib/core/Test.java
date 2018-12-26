@@ -549,7 +549,7 @@ public class Test {
                         }
 
                         cnt++;
-                        if (cnt > 4) {
+                        if (cnt > 8) {
                             break;
                         }
 
@@ -607,7 +607,7 @@ public class Test {
 
                 if (readLine.equals("T")) {
                     for (PeerTrustData ptd : Test.peerTrusts) {
-                        System.out.println("PEER: " + ptd.nonce + " " + (System.currentTimeMillis() - ptd.lastSeen));
+                        System.out.println("PEER: " + ptd.nodeId + " " + (System.currentTimeMillis() - ptd.lastSeen));
                         for (String ip : ptd.ips) {
                             System.out.println("        IP: " + ip);
                         }
@@ -1206,7 +1206,7 @@ public class Test {
                 if (readLine.equals("d")) {
                     System.out.println("debug info: ");
                     for (PeerTrustData ptd : peerTrusts) {
-                        System.out.println("nonce: " + ptd.nonce + " lastSeen: " + ptd.lastSeen + " trustlvl: " + ptd.trustLevel);
+                        System.out.println("nonce: " + ptd.nodeId + " lastSeen: " + ptd.lastSeen + " trustlvl: " + ptd.trustLevel);
                     }
 
                     ECKey ecKey = null;
@@ -1827,7 +1827,7 @@ public class Test {
                 if (readLine.equals("D")) {
                     System.out.println("debug info: ");
                     for (PeerTrustData ptd : peerTrusts) {
-                        System.out.println("nonce: " + ptd.nonce + " ID: " + ptd.internalId + " intToHim: " + messageStore.msgCountIntroducedToHim(ptd.internalId) + "  msgsIntroducedToMe: " + messageStore.msgCountIntroducedToMe(ptd.internalId) + " msgsToSyncToPeer: " + Test.messageStore.msgsToUser(ptd.internalId, System.currentTimeMillis() - 1000 * 60 * 60 * 24 * 7));
+                        System.out.println("nonce: " + ptd.nodeId + " ID: " + ptd.internalId + " intToHim: " + messageStore.msgCountIntroducedToHim(ptd.internalId) + "  msgsIntroducedToMe: " + messageStore.msgCountIntroducedToMe(ptd.internalId) + " msgsToSyncToPeer: " + Test.messageStore.msgsToUser(ptd.internalId, System.currentTimeMillis() - 1000 * 60 * 60 * 24 * 7));
                     }
                     continue;
                 }

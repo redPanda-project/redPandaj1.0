@@ -21,10 +21,10 @@ import org.redPandaLib.services.MessageDownloader;
  */
 public class PeerTrustData implements Serializable {
 
-    private static final long serialVersionUID = -2628506219264601849L;
+    private static final long serialVersionUID = -2628506219266601849L;
 
     public int internalId = -1;
-    KademliaId nonce;
+    KademliaId nodeId;
     byte[] authKey;
     int trustLevel;
     public long lastSeen = System.currentTimeMillis();

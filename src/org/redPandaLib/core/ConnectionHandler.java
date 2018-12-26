@@ -15,8 +15,6 @@ import java.sql.SQLException;
 import kademlia.exceptions.ContentNotFoundException;
 import kademlia.node.KademliaId;
 import org.redPandaLib.SpecialChannels;
-import org.redPandaLib.kademlia.Kad;
-import org.redPandaLib.kademlia.KadConfig;
 import org.redPandaLib.services.MessageVerifierHsqlDb;
 import org.redPandaLib.services.MessageDownloader;
 
@@ -553,7 +551,7 @@ public class ConnectionHandler extends Thread {
                                         //init auth
                                         boolean foundAuthKey = false;
                                         for (PeerTrustData pt : Test.peerTrusts) {
-                                            if (pt.nonce == peer.nodeId) {
+                                            if (pt.nodeId.equals(peer.nodeId)) {
                                                 foundAuthKey = true;
 
 //                                                        System.out.println("authkey found for nonce: " + peer.nonce);
@@ -734,7 +732,7 @@ public class ConnectionHandler extends Thread {
         byte[] myPart = new byte[16];
         r.nextBytes(myPart);
 
-        System.out.println("higher: " + peer.peerIsHigher());
+//        System.out.println("higher: " + peer.peerIsHigher());
 
         if (peer.peerIsHigher()) {
             System.arraycopy(myPart, 0, peer.peerTrustData.authKey, 0, 16);
@@ -1576,7 +1574,6 @@ public class ConnectionHandler extends Thread {
                 //peer.peerTrustData = new PeerTrustData();
 
                 sendNewAuthKey(peer);
-
             }
 
             if (peer.peerIsHigher()) {
@@ -1585,15 +1582,15 @@ public class ConnectionHandler extends Thread {
                 System.arraycopy(otherAuthKeyBytes, 0, peer.peerTrustData.authKey, 0, 16);
             }
 
-            peer.peerTrustData.nonce = peer.nodeId;
+            peer.peerTrustData.nodeId = peer.nodeId;
             Test.peerTrusts.add(peer.peerTrustData);
             peer.peerTrustData.initInternalId();
 
             saveTrustData();
 
-            System.out.println("added key from other side... " + peer.nodeId);
+            Log.put("added key from other side... " + peer.nodeId, 100);
 
-            System.out.println("requesting auth ...: " + peer.nodeId);
+            Log.put("requesting auth ...: " + peer.nodeId, 100);
 
             Random r = new SecureRandom();
 
@@ -1621,7 +1618,7 @@ public class ConnectionHandler extends Thread {
             boolean send = false;
             for (PeerTrustData pt : Test.peerTrusts) {
 
-                if (!pt.nonce.equals(peer.nodeId)) {
+                if (!pt.nodeId.equals(peer.nodeId)) {
                     continue;
                 }
 
@@ -1664,7 +1661,7 @@ public class ConnectionHandler extends Thread {
             boolean found = false;
             for (PeerTrustData pt : Test.peerTrusts) {
 
-                if (pt.nonce != peer.nodeId) {
+                if (!pt.nodeId.equals(peer.nodeId)) {
                     continue;
                 }
 
@@ -1994,10 +1991,14 @@ public class ConnectionHandler extends Thread {
 
             long othersTimestamp = readBuffer.getLong();
 
-            System.out.println("Update found from: " + new Date(othersTimestamp) + " our version is from: " + new Date(Settings.getMyCurrentVersionTimestamp()));
+//            System.out.println("Update found from: " + new Date(othersTimestamp) + " our version is from: " + new Date(Settings.getMyCurrentVersionTimestamp()));
+
+            if (othersTimestamp < Settings.getMyCurrentVersionTimestamp()) {
+                System.out.println("WARNING: peer has outdated redPandaj version!");
+            }
 
             if (othersTimestamp > Settings.getMyCurrentVersionTimestamp() && Settings.getMyCurrentVersionTimestamp() != -1 && !Settings.seedNode) {
-                System.out.println("we get the new update!");
+                System.out.println("our version is outdated, we try to download it from this peer!");
                 peer.writeBufferLock.lock();
                 writeBuffer.put(Command.UPDATE_REQUEST_CONTENT);
                 peer.writeBufferLock.unlock();
@@ -2025,7 +2026,7 @@ public class ConnectionHandler extends Thread {
                     updateUploadLock.lock();
 
                     try {
-                        Thread.sleep(2000);
+                        Thread.sleep(200);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
@@ -2092,9 +2093,9 @@ public class ConnectionHandler extends Thread {
                             }
 
 
-                            System.out.println("" + writeBuffer);
+//                            System.out.println("" + writeBuffer);
 
-                            System.out.println("writing bytes: " + a.remaining());
+//                            System.out.println("writing bytes: " + a.remaining());
 
                             peer.writeBuffer.put(a.array());
                             peer.setWriteBufferFilled();
@@ -2104,12 +2105,30 @@ public class ConnectionHandler extends Thread {
                         }
 
 
-                        // we only upload every 30 seconds one update!
-                        try {
-                            Thread.sleep(30000);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
+                        // only one upload at a time
+                        int cnt = 0;
+                        while (cnt < 150 && Settings.seedNode) {
+                            cnt++;
+                            try {
+                                Thread.sleep(200);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+
+                            peer.writeBufferLock.lock();
+                            try {
+                                if (!peer.isConnected() || (peer.writeBuffer.position() == 0 && peer.writeBufferCrypted.position() == 0)) {
+                                    break;
+                                }
+                            } finally {
+                                peer.writeBufferLock.unlock();
+                            }
+
+//                            System.out.println("peer still downloading...");
+
                         }
+
+
                         updateUploadLock.unlock();
 
 

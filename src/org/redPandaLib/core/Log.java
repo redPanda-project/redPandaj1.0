@@ -10,7 +10,7 @@ package org.redPandaLib.core;
  */
 public class Log {
 
-    public static int LEVEL = 300;
+    public static int LEVEL = 3000;
 
     public static void put(String msg, int level) {
         if (level > LEVEL) {

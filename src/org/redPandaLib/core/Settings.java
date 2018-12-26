@@ -18,8 +18,8 @@ public class Settings {
     public static int STD_PORT = 59558;
     public static int MIN_CONNECTIONS = 20;
     public static int MAX_CONNECTIONS = 50;
-    public static int pingTimeout = 60 * 10; //time in sec
-    public static int pingDelay = 60 * 9; //time in sec
+    public static int pingTimeout = 60 * 5; //time in sec
+    public static int pingDelay = 20; //time in sec
     public static int peerListRequestDelay = 60 * 60;//time in sec
     public static long till = 0;//1397836192756L;
     public static boolean lightClient = false;
@@ -28,7 +28,7 @@ public class Settings {
     public static boolean IPV6_ONLY = false;
     public static boolean IPV4_ONLY = false;
     //    public static String[] knownNodes = {"redPanda.im", "91.250.113.186", "2a01:488:66:1000:5bfa:71ba:0:1", "fabulous.h4ck.me", "geeq.de", "redpanda.ignorelist.com", "redpanda.ip-v6.eu", "redpanda-ipv6only.allowed.org"};
-    public static String[] knownNodes = {"195.201.25.223"};
+    public static String[] knownNodes = {"195.201.25.223", "51.15.99.205"};
     public static int STARTPORT = 59558;//default value if not overwritten by general.dat
     public static int MAXPUBLICMSGS = 15000;//default value if not overwritten by general.dat
     public static boolean TESTNET = false;
