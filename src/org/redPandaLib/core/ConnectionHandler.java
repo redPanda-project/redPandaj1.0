@@ -2009,11 +2009,29 @@ public class ConnectionHandler extends Thread {
             }
 
             if (othersTimestamp > Settings.getMyCurrentVersionTimestamp() && Settings.getMyCurrentVersionTimestamp() != -1 && !Settings.seedNode) {
-                System.out.println("our version is outdated, we try to download it from this peer!");
-                peer.writeBufferLock.lock();
-                writeBuffer.put(Command.UPDATE_REQUEST_CONTENT);
-                peer.writeBufferLock.unlock();
-                peer.setWriteBufferFilled();
+                Runnable runnable = new Runnable() {
+                    @Override
+                    public void run() {
+                        updateUploadLock.lock();
+
+                        System.out.println("our version is outdated, we try to download it from this peer!");
+                        peer.writeBufferLock.lock();
+                        writeBuffer.put(Command.UPDATE_REQUEST_CONTENT);
+                        peer.writeBufferLock.unlock();
+                        peer.setWriteBufferFilled();
+
+
+                        //lets not download another version in the next 60 seconds, otherwise our RAM may explode!
+                        try {
+                            Thread.sleep(60000);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        updateUploadLock.unlock();
+                    }
+                };
+
+                threadPool.submit(runnable);
             }
 
 
@@ -2118,10 +2136,10 @@ public class ConnectionHandler extends Thread {
 
                         // only one upload at a time
                         int cnt = 0;
-                        while (cnt < 150 && Settings.seedNode) {
+                        while (cnt < 6) {
                             cnt++;
                             try {
-                                Thread.sleep(200);
+                                Thread.sleep(10000);
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
                             }

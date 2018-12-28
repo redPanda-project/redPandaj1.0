@@ -1,6 +1,7 @@
 package org.redPandaLib.socketio;
 
 import java.io.*;
+import java.net.Socket;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -20,6 +21,7 @@ public class SocketIO {
 
 
     public static final String keyStoreFile = "webcert.jks";
+    public static int PORT;
 
     public static void main(String[] args) throws CertificateException, NoSuchAlgorithmException, IOException, KeyStoreException, InterruptedException {
 
@@ -87,11 +89,12 @@ public class SocketIO {
     }
 
 
-    public static void start(int myPort) {
+    public static void startServer(final int myPort) {
 
         Configuration config = new Configuration();
         config.setHostname("0.0.0.0");
-        config.setPort(myPort + 100);
+        PORT = myPort + 100;
+        config.setPort(PORT);
 
 
         final SocketIOServer server = new SocketIOServer(config);
@@ -109,5 +112,41 @@ public class SocketIO {
 
         server.startAsync();
 
+        new Thread() {
+            @Override
+            public void run() {
+
+                try {
+                    sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+                if (hostAvailabilityCheck()) {
+                    System.out.println("webserver available");
+                } else {
+                    server.stop();
+                    System.out.println("webserver stopped, because it was unresponsive!");
+                    try {
+                        sleep(1000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    System.out.println("webserver restart");
+                    startServer(myPort);
+                }
+            }
+        }.start();
+
+    }
+
+
+    public static boolean hostAvailabilityCheck() {
+        try (Socket s = new Socket("localhost", PORT)) {
+            return true;
+        } catch (IOException ex) {
+            /* ignore */
+        }
+        return false;
     }
 }

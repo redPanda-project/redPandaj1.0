@@ -19,11 +19,8 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.Security;
-import java.security.cert.CertificateException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -2818,7 +2815,7 @@ public class Test {
         WatchDog.start();
 
 
-        SocketIO.start(MY_PORT);
+        SocketIO.startServer(MY_PORT);
 
 
     }
