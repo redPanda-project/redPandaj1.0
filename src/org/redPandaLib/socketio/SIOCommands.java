@@ -44,13 +44,14 @@ public class SIOCommands {
                     if (cnt > d.getCount()) {
                         break;
                     }
+                    System.out.println("put: " + p.getNodeId().toString());
                     peers.add(new DPeer("http://" + p.ip + ":" + (p.port + 100), p.getNodeId().toString()));
                 }
 
 
-                for (int i = 0; i < 5; i++) {
-                    peers.add(new DPeer("url " + i, "nodeId " + i));
-                }
+//                for (int i = 0; i < 5; i++) {
+//                    peers.add(new DPeer("url " + i, "nodeId " + i));
+//                }
 
                 ackRequest.sendAckData(peers);
 
