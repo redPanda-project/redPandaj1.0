@@ -81,6 +81,10 @@ public class Peer implements Comparable<Peer> {
         this.port = port;
     }
 
+    public KademliaId getNodeId() {
+        return nodeId;
+    }
+
     public boolean equalsIpAndPort(Object obj) {
 
         if (obj instanceof Peer) {

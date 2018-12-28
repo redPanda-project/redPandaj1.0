@@ -6,7 +6,10 @@
 package org.redPandaLib.test;
 
 import java.io.IOException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
 import java.security.SignatureException;
+import java.security.cert.CertificateException;
 import java.sql.SQLException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -19,6 +22,7 @@ import org.redPandaLib.core.messages.TextMessageContent;
 import org.redPandaLib.crypt.Main;
 import org.redPandaLib.database.HsqlConnection;
 import org.redPandaLib.kademlia.Kad;
+import org.redPandaLib.socketio.SocketIO;
 
 /**
  * @author rflohr
@@ -179,14 +183,13 @@ public class Start {
         Settings.MIN_CONNECTIONS = 30;
         Settings.MAX_CONNECTIONS = 30;
 
-        Settings.pingDelay = 30;
 
 //        Kad.startAsync();
 
+
+
         org.redPandaLib.Main.startUp(
                 true, saver);
-
-
 
 
     }

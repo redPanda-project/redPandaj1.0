@@ -49,7 +49,7 @@ public class StatsGUI {
 //        StyleConstants.setFontFamily(sc.getStyle(StyleContext.DEFAULT_STYLE), "Lucida Console");
         JFrame meinFrame = new JFrame("redPanda");
         meinFrame.setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-        meinFrame.setSize(1600, 800);
+        meinFrame.setSize(1800, 800);
         final JMultilineLabel jLabel = new JMultilineLabel("loading...");
         meinFrame.add(jLabel);
         meinFrame.setVisible(true);
@@ -114,10 +114,10 @@ public class StatsGUI {
                         }
 
                         if (peer.getPeerTrustData() == null) {
-                            format += String.format("%50s %22d %12s %12s %7d %8s %10s %10s %10d %10d %10d\n", "[" + peer.ip + "]:" + peer.port, peer.nodeId.hashCode(), c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), "-", "-", peer.sendBytes, peer.receivedBytes, peer.removedSendMessages.size());
+                            format += String.format("%50s %22d %12s %12s %7d %8s %10s %10s %10d %10d %10d\n", "[" + peer.ip + "]:" + peer.port, 1556, c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), "-", "-", peer.sendBytes, peer.receivedBytes, peer.removedSendMessages.size());
                         } else {
                             //format += String.format("%50s %22d %12s %12s %7d %8s %10d %10d %10d %8s %10d %10d %10s\n", "[" + peer.ip + "]:" + peer.port, peer.nonce, c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.removedSendMessages.size(), formatInterval(System.currentTimeMillis() - peer.peerTrustData.backSyncedTill));
-                            format += String.format("%50s %22d %12s %12s %7d %8s %10d %10s %10d %10d %8s %10d %10d %10s %10s %10s %10s\n", "[" + peer.ip + "]:" + peer.port, peer.nodeId.hashCode(), c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().getMessageLoadedCount(), peer.getPeerTrustData().pendingMessages.size() + " " + peer.getPeerTrustData().pendingMessagesPublic.size() + " " + peer.getPeerTrustData().pendingMessagesTimedOut.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.peerTrustData.rating, peer.removedSendMessages.size(),
+                            format += String.format("%50s %22d %12s %12s %7d %8s %10d %10s %10d %10d %8s %10d %10d %10s %10s %10s %10s\n", "[" + peer.ip + "]:" + peer.port, 1556, c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().getMessageLoadedCount(), peer.getPeerTrustData().pendingMessages.size() + " " + peer.getPeerTrustData().pendingMessagesPublic.size() + " " + peer.getPeerTrustData().pendingMessagesTimedOut.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.peerTrustData.rating, peer.removedSendMessages.size(),
                                     peer.peerTrustData.backSyncedTill == Long.MAX_VALUE ? "-" : formatInterval(System.currentTimeMillis() - peer.peerTrustData.backSyncedTill),
                                     peer.peerTrustData.pendingMessagesTimedOut.size(), peer.peerTrustData.pendingMessagesTimedOut.size());
                         }
@@ -230,7 +230,6 @@ public class StatsGUI {
         Settings.MIN_CONNECTIONS = 10;
         Settings.MAX_CONNECTIONS = 12;
 
-        Settings.pingDelay = 10;
 
         try {
             org.redPandaLib.Main.startUp(

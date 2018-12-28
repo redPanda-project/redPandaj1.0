@@ -695,8 +695,10 @@ public class ConnectionHandler extends Thread {
 //                            writeBuffer.position(position - writtenBytes);
 
                         //System.out.println("wrote from buffer... " + writtenBytes + " ip: " + peer.ip);
-                        Test.outBytes += writtenBytes;
-                        peer.sendBytes += writtenBytes;
+                        if (writtenBytes > 0) {
+                            Test.outBytes += writtenBytes;
+                            peer.sendBytes += writtenBytes;
+                        }
                         peer.writeBufferLock.unlock();
 
                     }
@@ -887,7 +889,7 @@ public class ConnectionHandler extends Thread {
 
             return 1 + 2 + needBytes;
 
-        } else if (command == (byte) 3) {
+        } else if (command == Command.SYNC) {
             Log.put("Command: sync!", 8);
             if (2 > readBuffer.remaining()) {
                 return 0;
@@ -1948,10 +1950,19 @@ public class ConnectionHandler extends Thread {
             return 1 + 8;
         } else if (command == Command.PONG) {
 
-            double a = ((System.currentTimeMillis() - peer.lastPinged) / 10.);
-            double b = peer.ping * 9 / 10.;
-            double c = a + b;
-            peer.ping = c;
+            long curPing = (System.currentTimeMillis() - peer.lastPinged);
+
+//            System.out.println("ping: " + curPing);
+
+            if (peer.ping == 0) {
+                peer.ping = curPing;
+            } else {
+
+                double a = (curPing / 10.);
+                double b = peer.ping * 9 / 10.;
+                double c = a + b;
+                peer.ping = c;
+            }
 //            System.out.println("ping: " + (System.currentTimeMillis() - peer.lastPinged) + " avg.: " + Math.round(c*100)/100.);
 
             return 1;

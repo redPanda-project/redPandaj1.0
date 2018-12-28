@@ -19,7 +19,7 @@ public class Settings {
     public static int MIN_CONNECTIONS = 20;
     public static int MAX_CONNECTIONS = 50;
     public static int pingTimeout = 60 * 5; //time in sec
-    public static int pingDelay = 20; //time in sec
+    public static int pingDelay = 1; //time in msec
     public static int peerListRequestDelay = 60 * 60;//time in sec
     public static long till = 0;//1397836192756L;
     public static boolean lightClient = false;

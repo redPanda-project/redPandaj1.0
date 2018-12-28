@@ -19,8 +19,11 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.Security;
+import java.security.cert.CertificateException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -73,6 +76,7 @@ import org.redPandaLib.services.MessageDownloader;
 import org.redPandaLib.services.MessageVerifierHsqlDb;
 import org.redPandaLib.services.SearchLan;
 import org.redPandaLib.services.WatchDog;
+import org.redPandaLib.socketio.SocketIO;
 //import org.redPandaLib.upnp.Portforward;
 
 /**
@@ -124,9 +128,7 @@ public class Test {
     private static long lastAddedKnownNodes;
     public static HsqlConnection hsqlConnection;
 
-    /**
-     * @param args the command line arguments
-     */
+
     public static void main(boolean listenConsole, SaverInterface saver) throws IOException {
 
         Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
@@ -230,6 +232,12 @@ public class Test {
 
                 long lastSaved = System.currentTimeMillis();
 
+                try {
+                    sleep(3000);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
                 while (!Main.shutdown) {
 
                     if (System.currentTimeMillis() - lastSaved > 5 * 60 * 1000) {
@@ -262,7 +270,8 @@ public class Test {
                     }
 
                     try {
-                        sleep(Settings.pingDelay * 1000 + random.nextInt(200));
+                        sleep(5000);
+//                        sleep(Settings.pingDelay * 1000 + random.nextInt(200));
                         //sleep(2 * 1000 + random.nextInt(200));
                     } catch (InterruptedException ex) {
                         Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
@@ -275,20 +284,21 @@ public class Test {
                     //                    synchronized (peerList) {
                     for (Peer p : getClonedPeerList()) {
 
-                        //ToDo: remove
-                        try {
-                            sleep(500);
-                        } catch (InterruptedException ex) {
-                            Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
-                        }
+//                        //ToDo: remove
+//                        try {
+//                            sleep(500);
+//                        } catch (InterruptedException ex) {
+//                            Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+//                        }
 
                         if (p.getLastAnswered() > 1000 * 60 * 60 * 24 * 7 && peerList.size() > 3 && p.lastActionOnConnection != 0) {
                             removePeer(p);
                         }
 
-                        if (p.lastPinged - p.lastActionOnConnection > Settings.pingDelay * 1000 * 2 + 30000
+                        if (p.lastPinged - p.lastActionOnConnection > Settings.pingDelay * 2 + 30000
                                 || (p.isConnecting && p.getLastAnswered() > 10000)
-                                || (!p.isFullConnected() && p.getLastAnswered() > Settings.pingDelay * 1000)) {
+                                || (!p.isFullConnected() && p.getLastAnswered() > Settings.pingDelay)) {
+
 
                             if (p.isConnected() || p.isConnecting) {
                                 if (DEBUG) {
@@ -312,8 +322,10 @@ public class Test {
                             //                                System.out.println("Pinging: " + p.nonce);
                             //p.ping();
                             p.cnt++;
-                            if (p.cnt > Settings.peerListRequestDelay * 1000 / (Settings.pingDelay * 1000)) {
+                            if (p.cnt > Settings.peerListRequestDelay * 1000 / (Settings.pingDelay)) {
                                 //p.connectionThread.writeString(ConnectionThread.GETPEERS);
+
+                                System.out.println("c");
 
                                 if (p.isFullConnected()) {
 
@@ -336,8 +348,9 @@ public class Test {
 //                                        System.out.println("PING?: " + p.getLastAnswered() + " > " + Settings.pingDelay * 1000);
 //
 //                                    }
-                                if (p.isFullConnected() && p.getLastAnswered() > Settings.pingDelay * 1000) {
+                                if (p.isFullConnected() && p.getLastAnswered() > Settings.pingDelay) {
                                     p.ping();
+                                } else {
                                 }
 
                                 if (p.isConnected() && !p.authed) {
@@ -495,10 +508,18 @@ public class Test {
                             c = "-";
                         }
 
-                        if (peer.getPeerTrustData() == null) {
-                            System.out.format("%50s %22s %12s %12s %7d %8s %10s %10d %10d %10d\n", "[" + peer.ip + "]:" + peer.port, peer.nodeId, c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), "-", peer.sendBytes, peer.receivedBytes, peer.removedSendMessages.size());
+                        String nodeId;
+
+                        if (peer.nodeId == null) {
+                            nodeId = "-";
                         } else {
-                            System.out.format("%50s %22s %12s %12s %7d %8s %10d %10d %10d %8s %10d %10d %10s %10s %10s\n", "[" + peer.ip + "]:" + peer.port, peer.nodeId.toString(), c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.removedSendMessages.size(),
+                            nodeId = peer.nodeId.toString().substring(0, 10);
+                        }
+
+                        if (peer.getPeerTrustData() == null) {
+                            System.out.format("%50s %22s %12s %12s %7d %8s %10s %10d %10d %10d\n", "[" + peer.ip + "]:" + peer.port, nodeId, c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), "-", peer.sendBytes, peer.receivedBytes, peer.removedSendMessages.size());
+                        } else {
+                            System.out.format("%50s %22s %12s %12s %7d %8s %10d %10d %10d %8s %10d %10d %10s %10s %10s\n", "[" + peer.ip + "]:" + peer.port, nodeId, c, "" + peer.isConnected() + "/" + (peer.authed && peer.writeBufferCrypted != null), peer.retries, (Math.round(peer.ping * 100) / 100.), peer.getPeerTrustData().loadedMsgs.size(), peer.sendBytes, peer.receivedBytes, peer.getPeerTrustData().badMessages, messagesToSync(peer.peerTrustData.internalId), peer.removedSendMessages.size(),
                                     //peer.peerTrustData.backSyncedTill == Long.MAX_VALUE ? "-" : formatInterval(System.currentTimeMillis() - peer.peerTrustData.backSyncedTill),
                                     peer.peerTrustData.rating,
                                     peer.peerTrustData.pendingMessagesTimedOut.size(), peer.peerTrustData.pendingMessagesTimedOut.size());
@@ -514,7 +535,7 @@ public class Test {
 //                        }
                     }
 
-                    System.out.println("Not connected trust data: " + peerTrusts.size());
+                    System.out.println("Tustdata size: " + peerTrusts.size() + ". Not connected trust data (first entries): ");
 
                     ArrayList<Peer> clonedPeerList = getClonedPeerList();
 
@@ -533,7 +554,6 @@ public class Test {
                     int cnt = 0;
 
                     for (PeerTrustData ptd : peerTrustsCloned) {
-
 
 
                         boolean found = false;
@@ -2796,6 +2816,10 @@ public class Test {
 //
 //        }.start();
         WatchDog.start();
+
+
+        SocketIO.start(MY_PORT);
+
 
     }
 

@@ -5,6 +5,15 @@ public class Command {
     public static final byte GET_PEER_LIST = (byte) 1;// standalone command
     public static final byte PEERLIST = (byte) 2;
     public static final byte SYNC = (byte) 3;// standalone command
+
+    // below 10 was used for redPanda 1.0, can be removed later
+    public static final byte DHT_STORE = (byte) 20;//
+    public static final byte DHT_GET = (byte) 21;//
+    public static final byte DHT_FIND_NODES = (byte) 22;//
+
+    public static final byte FP_FILL = (byte) 25;//
+
+
     public static final byte UPDATE_REQUEST_TIMESTAMP = (byte) 80;// standalone command
     public static final byte UPDATE_ANSWER_TIMESTAMP = (byte) 81;// update timestamp: 1 long
     public static final byte UPDATE_REQUEST_CONTENT = (byte) 82;//
