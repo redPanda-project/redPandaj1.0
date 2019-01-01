@@ -236,7 +236,7 @@ public class KadContentUpdate implements KadContent {
 
 //                if (i < 5) {
                 countSendToNodes = 0;
-                Kad.node.putLocally(c);
+                KadOld.node.putLocally(c);
 //                while (countSendToNodes < 3) {
 //                    countSendToNodes = Kad.node.put(c);
 ////                    System.out.println("countSendToNodes to n nodes: " + countSendToNodes);
@@ -323,9 +323,9 @@ public class KadContentUpdate implements KadContent {
             KadContentUpdate signContent = new KadContentUpdate(currId, signature, null);
             countSendToNodes = 0;
             while (countSendToNodes < 3) {
-                countSendToNodes = Kad.node.put(signContent);
+                countSendToNodes = KadOld.node.put(signContent);
             }
-            Kad.node.putLocally(signContent);
+            KadOld.node.putLocally(signContent);
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -366,9 +366,9 @@ public class KadContentUpdate implements KadContent {
                      * since the new update may have a smaller k value and
                      * we would never drop the current entry
                      */
-                    conte = Kad.node.getExternally(gp);
+                    conte = KadOld.node.getExternally(gp);
                 } else {
-                    conte = Kad.node.get(gp);
+                    conte = KadOld.node.get(gp);
                 }
 
                 if (lastUpdateTimestamp == 0) {
@@ -377,14 +377,14 @@ public class KadContentUpdate implements KadContent {
 
 
                     System.out.println("remove old updates...");
-                    List<KademliaStorageEntryMetadata> storageEntries = Kad.node.getDHT().getStorageEntries();
+                    List<KademliaStorageEntryMetadata> storageEntries = KadOld.node.getDHT().getStorageEntries();
 
                     for (KademliaStorageEntryMetadata e : storageEntries) {
                         if (!e.getType().equals(KadContentUpdate.TYPE) || e.getLastUpdatedTimestamp() * 1000 >= lastUpdateTimestamp) {
                             continue;
                         }
                         try {
-                            Kad.node.getDHT().remove(e);
+                            KadOld.node.getDHT().remove(e);
                             System.out.println("removed old update entry: " + new Date(e.getLastUpdatedTimestamp() * 1000));
                         } catch (Throwable exxx) {
 
@@ -416,7 +416,7 @@ public class KadContentUpdate implements KadContent {
 
 
                 KadContentUpdate kadContentUpdate = new KadContentUpdate().fromSerializedForm(conte.getContent());
-                Kad.node.putLocally(kadContentUpdate);
+                KadOld.node.putLocally(kadContentUpdate);
                 notFound = 0;
 //                if (i % 10 == 0) {
                 System.out.print(".");
@@ -506,7 +506,7 @@ public class KadContentUpdate implements KadContent {
                     fos.write(finalUpdateBytes);
                     //fos.close(); There is no more need for this line since you had created the instance of "fos" inside the try. And this will automatically close the OutputStream
                     System.out.println("updated store in update file");
-                    Kad.shutdown();
+                    KadOld.shutdown();
                     try {
                         Thread.sleep(3000);
                     } catch (InterruptedException e) {
@@ -552,14 +552,14 @@ public class KadContentUpdate implements KadContent {
 
     public static void main(String[] args) throws IOException, InterruptedException, ContentNotFoundException {
         KadConfig.OPERATION_TIMEOUT = 300;
-        Kad.startAsync();
+        KadOld.startAsync();
         Thread.sleep(1000);
 //        insertNewUpdate();
 //        checkForUpdate();
         Thread.sleep(10000);
-        Kad.shutdown();
+        KadOld.shutdown();
         Thread.sleep(1000);
-        System.out.println(Kad.node);
+        System.out.println(KadOld.node);
         System.exit(0);
     }
 

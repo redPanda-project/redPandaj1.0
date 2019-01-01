@@ -12,6 +12,7 @@ public class Command {
     public static final byte DHT_FIND_NODES = (byte) 22;//
 
     public static final byte FP_FILL = (byte) 25;//
+    public static final byte FP_FILL_ACK = (byte) 25;//
 
 
     public static final byte UPDATE_REQUEST_TIMESTAMP = (byte) 80;// standalone command

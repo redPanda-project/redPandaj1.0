@@ -446,4 +446,30 @@ public class Channel implements Serializable, Comparable<Channel> {
     public boolean isWriteable() {
         return key.getPrivKeyBytes() != null;
     }
+
+
+    public static void main(String[] args) throws AddressFormatException {
+
+
+        String pk = "vwYjbkC8wUfYQddXeErSW9XR6G9iNnuYPD5x788oAHSzYj8wv";
+        byte[] bytes = Base58.decode(pk);
+
+
+
+
+
+
+        byte[] privateBytes = new byte[32];
+        System.arraycopy(bytes, 0, privateBytes, 0, privateBytes.length);
+
+        for (int i = 0; i < privateBytes.length; i++) {
+            System.out.println(". " + privateBytes[i]);
+        }
+        System.out.println("len: " + privateBytes.length);
+
+        ECKey ecKey = new ECKey(new BigInteger(1, privateBytes), null, true);
+
+        System.out.println("" + Base58.encode(ecKey.getPubKey()));
+        System.out.println("" + Base58.encode(ecKey.getPubKeyHash()));
+    }
 }

@@ -64,7 +64,7 @@ import org.redPandaLib.crypt.Utils;
 import org.redPandaLib.database.DirectMessageStore;
 import org.redPandaLib.database.HsqlConnection;
 import org.redPandaLib.database.MessageStore;
-import org.redPandaLib.kademlia.Kad;
+import org.redPandaLib.kademlia.KadOld;
 import org.redPandaLib.kademlia.KadContentTest;
 import org.redPandaLib.kademlia.KadContentUpdate;
 import org.redPandaLib.services.ClusterBuilder;
@@ -612,7 +612,7 @@ public class Test {
 //                    hsqlConnection.reconnect();
 
                     System.out.println("DHT state: ");
-                    System.out.println(Kad.node);
+                    System.out.println(KadOld.node);
 //                    Kad.node.refresh();
 
                     continue;
@@ -1879,7 +1879,7 @@ public class Test {
 
                     for (int i = 0; i < 10; i++) {
                         KadContentTest c = new KadContentTest("data " + i);
-                        Kad.node.put(c);
+                        KadOld.node.put(c);
                     }
 
                     continue;
@@ -1893,7 +1893,7 @@ public class Test {
 
                     for (int i = 0; i < 10; i++) {
                         KadContentTest c = new KadContentTest("data " + i);
-                        Kad.node.put(c);
+                        KadOld.node.put(c);
                     }
 
                     continue;
@@ -1910,8 +1910,8 @@ public class Test {
 
 
                     try {
-                        JKademliaStorageEntry c = (JKademliaStorageEntry) Kad.node.get(gp);
-                        int put = Kad.node.put(c);
+                        JKademliaStorageEntry c = (JKademliaStorageEntry) KadOld.node.get(gp);
+                        int put = KadOld.node.put(c);
                         System.out.println("put!!!: " + put);
                     } catch (ContentNotFoundException e) {
                         e.printStackTrace();

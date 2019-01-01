@@ -28,7 +28,7 @@ import org.redPandaLib.crypt.AddressFormatException;
 import org.redPandaLib.database.DirectMessageStore;
 import org.redPandaLib.database.HsqlConnection;
 import org.redPandaLib.database.MysqlConnection;
-import org.redPandaLib.kademlia.Kad;
+import org.redPandaLib.kademlia.KadOld;
 
 /**
  * @author robin
@@ -368,7 +368,7 @@ public class Main {
 
 
         System.out.println("save kademlia state...");
-        Kad.shutdown();
+        KadOld.shutdown();
         System.out.println("done");
 
         System.out.println("finished shutdown sequenze...");

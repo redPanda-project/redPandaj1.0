@@ -438,7 +438,7 @@ public class Peer implements Comparable<Peer> {
             writtenBytes = getSocketChannel().write(writeBuffer);
         } else {
             //TODO groesse anpassen vom crypted buffer
-            byte[] buffer = new byte[Math.min(writeBuffer.remaining(),writeBufferCrypted.remaining())];
+            byte[] buffer = new byte[Math.min(writeBuffer.remaining(), writeBufferCrypted.remaining())];
             writeBuffer.get(buffer);
             byte[] encryptedBytes = writeKey.encrypt(buffer);
 
@@ -756,4 +756,6 @@ public class Peer implements Comparable<Peer> {
             return peerTrustData.getMessageLoadedCount();
         }
     }
+
+
 }
