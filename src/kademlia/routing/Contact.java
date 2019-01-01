@@ -2,7 +2,7 @@ package kademlia.routing;
 
 import kademlia.node.KademliaId;
 import kademlia.node.Node;
-import org.redPandaLib.crypt.Utils;
+import main.redanda.crypt.Utils;
 
 /**
  * Keeps information about contacts of the Node; Contacts are stored in the Buckets in the Routing Table.

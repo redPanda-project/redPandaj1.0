@@ -6,7 +6,6 @@ import kademlia.KadConfiguration;
 import kademlia.KadServer;
 import kademlia.KademliaNode;
 import kademlia.node.KademliaId;
-import org.redPandaLib.core.ConnectionHandler;
 
 /**
  * At each time interval t, nodes need to refresh their K-Buckets

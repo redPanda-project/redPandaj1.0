@@ -1,3 +1,3 @@
 Manifest-Version: 1.0
-Main-Class: org.redPandaLib.test.Start
+Main-Class: main.redanda.test.Start
 

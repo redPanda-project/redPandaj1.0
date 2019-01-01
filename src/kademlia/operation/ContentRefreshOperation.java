@@ -14,8 +14,8 @@ import kademlia.exceptions.ContentNotFoundException;
 import kademlia.message.Message;
 import kademlia.message.StoreContentMessage;
 import kademlia.node.Node;
-import org.redPandaLib.Main;
-import org.redPandaLib.kademlia.KadContentUpdate;
+import main.redanda.Main;
+import main.redanda.kademlia.KadContentUpdate;
 
 /**
  * Refresh/Restore the data on this node by sending the data to the K-Closest nodes to the data

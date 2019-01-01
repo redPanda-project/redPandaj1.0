@@ -8,7 +8,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import kademlia.KadConfiguration;
 import kademlia.node.Node;
-import org.redPandaLib.crypt.Utils;
+import main.redanda.crypt.Utils;
 
 /**
  * A bucket in the Kademlia routing table
