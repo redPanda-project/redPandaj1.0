@@ -13,14 +13,17 @@ import java.math.BigInteger;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.BitSet;
-import java.util.Random;
 
 import kademlia.message.Streamable;
+import main.redanda.crypt.AddressFormatException;
+import main.redanda.crypt.Base58;
+import main.redanda.crypt.Utils;
 
 public class KademliaId implements Streamable, Serializable {
 
     public final transient static int ID_LENGTH = 160;
     private byte[] keyBytes;
+//    private BigInteger bigInt;
 
     /**
      * Construct the NodeId from some string
@@ -72,6 +75,12 @@ public class KademliaId implements Streamable, Serializable {
      * @return The BigInteger representation of the key
      */
     public BigInteger getInt() {
+//        //lets cache that BigInt for performance reasons
+//        if (bigInt == null) {
+//            bigInt = new BigInteger(1, this.getBytes());
+//        }
+//
+//        return bigInt;
         return new BigInteger(1, this.getBytes());
     }
 
@@ -219,13 +228,15 @@ public class KademliaId implements Streamable, Serializable {
 
     public String hexRepresentation() {
         /* Returns the hex format of this NodeId */
-        BigInteger bi = new BigInteger(1, this.keyBytes);
-        return String.format("%0" + (this.keyBytes.length << 1) + "X", bi);
+        return Utils.bytesToHexString(keyBytes);
     }
 
     @Override
     public String toString() {
-        return this.hexRepresentation();
+        return Base58.encode(keyBytes);
     }
 
+    public static KademliaId fromBase58(String base58String) throws AddressFormatException {
+        return new KademliaId(Base58.decode(base58String));
+    }
 }

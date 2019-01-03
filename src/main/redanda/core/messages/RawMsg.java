@@ -21,6 +21,7 @@ public class RawMsg implements Serializable, Comparable<RawMsg> {
 
     int nichts = 2;
     public static final int SIGNATURE_LENGRTH = 72;
+    public static final int SIGNATURE_LENGRTH_PRIMITIVE = 64;
     //head
     public ECKey key;
     public long timestamp;

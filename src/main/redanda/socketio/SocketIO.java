@@ -104,6 +104,26 @@ public class SocketIO {
             @Override
             public void onConnect(SocketIOClient client) {
                 System.out.println("New socketio connection: " + client.getTransport());
+
+//                new Thread() {
+//                    @Override
+//                    public void run() {
+//                        while (true) {
+//                            try {
+//                                sleep(200);
+//                            } catch (InterruptedException e) {
+//                                e.printStackTrace();
+//                            }
+//                            client.sendEvent(
+//                                    "test", "f74jzrz47w8jz4w75z8wjz587wz587w75adsj743f74jzrz47w8jz4w75z8wjz587wz587w75adsj743f74jzrz47w8jz4w75z8wjz587wz587w75adsj743f74jzrz47w8jz4w75z8wjz587wz587w75adsj743f74jzrz47w8jz4w75z8wjz587wz587w75adsj743f74jzrz47w8jz4w75z8wjz587wz587w75adsj743f74jzrz47w8jz4w75z8wjz587wz587w75adsj743f74jzrz47w8jz4w75z8wjz587wz587w75adsj743".getBytes()
+//                            );
+//
+//                            System.out.println("send ");
+//                        }
+//                    }
+//                }.start();
+
+
             }
         });
 

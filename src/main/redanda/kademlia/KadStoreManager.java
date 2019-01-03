@@ -78,7 +78,4 @@ public class KadStoreManager {
         }
     }
 
-    public static Map<KademliaId, KadContent> getEntries() {
-        return entries;
-    }
 }

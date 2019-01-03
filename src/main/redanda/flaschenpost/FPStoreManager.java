@@ -23,7 +23,7 @@ public class FPStoreManager {
      */
     public void put(FPKey key) {
 
-        //ToDO maybe batter performance if we omit the object creation (FPkey)
+        //ToDo maybe better performance if we omit the object creation (FPkey)
 
         if (System.currentTimeMillis() + 1000L * 60L * 15L > key.getTimestamp()) {
             Log.put("Content for DHT entry is too new!", 50);

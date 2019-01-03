@@ -67,12 +67,12 @@ import main.redanda.database.MessageStore;
 import main.redanda.kademlia.KadOld;
 import main.redanda.kademlia.KadContentTest;
 import main.redanda.kademlia.KadContentUpdate;
-import main.redanda.services.ClusterBuilder;
 import main.redanda.services.LoadHistory;
 import main.redanda.services.MessageDownloader;
 import main.redanda.services.MessageVerifierHsqlDb;
 import main.redanda.services.SearchLan;
 import main.redanda.services.WatchDog;
+import main.redanda.socketio.HTTPServer;
 import main.redanda.socketio.SocketIO;
 //import org.redPandaLib.upnp.Portforward;
 
@@ -1214,11 +1214,6 @@ public class Test {
                     }
                 }
 
-                if (readLine.equals("C")) {
-                    System.out.println("starting cluster builder");
-                    ClusterBuilder.start();
-                    continue;
-                }
 
                 if (readLine.equals("d")) {
                     System.out.println("debug info: ");
@@ -2405,7 +2400,7 @@ public class Test {
                         //peerList.remove(peer);
                         removePeer(peer);
                         Test.messageStore.insertPeerConnectionInformation(peer.ip, peer.port, 0, 0);
-                        Test.messageStore.setStatusForPeerConnectionInformation(peer.ip, peer.port, peer.retries, System.currentTimeMillis() + 1000 * 60 * peer.retries);
+                        Test.messageStore.setStatusForPeerConnectionInformation(peer.ip, peer.port, peer.retries, System.currentTimeMillis() + 1000L * 60L * peer.retries);
                         if (DEBUG) {
                             Log.put("removed peer from peerList, too many retries: " + peer.ip + ":" + peer.port, 20);
                         }
@@ -2816,6 +2811,7 @@ public class Test {
 
 
         SocketIO.startServer(MY_PORT);
+        new HTTPServer(MY_PORT + 200).start();
 
 
     }
@@ -2932,4 +2928,11 @@ public class Test {
 
     }
 
+    public static ReentrantLockExtended getPeerListLock() {
+        return peerListLock;
+    }
+
+    public static ArrayList<Peer> getPeerList() {
+        return peerList;
+    }
 }

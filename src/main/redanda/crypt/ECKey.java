@@ -1,12 +1,12 @@
 /**
  * Copyright 2011 Google Inc.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -19,6 +19,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.SecureRandom;
 import java.security.SignatureException;
@@ -46,6 +47,7 @@ import org.spongycastle.util.encoders.Base64;
 
 // TODO: This class is quite a mess by now. Once users are migrated away from Java serialization for the wallets,
 // refactor this to have better internal layout and a more consistent API.
+
 /**
  * <p>
  * Represents an elliptic curve public and (optionally) private key, usable for
@@ -87,6 +89,7 @@ public class ECKey implements Serializable {
                 CURVE_PARAMS.getH());
         HALF_CURVE_ORDER = CURVE_PARAMS.getN().shiftRight(1);
     }
+
     // The two parts of the key. If "priv" is set, "pub" can always be calculated. If "pub" is set but not "priv", we
     // can only verify signatures not make them.
     // TODO: Redesign this class to use consistent internals and more efficient serialization.
@@ -169,7 +172,7 @@ public class ECKey implements Serializable {
      * key is supplied, this ECKey cannot be used for signing.
      *
      * @param compressed If set to true and pubKey is null, the derived public
-     * key will be in compressed form.
+     *                   key will be in compressed form.
      */
     public ECKey(BigInteger privKey, byte[] pubKey, boolean compressed) {
         this.priv = privKey;
@@ -287,6 +290,7 @@ public class ECKey implements Serializable {
 //        byte[] hash160 = Utils.sha256hash160(pub);
 //        return new Address(params, hash160);
 //    }
+
     /**
      * Groups the two components that make up a signature, and provides a way to
      * encode to DER form, which is how ECDSA signatures are represented when
@@ -307,6 +311,31 @@ public class ECKey implements Serializable {
         public ECDSASignature(BigInteger r, BigInteger s) {
             this.r = r;
             this.s = s;
+        }
+
+        public byte[] toBytes() {
+
+            System.out.println("" + isCanonical());
+
+            ByteBuffer b = ByteBuffer.allocate(64);
+//            b.put(Utils.bigIntegerToBytes(r, 32));
+//            b.put(Utils.bigIntegerToBytes(s, 32));
+            b.put(r.toByteArray());
+            b.put(s.toByteArray());
+            return b.array();
+        }
+
+        public static ECDSASignature fromBytes(byte[] bytes) {
+
+            ByteBuffer b = ByteBuffer.wrap(bytes);
+
+            byte[] r = new byte[32];
+            byte[] s = new byte[32];
+
+            b.get(r);
+            b.get(s);
+
+            return new ECDSASignature(new BigInteger(r), new BigInteger(s));
         }
 
         /**
@@ -445,9 +474,9 @@ public class ECKey implements Serializable {
      * When using native ECDSA verification, data must be 32 bytes, and no
      * element may be larger than 520 bytes.</p>
      *
-     * @param data Hash of the data to verify.
+     * @param data      Hash of the data to verify.
      * @param signature ASN.1 encoded signature.
-     * @param pub The public key bytes to use.
+     * @param pub       The public key bytes to use.
      */
     public static boolean verify(byte[] data, ECDSASignature signature, byte[] pub) {
 
@@ -472,9 +501,9 @@ public class ECKey implements Serializable {
      * Verifies the given ASN.1 encoded ECDSA signature against a hash using the
      * public key.
      *
-     * @param data Hash of the data to verify.
+     * @param data      Hash of the data to verify.
      * @param signature ASN.1 encoded signature.
-     * @param pub The public key bytes to use.
+     * @param pub       The public key bytes to use.
      */
     public static boolean verify(byte[] data, byte[] signature, byte[] pub) {
         if (NativeSecp256k1.enabled) {
@@ -484,10 +513,36 @@ public class ECKey implements Serializable {
     }
 
     /**
+     * Verifies the given byte encoded ECDSA signature against a hash using the
+     * public key.
+     *
+     * @param data      Hash of the data to verify.
+     * @param signature ASN.1 encoded signature.
+     * @param pub       The public key bytes to use.
+     */
+    public static boolean verifyPrimitive(byte[] data, byte[] signature, byte[] pub) {
+        if (NativeSecp256k1.enabled) {
+            return NativeSecp256k1.verify(data, signature, pub);
+        }
+        return verify(data, ECDSASignature.fromBytes(signature), pub);
+    }
+
+    /**
+     * Verifies the given bytes encoded ECDSA signature against a hash using the
+     * public key.
+     *
+     * @param hash      Hash of the data to verify.
+     * @param signature ASN.1 encoded signature.
+     */
+    public boolean verifyPrimitive(byte[] hash, byte[] signature) {
+        return ECKey.verifyPrimitive(hash, signature, getPubKey());
+    }
+
+    /**
      * Verifies the given ASN.1 encoded ECDSA signature against a hash using the
      * public key.
      *
-     * @param hash Hash of the data to verify.
+     * @param hash      Hash of the data to verify.
      * @param signature ASN.1 encoded signature.
      */
     public boolean verify(byte[] hash, byte[] signature) {
@@ -557,7 +612,7 @@ public class ECKey implements Serializable {
      * and returns the signature as a base64 encoded string.
      *
      * @throws IllegalStateException if this ECKey does not have the private
-     * part.
+     *                               part.
      */
     public String signMessage(String message) {
         if (priv == null) {
@@ -598,10 +653,10 @@ public class ECKey implements Serializable {
      * for humans to verify their communications with each other, hence the
      * base64 format and the fact that the input is text.
      *
-     * @param message Some piece of human readable text.
+     * @param message         Some piece of human readable text.
      * @param signatureBase64 The Bitcoin-format message signature in base64
      * @throws SignatureException If the public key could not be recovered or if
-     * there was a signature format error.
+     *                            there was a signature format error.
      */
     public static ECKey signedMessageToKey(String message, String signatureBase64) throws SignatureException {
         byte[] signatureEncoded;
@@ -675,10 +730,10 @@ public class ECKey implements Serializable {
      * for loop from 0 to 3, and if the output is null OR a key that is not the
      * one you expect, you try again with the next recId.</p>
      *
-     * @param recId Which possible key to recover.
-     * @param r The R component of the signature.
-     * @param s The S component of the signature.
-     * @param message Hash of the data that was signed.
+     * @param recId      Which possible key to recover.
+     * @param r          The R component of the signature.
+     * @param s          The S component of the signature.
+     * @param message    Hash of the data that was signed.
      * @param compressed Whether or not the original pubkey was compressed.
      * @return An ECKey containing only the public part, or null if recovery
      * wasn't possible.
@@ -780,6 +835,7 @@ public class ECKey implements Serializable {
 //    public DumpedPrivateKey getPrivateKeyEncoded(NetworkParameters params) {
 //        return new DumpedPrivateKey(params, getPrivKeyBytes(), isCompressed());
 //    }
+
     /**
      * Returns the creation time of this key or zero if the key was deserialized
      * from a version that did not store that data.
@@ -832,8 +888,8 @@ public class ECKey implements Serializable {
             throw new IllegalArgumentException(a);
         }
     }
-    
-    
+
+
     public BigInteger deffiehelman(byte[] otherPublicBytes) {
         ECPrivateKeyParameters privKey = new ECPrivateKeyParameters(priv, CURVE);
         ECDHBasicAgreement agreementGenerator = new ECDHBasicAgreement();

@@ -23,6 +23,7 @@ public class LocalSettings implements Serializable {
     public long lastSendAllMyChannels;
     public HashMap<Long, String> identity2Name;
     public byte[] updateSignature;
+    public byte[] updateAndroidSignature;
 
     public LocalSettings() {
         nonce = new KademliaId();
@@ -39,6 +40,14 @@ public class LocalSettings implements Serializable {
 
     public byte[] getUpdateSignature() {
         return updateSignature;
+    }
+
+    public byte[] getUpdateAndroidSignature() {
+        return updateAndroidSignature;
+    }
+
+    public void setUpdateAndroidSignature(byte[] updateAndroidSignature) {
+        this.updateAndroidSignature = updateAndroidSignature;
     }
 
     public void save() {

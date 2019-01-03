@@ -8,6 +8,11 @@ import main.redanda.core.Peer;
 import main.redanda.core.Test;
 
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 
 public class SIOCommands {
@@ -53,6 +58,28 @@ public class SIOCommands {
 //                }
 
                 ackRequest.sendAckData(peers);
+
+            }
+        });
+
+
+        s.addEventListener("getAndroid.apk", ChatObject.class, new DataListener<ChatObject>() {
+            @Override
+            public void onData(SocketIOClient client, ChatObject data, AckRequest ackRequest) {
+                try {
+                    Path path = Paths.get("android.apk");
+                    byte[] fileData = Files.readAllBytes(path);
+
+                    File file = new File("android.apk");
+                    long myCurrentVersionTimestamp = file.lastModified();
+
+                    DUpdateObject testObject = new DUpdateObject(fileData, Test.localSettings.getUpdateAndroidSignature(), myCurrentVersionTimestamp);
+
+                    ackRequest.sendAckData(testObject);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
 
             }
         });

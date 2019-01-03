@@ -19,6 +19,10 @@ public class Command {
     public static final byte UPDATE_ANSWER_TIMESTAMP = (byte) 81;// update timestamp: 1 long
     public static final byte UPDATE_REQUEST_CONTENT = (byte) 82;//
     public static final byte UPDATE_ANSWER_CONTENT = (byte) 83;//
+    public static final byte ANDROID_UPDATE_REQUEST_TIMESTAMP = (byte) 84;// standalone command
+    public static final byte ANDROID_UPDATE_ANSWER_TIMESTAMP = (byte) 85;// update timestamp: 1 long
+    public static final byte ANDROID_UPDATE_REQUEST_CONTENT = (byte) 86;//
+    public static final byte ANDROID_UPDATE_ANSWER_CONTENT = (byte) 87;//
     public static final byte PING = (byte) 100;// standalone command
     public static final byte PONG = (byte) 101;// standalone command
     public static final byte STICKS = (byte) 150;

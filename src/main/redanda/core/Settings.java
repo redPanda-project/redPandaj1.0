@@ -40,6 +40,7 @@ public class Settings {
     public static boolean DONT_REMOVE_UNUSED_MESSAGES = false; //dont remove unused messages (messages which are doublicates within blocks)
 
     private static long myCurrentVersionTimestamp = 0; // -1 == disable autoupdate, 0 == unknown
+    private static long myCurrentAndroidVersionTimestamp = 0; // -1 == disable autoupdate, 0 == unknown
     public static boolean seedNode = false;
 
 
@@ -70,6 +71,26 @@ public class Settings {
         return myCurrentVersionTimestamp;
     }
 
+    public static long getMyCurrentAndroidVersionTimestamp() {
+
+
+        if (myCurrentAndroidVersionTimestamp == 0)
+        //get timestamp of own version
+        {
+            File file = new File("android.apk");
+            myCurrentAndroidVersionTimestamp = file.lastModified();
+            if (!file.exists()) {
+                myCurrentAndroidVersionTimestamp = 0;
+            }
+        }
+
+
+        return myCurrentAndroidVersionTimestamp;
+    }
+
+    public static void resetMyCurrentAndroidVersionTimestamp() {
+        myCurrentAndroidVersionTimestamp = 0;
+    }
 
     public static void readGeneralDotDat() {
         try {
