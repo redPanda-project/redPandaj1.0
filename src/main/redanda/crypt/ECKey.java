@@ -315,13 +315,29 @@ public class ECKey implements Serializable {
 
         public byte[] toBytes() {
 
-            System.out.println("" + isCanonical());
+//            byte[] bytes = Utils.bigIntegerToBytes(r, 32);
+//
+//            BigInteger rN = new BigInteger(bytes);
+//
+//            if (rN.signum() == -1) {
+//                byte[] bNew = new byte[33];
+//                System.arraycopy(bytes, 0, bNew, 1, 32);
+//                rN = new BigInteger(bNew);
+//            }
+//
+//
+//            System.out.println("r: " + rN.equals(r));
+//            System.out.println(Utils.bytesToHexString(r.toByteArray()));
+//            System.out.println(Utils.bytesToHexString(rN.toByteArray()));
+//
+//            System.out.println(r.toString());
+//            System.out.println(rN.toString());
 
             ByteBuffer b = ByteBuffer.allocate(64);
-//            b.put(Utils.bigIntegerToBytes(r, 32));
-//            b.put(Utils.bigIntegerToBytes(s, 32));
-            b.put(r.toByteArray());
-            b.put(s.toByteArray());
+            b.put(Utils.bigIntegerToBytes(r, 32));
+            b.put(Utils.bigIntegerToBytes(s, 32));
+//            b.put(r.toByteArray());
+//            b.put(s.toByteArray());
             return b.array();
         }
 
@@ -335,7 +351,20 @@ public class ECKey implements Serializable {
             b.get(r);
             b.get(s);
 
-            return new ECDSASignature(new BigInteger(r), new BigInteger(s));
+            /*
+            Utils.bigIntegerToBytes removes the first byte if len is 33, because leading byte is then zero!
+            lets check if BigInt is negative, then we have to add again the leading zero byte
+             */
+            BigInteger rN = new BigInteger(bytes);
+
+            if (rN.signum() == -1) {
+                byte[] bNew = new byte[33];
+                System.arraycopy(bytes, 0, bNew, 1, 32);
+                rN = new BigInteger(bNew);
+            }
+
+
+            return new ECDSASignature(rN, new BigInteger(s));
         }
 
         /**

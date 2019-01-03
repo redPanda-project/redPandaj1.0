@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 
 public class SIOCommands {
 
@@ -36,6 +37,9 @@ public class SIOCommands {
 
 
                 ArrayList<Peer> cp = Test.getClonedPeerList();
+
+                //randomize the peers
+                Collections.shuffle(cp);
 
                 int cnt = 0;
                 for (Peer p : cp) {

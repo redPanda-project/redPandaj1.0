@@ -49,7 +49,8 @@ import static main.redanda.core.Test.*;
  */
 public class ConnectionHandler extends Thread {
 
-    public static final int READ_BUFFER_SIZE = 1024 * 205;
+    public static final int READ_BUFFER_SIZE = 1024 * 50;
+    public static final int WRITE_BUFFER_SIZE = 1024 * 500;
     public Selector selector;
     public static ArrayList<Socket> allSockets = new ArrayList<Socket>();
     //    public static ExecutorService threadPool = new ThreadPoolExecutor(1, 3, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());//Executors.newFixedThreadPool(4);
@@ -108,7 +109,7 @@ public class ConnectionHandler extends Thread {
         peer.writeBufferLock.lock();
         try {
             peer.readBuffer = ByteBuffer.allocate(READ_BUFFER_SIZE);
-            peer.writeBuffer = ByteBuffer.allocate(1024 * 500);
+            peer.writeBuffer = ByteBuffer.allocate(WRITE_BUFFER_SIZE);
         } catch (Throwable e) {
             System.out.println("Speicher konnte nicht reserviert werden. Disconnect peer...");
             peer.disconnect("Speicher konnte nicht reserviert werden.");
@@ -276,8 +277,8 @@ public class ConnectionHandler extends Thread {
                         key.cancel();
                         continue;
                     }
-                    ByteBuffer readBuffer = peer.readBuffer;
-                    ByteBuffer writeBuffer = peer.writeBuffer;
+//                    ByteBuffer readBuffer = peer.readBuffer;
+//                    ByteBuffer writeBuffer = peer.writeBuffer;
 
                     if (!key.isValid()) {
                         peer.disconnect("key is invalid.");
@@ -319,7 +320,7 @@ public class ConnectionHandler extends Thread {
 
                         if (peer.readBufferCrypted == null) {
                             try {
-                                read = peer.getSocketChannel().read(readBuffer);
+                                read = peer.getSocketChannel().read(peer.readBuffer);
                             } catch (IOException e) {
                                 key.cancel();
                                 peer.disconnect("could not read...");
@@ -396,20 +397,45 @@ public class ConnectionHandler extends Thread {
                                 peer.disconnect("readbuffer to high, prevent too high memory usage!");
                                 continue;
                             }
-                            System.out.println("we have to double the readbuffer...");
+                            System.out.println("we have to double the readbuffer... " + peer.readBuffer.capacity() * 2);
                             ByteBuffer allocate = ByteBuffer.allocate(peer.readBuffer.capacity() * 2);
                             allocate.put(peer.readBuffer.array());
                             allocate.position(peer.readBuffer.position());
 //                            allocate.limit(peer.readBuffer.limit());
                             //System.out.println("buffer voll?? " + peer.readBuffer.toString());
                             peer.readBuffer = allocate;
+                            peer.lastBufferModified = System.currentTimeMillis();
 //                                System.out.println("readBuffer full, generated new one with 2x larger size....");
                         } else if (read == -1) {
-                            Log.put("closing connection " + peer.ip + ":" + peer.port + ": not readable! " + readBuffer, 200);
+                            Log.put("closing connection " + peer.ip + ":" + peer.port + ": not readable! " + peer.readBuffer, 200);
                             peer.disconnect(" read == -1 ");
                             Test.triggerOutboundthread();
                             key.cancel();
                         } else {
+
+
+//                            System.out.println("before: " + peer.readBuffer);
+
+                            //lets check if we can reduce the readbuffer
+                            if (peer.readBuffer.capacity() > peer.readBuffer.position() + READ_BUFFER_SIZE && peer.readBuffer.position() != peer.readBuffer.capacity() && peer.lastBufferModified < System.currentTimeMillis() - 1000L * 5L) {
+
+                                ByteBuffer allocate = ByteBuffer.allocate(Math.max(peer.readBuffer.position() + READ_BUFFER_SIZE, READ_BUFFER_SIZE));
+
+
+                                System.out.println("we reduce the readbuffer... " + Math.max(peer.readBuffer.position(), READ_BUFFER_SIZE));
+
+                                peer.readBuffer.flip();
+                                allocate.put(peer.readBuffer);
+
+//                                allocate.put(peer.readBuffer.array());
+//                                allocate.position(peer.readBuffer.position());
+//                                allocate.limit(peer.readBuffer.limit());
+
+
+                                peer.readBuffer = allocate;
+                                peer.lastBufferModified = System.currentTimeMillis();
+                            }
+//                            System.out.println("after: " + peer.readBuffer);
 
                             peer.lastActionOnConnection = System.currentTimeMillis();
                             //System.out.println("setting lastActionOn: " + peer.nonce);
@@ -432,13 +458,13 @@ public class ConnectionHandler extends Thread {
                                     int version = (int) peer.readBuffer.get();
 
                                     byte[] nonceBytes = new byte[KademliaId.ID_LENGTH / 8];
-                                    readBuffer.get(nonceBytes);
+                                    peer.readBuffer.get(nonceBytes);
 
                                     KademliaId nonce = new KademliaId(nonceBytes);
 
 //                                    byte[] nonce = new byte[10];
 //                                    peer.readBuffer.get(nonce);
-                                    int port = readUnsignedShort(readBuffer);
+                                    int port = readUnsignedShort(peer.readBuffer);
 
                                     Log.put("Verbindungsaufbau (" + peer.ip + "): " + magic + " " + version + " " + nonce + " " + port, 10);
 
@@ -543,7 +569,7 @@ public class ConnectionHandler extends Thread {
                                         peer.writeBufferLock.lock();
                                         //first ping...
                                         peer.lastPinged = System.currentTimeMillis();
-                                        writeBuffer.put((byte) 100); //ping
+                                        peer.writeBuffer.put((byte) 100); //ping
 
                                         //init auth
                                         boolean foundAuthKey = false;
@@ -557,8 +583,8 @@ public class ConnectionHandler extends Thread {
                                                 byte[] toEncrypt = new byte[32];
                                                 r.nextBytes(toEncrypt);
 
-                                                writeBuffer.put((byte) 52);
-                                                writeBuffer.put(toEncrypt);
+                                                peer.writeBuffer.put((byte) 52);
+                                                peer.writeBuffer.put(toEncrypt);
 
                                                 peer.toEncodeForAuthFromMe = toEncrypt;
                                                 //peer.peerTrustData = pt;
@@ -596,7 +622,7 @@ public class ConnectionHandler extends Thread {
 
                                     //System.out.println(peer.ip + "Command: " + command);
                                     try {
-                                        localParsedBytes = parseCommands(command, peer, parsedBytes, writeBuffer, readBuffer);
+                                        localParsedBytes = parseCommands(command, peer, parsedBytes, peer.writeBuffer, peer.readBuffer);
                                     } catch (Throwable thb) {
                                         System.out.println("/////////////////// catched");
                                         thb.printStackTrace();
@@ -613,7 +639,7 @@ public class ConnectionHandler extends Thread {
 
                                     parsedBytes += localParsedBytes;
 
-                                    if (localParsedBytes == 0 || !readBuffer.hasRemaining()) {
+                                    if (localParsedBytes == 0 || !peer.readBuffer.hasRemaining()) {
                                         break;
                                     }
 
@@ -635,9 +661,9 @@ public class ConnectionHandler extends Thread {
 
                             //System.out.println("bytes in readbuffer: " + peer.readBuffer.remaining() + " parsedbytes: " + parsedBytes);
                             //int parseBytes = peer.readBuffer.limit() - peer.readBuffer.arrayOffset();
-                            readBuffer.position(parsedBytes);
+                            peer.readBuffer.position(parsedBytes);
 
-                            readBuffer.compact();
+                            peer.readBuffer.compact();
 
                             //peer.readBuffer.flip(); //switch buffer for writing
                             //readBuffer.limit(readBuffer.capacity());
@@ -683,13 +709,32 @@ public class ConnectionHandler extends Thread {
                             //System.out.println("removed OP_WRITE");
                         } else {
                             //System.out.println("write from buffer...");
-                            writtenBytes = peer.writeBytesToPeer(writeBuffer);
+                            writtenBytes = peer.writeBytesToPeer(peer.writeBuffer);
                         }
                         peer.writeBuffer.compact();
 //                                peer.writeBuffer.flip(); //switch buffer for writing
 //                                writeBuffer.limit(writeBuffer.capacity());
 //                            writeBuffer.limit(limit);
 //                            writeBuffer.position(position - writtenBytes);
+
+
+                        //lets check if we can reduce the writeBuffer
+                        if (peer.writeBuffer.capacity() > peer.writeBuffer.position() + WRITE_BUFFER_SIZE && peer.writeBuffer.position() != peer.writeBuffer.capacity() && peer.lastBufferModified < System.currentTimeMillis() - 1000L * 5L) {
+
+                            ByteBuffer allocate = ByteBuffer.allocate(Math.max(peer.writeBuffer.position() + WRITE_BUFFER_SIZE, WRITE_BUFFER_SIZE));
+
+
+                            System.out.println("we reduce the writeBuffer... " + Math.max(peer.writeBuffer.position(), WRITE_BUFFER_SIZE));
+
+                            peer.writeBuffer.flip();
+                            allocate.put(peer.writeBuffer);
+
+                            peer.writeBuffer = allocate;
+                            peer.lastBufferModified = System.currentTimeMillis();
+                        }
+
+
+
 
                         //System.out.println("wrote from buffer... " + writtenBytes + " ip: " + peer.ip);
                         if (writtenBytes > 0) {
@@ -2224,7 +2269,7 @@ public class ConnectionHandler extends Thread {
 
                 boolean verify = updateChannel.getKey().verify(hash.getBytes(), signature);
 
-                System.out.println("update verfified: " + verify);
+                System.out.println("update verified: " + verify);
 
                 File file = new File("redPandaj.jar");
                 long myCurrentVersionTimestamp = file.lastModified();
@@ -2244,7 +2289,7 @@ public class ConnectionHandler extends Thread {
                     try (FileOutputStream fos = new FileOutputStream("update")) {
                         fos.write(data);
                         //fos.close(); There is no more need for this line since you had created the instance of "fos" inside the try. And this will automatically close the OutputStream
-                        System.out.println("updated store in update file");
+                        System.out.println("update store in update file");
 
                         File f = new File("update");
                         f.setLastModified(othersTimestamp);
@@ -2502,7 +2547,7 @@ public class ConnectionHandler extends Thread {
 
                 boolean verify = updateChannel.getKey().verifyPrimitive(hash.getBytes(), signature);
 
-                System.out.println("update verfified: " + verify);
+                System.out.println("update verified: " + verify);
 
                 File file = new File("android.apk");
                 long myCurrentVersionTimestamp = file.lastModified();
@@ -2518,7 +2563,7 @@ public class ConnectionHandler extends Thread {
                     try (FileOutputStream fos = new FileOutputStream("android.apk")) {
                         fos.write(data);
                         //fos.close(); There is no more need for this line since you had created the instance of "fos" inside the try. And this will automatically close the OutputStream
-                        System.out.println("updated stored in android.apk file");
+                        System.out.println("update stored in android.apk file");
 
                         File f = new File("android.apk");
                         f.setLastModified(othersTimestamp);

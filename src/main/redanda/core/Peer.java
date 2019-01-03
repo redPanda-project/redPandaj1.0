@@ -33,6 +33,7 @@ public class Peer implements Comparable<Peer> {
     public int port;
     public int connectAble = 0;
     public int retries = 0;
+    public long lastBufferModified;
     long lastRetryAfter5 = 0;
     public long lastActionOnConnection = 0;
     int cnt = 0;
