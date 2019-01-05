@@ -88,6 +88,21 @@ public class SIOCommands {
             }
         });
 
+        s.addEventListener("getAndroidTimestamp", ChatObject.class, new DataListener<ChatObject>() {
+            @Override
+            public void onData(SocketIOClient client, ChatObject data, AckRequest ackRequest) {
+
+                File file = new File("android.apk");
+                long myCurrentVersionTimestamp = file.lastModified();
+
+                DUpdateTimestampObject out = new DUpdateTimestampObject(myCurrentVersionTimestamp);
+
+                ackRequest.sendAckData(out);
+
+
+            }
+        });
+
     }
 
 }

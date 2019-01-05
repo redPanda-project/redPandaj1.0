@@ -315,29 +315,35 @@ public class ECKey implements Serializable {
 
         public byte[] toBytes() {
 
-//            byte[] bytes = Utils.bigIntegerToBytes(r, 32);
-//
-//            BigInteger rN = new BigInteger(bytes);
-//
-//            if (rN.signum() == -1) {
-//                byte[] bNew = new byte[33];
-//                System.arraycopy(bytes, 0, bNew, 1, 32);
-//                rN = new BigInteger(bNew);
-//            }
-//
-//
-//            System.out.println("r: " + rN.equals(r));
-//            System.out.println(Utils.bytesToHexString(r.toByteArray()));
-//            System.out.println(Utils.bytesToHexString(rN.toByteArray()));
-//
-//            System.out.println(r.toString());
-//            System.out.println(rN.toString());
+            byte[] bytes = Utils.bigIntegerToBytes(r, 32);
+
+            BigInteger rN = new BigInteger(bytes);
+
+            if (rN.signum() == -1) {
+                byte[] bNew = new byte[33];
+                System.arraycopy(bytes, 0, bNew, 1, 32);
+                rN = new BigInteger(bNew);
+            }
+
+
+            System.out.println("r: " + rN.equals(r));
+            System.out.println(Utils.bytesToHexString(r.toByteArray()));
+            System.out.println(Utils.bytesToHexString(rN.toByteArray()));
+
+            System.out.println(r.toString());
+            System.out.println(rN.toString());
 
             ByteBuffer b = ByteBuffer.allocate(64);
             b.put(Utils.bigIntegerToBytes(r, 32));
             b.put(Utils.bigIntegerToBytes(s, 32));
 //            b.put(r.toByteArray());
 //            b.put(s.toByteArray());
+
+
+            if (!fromBytes(b.array()).r.equals(r)) {
+                throw new RuntimeException("dhwaiuzdwad");
+            }
+
             return b.array();
         }
 
@@ -355,7 +361,7 @@ public class ECKey implements Serializable {
             Utils.bigIntegerToBytes removes the first byte if len is 33, because leading byte is then zero!
             lets check if BigInt is negative, then we have to add again the leading zero byte
              */
-            BigInteger rN = new BigInteger(bytes);
+            BigInteger rN = new BigInteger(r);
 
             if (rN.signum() == -1) {
                 byte[] bNew = new byte[33];
