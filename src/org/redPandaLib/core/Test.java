@@ -1,6 +1,5 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * For license please see LICENSE.TXT
  */
 package org.redPandaLib.core;
 
@@ -69,10 +68,11 @@ import org.redPandaLib.services.MessageDownloader;
 import org.redPandaLib.services.MessageVerifierHsqlDb;
 import org.redPandaLib.services.SearchLan;
 import org.redPandaLib.services.WatchDog;
-//import org.redPandaLib.upnp.Portforward;
 
 /**
- *
+ * This class provides main functions for redPanda such as peerList and database management.
+ * This class includes: Console Listener, Outbound connection initializer
+ * and other functionality for starting the client.
  * @author rflohr
  */
 public class Test {
