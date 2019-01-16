@@ -734,8 +734,6 @@ public class ConnectionHandler extends Thread {
                         }
 
 
-
-
                         //System.out.println("wrote from buffer... " + writtenBytes + " ip: " + peer.ip);
                         if (writtenBytes > 0) {
                             Test.outBytes += writtenBytes;
@@ -2047,11 +2045,15 @@ public class ConnectionHandler extends Thread {
 
 //            System.out.println("Update found from: " + new Date(othersTimestamp) + " our version is from: " + new Date(Settings.getMyCurrentVersionTimestamp()));
 
-            if (othersTimestamp < Settings.getMyCurrentVersionTimestamp()) {
+            if (othersTimestamp + 10000 < Settings.getMyCurrentVersionTimestamp()) {
                 System.out.println("WARNING: peer has outdated redPandaj version! " + peer.getNodeId());
             }
 
-            if (othersTimestamp > Settings.getMyCurrentVersionTimestamp() && Settings.getMyCurrentVersionTimestamp() != -1 && !Settings.seedNode) {
+            //we have to add some tolerance, since windows may report up to ms accuracy and linux only to seconds
+            if (othersTimestamp > Settings.getMyCurrentVersionTimestamp() + 10000 && Settings.getMyCurrentVersionTimestamp() != -1 && !Settings.seedNode) {
+
+                System.out.println("own timestamp: " + Settings.getMyCurrentVersionTimestamp() + " others: " + othersTimestamp);
+
                 Runnable runnable = new Runnable() {
                     @Override
                     public void run() {
@@ -2289,7 +2291,7 @@ public class ConnectionHandler extends Thread {
                     try (FileOutputStream fos = new FileOutputStream("update")) {
                         fos.write(data);
                         //fos.close(); There is no more need for this line since you had created the instance of "fos" inside the try. And this will automatically close the OutputStream
-                        System.out.println("update store in update file");
+                        System.out.println("update store in update file, new timestamp: " + othersTimestamp);
 
                         File f = new File("update");
                         f.setLastModified(othersTimestamp);
@@ -2362,11 +2364,12 @@ public class ConnectionHandler extends Thread {
 
 //            System.out.println("Update found from: " + new Date(othersTimestamp) + " our version is from: " + new Date(Settings.getMyCurrentVersionTimestamp()));
 
-            if (othersTimestamp < Settings.getMyCurrentAndroidVersionTimestamp()) {
+            if (othersTimestamp + 10000 < Settings.getMyCurrentAndroidVersionTimestamp()) {
                 System.out.println("WARNING: peer has outdated android.apk version! " + peer.getNodeId());
             }
 
-            if (othersTimestamp > Settings.getMyCurrentAndroidVersionTimestamp()) {
+            //we have to add some tolerance, since windows may report up to ms accuracy and linux only to seconds
+            if (othersTimestamp > Settings.getMyCurrentAndroidVersionTimestamp() + 10000) {
                 Runnable runnable = new Runnable() {
                     @Override
                     public void run() {
@@ -3252,7 +3255,8 @@ public class ConnectionHandler extends Thread {
 
         File file = new File("out/artifacts/redPandaj_jar/redPandaj.jar");
 
-        long timestamp = file.lastModified();
+        //windows reports up to ms, linux only up to seconds!
+        long timestamp = (long) Math.ceil(file.lastModified() / 1000.) * 1000;
 
         System.out.println("timestamp : " + timestamp);
 

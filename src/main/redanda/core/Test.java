@@ -2810,8 +2810,10 @@ public class Test {
         WatchDog.start();
 
 
+
         SocketIO.startServer(MY_PORT);
-        new HTTPServer(MY_PORT + 200).start();
+        //currently not needed
+//        new HTTPServer(MY_PORT + 200).start();
 
 
     }

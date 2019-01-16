@@ -13,6 +13,7 @@ import com.corundumstudio.socketio.SocketIOClient;
 import com.corundumstudio.socketio.SocketIOServer;
 import com.corundumstudio.socketio.listener.ConnectListener;
 import com.corundumstudio.socketio.listener.DataListener;
+import com.corundumstudio.socketio.listener.DisconnectListener;
 
 public class SocketIO {
 
@@ -69,6 +70,13 @@ public class SocketIO {
 //                System.out.println("" + data.getUserName() + " " + data.getMessage());
 //            }
 //        });
+
+        server.addDisconnectListener(new DisconnectListener() {
+            @Override
+            public void onDisconnect(SocketIOClient client) {
+                System.out.println("disconnected: " + client.getHandshakeData());
+            }
+        });
 
         server.addConnectListener(new ConnectListener() {
             @Override

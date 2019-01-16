@@ -51,7 +51,7 @@ public class Settings {
         //get timestamp of own version
         {
             File file = new File("redPandaj.jar");
-            myCurrentVersionTimestamp = file.lastModified();
+            myCurrentVersionTimestamp = (long) Math.ceil(file.lastModified() / 1000.) * 1000;
 
 
             if (!file.exists()) {
@@ -61,7 +61,7 @@ public class Settings {
 
                 file = new File("out/artifacts/redPandaj_jar/redPandaj.jar");
                 if (file.exists()) {
-                    myCurrentVersionTimestamp = file.lastModified();
+                    myCurrentVersionTimestamp = (long) Math.ceil(file.lastModified() / 1000.) * 1000;
                     seedNode = true;
                 }
             }
@@ -78,7 +78,7 @@ public class Settings {
         //get timestamp of own version
         {
             File file = new File("android.apk");
-            myCurrentAndroidVersionTimestamp = file.lastModified();
+            myCurrentAndroidVersionTimestamp = (long) Math.ceil(file.lastModified() / 1000.) * 1000;
             if (!file.exists()) {
                 myCurrentAndroidVersionTimestamp = 0;
             }
