@@ -581,6 +581,8 @@ public class Test {
 
                     System.out.println("Services last run: ConnectionHandler: " + (System.currentTimeMillis() - ConnectionHandler.lastRun) + " MessageDownloader: " + (System.currentTimeMillis() - MessageDownloader.lastRun) + " MessageVerifierHsqlDb: " + (System.currentTimeMillis() - MessageVerifierHsqlDb.lastRun));
 
+                    System.out.println("Livetime socketio connections: " + Stats.getSocketioConnectionsLiveTime());
+
                     //System.out.println("Processed messages: " + msgs.size());
 //                    int unverifiedMsgs = 0;
 //
@@ -2808,7 +2810,6 @@ public class Test {
 //
 //        }.start();
         WatchDog.start();
-
 
 
         SocketIO.startServer(MY_PORT);

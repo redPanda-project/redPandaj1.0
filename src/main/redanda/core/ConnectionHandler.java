@@ -398,14 +398,31 @@ public class ConnectionHandler extends Thread {
                                 continue;
                             }
                             System.out.println("we have to double the readbuffer... " + peer.readBuffer.capacity() * 2);
-                            ByteBuffer allocate = ByteBuffer.allocate(peer.readBuffer.capacity() * 2);
-                            allocate.put(peer.readBuffer.array());
-                            allocate.position(peer.readBuffer.position());
+
+
+                            long allocatedMemory = (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory());
+                            long presumableFreeMemory = Runtime.getRuntime().maxMemory() - allocatedMemory;
+
+                            if (presumableFreeMemory < peer.readBuffer.capacity() * 2) {
+
+                                System.out.println("not enough memory: only " + presumableFreeMemory / 1024 + " kbs free");
+
+                                //we can not raise the buffer, lets wait some ms
+                                //todo: prevent main io thread from sleeping?
+                                //kill connection if more than 20 times here?
+                                Thread.sleep(100);
+
+                            } else {
+
+                                ByteBuffer allocate = ByteBuffer.allocate(peer.readBuffer.capacity() * 2);
+                                allocate.put(peer.readBuffer.array());
+                                allocate.position(peer.readBuffer.position());
 //                            allocate.limit(peer.readBuffer.limit());
-                            //System.out.println("buffer voll?? " + peer.readBuffer.toString());
-                            peer.readBuffer = allocate;
-                            peer.lastBufferModified = System.currentTimeMillis();
+                                //System.out.println("buffer voll?? " + peer.readBuffer.toString());
+                                peer.readBuffer = allocate;
+                                peer.lastBufferModified = System.currentTimeMillis();
 //                                System.out.println("readBuffer full, generated new one with 2x larger size....");
+                            }
                         } else if (read == -1) {
                             Log.put("closing connection " + peer.ip + ":" + peer.port + ": not readable! " + peer.readBuffer, 200);
                             peer.disconnect(" read == -1 ");
@@ -2362,7 +2379,7 @@ public class ConnectionHandler extends Thread {
 
             long othersTimestamp = readBuffer.getLong();
 
-//            System.out.println("Update found from: " + new Date(othersTimestamp) + " our version is from: " + new Date(Settings.getMyCurrentVersionTimestamp()));
+            System.out.println("Update found from: " + new Date(othersTimestamp) + " our version is from: " + new Date(Settings.getMyCurrentVersionTimestamp()));
 
             if (othersTimestamp + 10000 < Settings.getMyCurrentAndroidVersionTimestamp()) {
                 System.out.println("WARNING: peer has outdated android.apk version! " + peer.getNodeId());
@@ -2435,6 +2452,35 @@ public class ConnectionHandler extends Thread {
                     try {
                         System.out.println("we send the android.apk update to a peer!");
                         byte[] data = Files.readAllBytes(path);
+
+
+                        boolean verify = false;
+                        int vcnt = 0;
+
+                        //lets first check our signature!
+                        Channel updateChannel = SpecialChannels.getUpdateChannel();
+
+//                        while (!verify) {
+                        ByteBuffer bytesToHash = ByteBuffer.allocate(8 + data.length);
+
+                        bytesToHash.putLong(Settings.getMyCurrentAndroidVersionTimestamp() + vcnt);
+                        bytesToHash.put(data);
+
+                        Sha256Hash hash = Sha256Hash.create(bytesToHash.array());
+                        System.out.println("hash: " + Utils.bytesToHexString(hash.getBytes()));
+
+                        verify = updateChannel.getKey().verifyPrimitive(hash.getBytes(), localSettings.getUpdateAndroidSignature());
+                        System.out.println("update verified: " + verify);
+                        vcnt++;
+                        System.out.println("cnt: " + vcnt);
+//                        }
+
+
+                        if (!verify) {
+                            System.out.println("################################ asdf " + Settings.getMyCurrentAndroidVersionTimestamp());
+                            return;
+                        }
+
 
                         ByteBuffer a = ByteBuffer.allocate(1 + 8 + 4 + RawMsg.SIGNATURE_LENGRTH_PRIMITIVE + data.length);
                         a.put(Command.ANDROID_UPDATE_ANSWER_CONTENT);
@@ -3195,7 +3241,7 @@ public class ConnectionHandler extends Thread {
 
         File file = new File(fileName);
 
-        long timestamp = file.lastModified();
+        long timestamp = (long) Math.ceil(file.lastModified() / 1000.) * 1000;
 
         System.out.println("timestamp : " + timestamp);
 
