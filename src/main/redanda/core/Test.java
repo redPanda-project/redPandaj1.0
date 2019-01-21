@@ -72,12 +72,14 @@ import main.redanda.services.MessageVerifierHsqlDb;
 import main.redanda.services.SearchLan;
 import main.redanda.services.WatchDog;
 import main.redanda.socketio.SocketIO;
+import main.redanda.websockets.WebSockets;
 
 
 /**
  * This class provides main functions for redPanda such as peerList and database management.
  * This class includes: Console Listener, Outbound connection initializer
  * and other functionality for starting the client.
+ *
  * @author rflohr
  */
 public class Test {
@@ -2839,6 +2841,7 @@ public class Test {
 
 
         SocketIO.startServer(MY_PORT);
+        WebSockets.startServer(MY_PORT);
         //currently not needed
 //        new HTTPServer(MY_PORT + 200).start();
 
