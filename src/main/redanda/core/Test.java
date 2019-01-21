@@ -1,6 +1,5 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * For license please see LICENSE.TXT
  */
 package main.redanda.core;
 
@@ -72,11 +71,13 @@ import main.redanda.services.MessageDownloader;
 import main.redanda.services.MessageVerifierHsqlDb;
 import main.redanda.services.SearchLan;
 import main.redanda.services.WatchDog;
-import main.redanda.socketio.HTTPServer;
 import main.redanda.socketio.SocketIO;
-//import org.redPandaLib.upnp.Portforward;
+
 
 /**
+ * This class provides main functions for redPanda such as peerList and database management.
+ * This class includes: Console Listener, Outbound connection initializer
+ * and other functionality for starting the client.
  * @author rflohr
  */
 public class Test {
@@ -953,7 +954,23 @@ public class Test {
 
                 if (readLine.equals("f")) {
                     Test.messageStore.cleanupPeerConnectionInformation();
+                    System.out.println("peerlist locked: " + Test.peerListLock.isLocked());
+                    continue;
+                }
+
+                if (readLine.equals("f2")) {
+
+                    System.out.println("peerlist locked: " + Test.peerListLock.isLocked());
                     Test.peerListLock.lock();
+                    for (Peer p : Test.getClonedPeerList()) {
+                        if (p.peerTrustData != null) {
+                            p.peerTrustData.keyToIdHis.clear();
+                            p.peerTrustData.keyToIdMine.clear();
+                        }
+                        p.disconnect("cleaned key lists");
+                    }
+                    Test.peerListLock.unlock();
+
                     continue;
                 }
 
@@ -1489,6 +1506,15 @@ public class Test {
 
                     }
 
+                    continue;
+                }
+
+                if (readLine.equals("bu")) {
+
+                    if (hsqlConnection != null) {
+                        hsqlConnection.createBackup();
+
+                    }
                     continue;
                 }
 
