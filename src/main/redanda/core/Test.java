@@ -2840,7 +2840,7 @@ public class Test {
         WatchDog.start();
 
 
-        SocketIO.startServer(MY_PORT);
+//        SocketIO.startServer(MY_PORT);
         WebSockets.startServer(MY_PORT);
         //currently not needed
 //        new HTTPServer(MY_PORT + 200).start();

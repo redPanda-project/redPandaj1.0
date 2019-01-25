@@ -158,7 +158,7 @@ public class WebSockets extends WebSocketServer {
 
     @Override
     public void onMessage(WebSocket conn, ByteBuffer message) {
-        System.out.println("got bytebuffer msg... todo: handle");
+        WSParser.parseAsync(conn, message);
     }
 
     @Override

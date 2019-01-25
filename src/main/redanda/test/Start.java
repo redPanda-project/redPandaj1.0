@@ -166,7 +166,7 @@ public class Start {
 
         Settings.readGeneralDotDat();
 
-        Log.LEVEL = -1;
+//        Log.LEVEL = -1;
         Settings.lightClient = true;
         Settings.SUPERNODE = false;
         Settings.REDUCE_TRAFFIC = false;
