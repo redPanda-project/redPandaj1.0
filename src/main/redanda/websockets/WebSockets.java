@@ -143,7 +143,7 @@ public class WebSockets extends WebSocketServer {
 
     @Override
     public void onOpen(WebSocket conn, ClientHandshake clientHandshake) {
-        System.out.println(conn.getRemoteSocketAddress().getAddress().getHostAddress() + " entered the room!");
+        System.out.println("new websocket connection: " + conn.getRemoteSocketAddress().getAddress().getHostAddress());
     }
 
     @Override

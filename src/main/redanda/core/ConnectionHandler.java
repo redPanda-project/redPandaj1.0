@@ -3243,7 +3243,7 @@ public class ConnectionHandler extends Thread {
 
         long timestamp = (long) Math.ceil(file.lastModified() / 1000.) * 1000;
 
-        System.out.println("timestamp : " + timestamp);
+        System.out.println("android timestamp : " + timestamp);
 
         Path path = Paths.get(fileName);
         byte[] data = Files.readAllBytes(path);
