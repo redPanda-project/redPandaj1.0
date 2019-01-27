@@ -16,15 +16,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 public class WSParser {
 
 
-    public static ThreadPoolExecutor threadPool = new ThreadPoolExecutor(1, 40, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
+    public static ThreadPoolExecutor threadPool = new ThreadPoolExecutor(40, 40, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
 
     public static void parse(WebSocket conn, ByteBuffer message) {
 
@@ -59,7 +56,7 @@ public class WSParser {
                     byte[] fileData = Files.readAllBytes(path);
 
                     File file = new File("android.apk");
-                    long myCurrentVersionTimestamp =(long) Math.ceil(file.lastModified() / 1000.) * 1000;
+                    long myCurrentVersionTimestamp = (long) Math.ceil(file.lastModified() / 1000.) * 1000;
 
                     DUpdateObject testObject = new DUpdateObject(fileData, Test.localSettings.getUpdateAndroidSignature(), myCurrentVersionTimestamp);
 
@@ -111,25 +108,26 @@ public class WSParser {
 
         Log.put("Send peerlist to peer: ", 200);
 
-
-//                System.out.println("getPeers: " + toSendPeersNum);
-
-        ArrayList<DPeer> peers = new ArrayList<>();
-
-
+        //get peers
         ArrayList<Peer> cp = Test.getClonedPeerList();
+
+        System.out.println("shuffle");
 
         //randomize the peers
         Collections.shuffle(cp);
 
-        ByteBuffer bb = ByteBuffer.allocate(toSendPeersNum * 60); //rough estimate
+        System.out.println("shuffled");
+
+        ByteBuffer bb = ByteBuffer.allocate(400 + 100 * toSendPeersNum); //rough estimate
         bb.put(Command.PEERLIST);
 
         int byteCount = 0;
 
+        System.out.println("before loop");
+
         int cnt = 0;
         for (Peer p : cp) {
-
+            System.out.println("loop");
             if (!p.isConnected()) {
                 continue;
             }
@@ -138,9 +136,8 @@ public class WSParser {
             if (cnt > toSendPeersNum) {
                 break;
             }
-//                    System.out.println("put: " + p.getNodeId().toString());
-            peers.add(new DPeer("http://" + p.ip + ":" + (p.port + 100), p.getNodeId().toString()));
 
+            //add peer to bytebuffer
             String nodeId = p.getNodeId().toString();
             String url = "ws://" + p.ip + ":" + (p.port + 100);
 
@@ -151,13 +148,12 @@ public class WSParser {
             bb.put(url.getBytes());
 
         }
-
+        System.out.println("end loop");
+        //send now
         write(conn, bb);
+        System.out.println("send nodes to peer: " + cnt);
 
-
-//                for (int i = 0; i < 5; i++) {
-//                    peers.add(new DPeer("url " + i, "nodeId " + i));
-//                }
+        throw new RuntimeException("teeest");
     }
 
     private static void parseAndroidTimestamp(WebSocket conn) {
@@ -172,7 +168,7 @@ public class WSParser {
         write(conn, bb);
     }
 
-    private static void write(WebSocket conn, ByteBuffer bb) {
+    public static void write(WebSocket conn, ByteBuffer bb) {
         bb.flip();
         byte[] bytes = new byte[bb.remaining()];
         bb.get(bytes);
@@ -191,8 +187,8 @@ public class WSParser {
                 if (threadPool.getPoolSize() < threadPool.getMaximumPoolSize() && threadPool.getQueue().size() > 1) {
                     threadPool.setCorePoolSize(threadPool.getPoolSize() + 1);
 //                    System.out.println("increase threadpool!");
-                } else if (threadPool.getCorePoolSize() > 1) {
-                    threadPool.setCorePoolSize(1);
+                } else if (threadPool.getCorePoolSize() > 2) {
+                    threadPool.setCorePoolSize(2);
 //                    System.out.println("set threadpool to default");
                 }
 
@@ -201,7 +197,15 @@ public class WSParser {
 
             }
         };
-        threadPool.submit(runnable);
+
+        Future<?> submit = threadPool.submit(runnable);
+
+        //lets check for errors!
+        try {
+            submit.get();
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
 
     }
 }

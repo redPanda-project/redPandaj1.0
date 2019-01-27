@@ -30,6 +30,7 @@ public class Command {
     //200 - 250 reserved for app commands (via socketio)!
     public static final byte getAndroidTimeStamp = (byte) 200;
     public static final byte getAndroidApk = (byte) 201;
+    public static final byte authenticate = (byte) 202;
 
 
     public static final byte DISCONNECT = (byte) 254;

@@ -18,7 +18,10 @@ import com.corundumstudio.socketio.SocketIOServer;
 import com.corundumstudio.socketio.listener.ConnectListener;
 import com.corundumstudio.socketio.listener.DataListener;
 import com.corundumstudio.socketio.listener.DisconnectListener;
+import kademlia.node.KademliaId;
+import main.redanda.core.Command;
 import main.redanda.core.Stats;
+import main.redanda.core.Test;
 import main.redanda.socketio.ChatObject;
 import main.redanda.socketio.SIOCommands;
 import org.java_websocket.WebSocket;
@@ -30,6 +33,7 @@ public class WebSockets extends WebSocketServer {
 
     public static final String keyStoreFile = "webcert.jks";
     public static int PORT;
+    private static WebSockets ws;
 
     public static void main(String[] args) throws CertificateException, NoSuchAlgorithmException, IOException, KeyStoreException, InterruptedException {
 
@@ -41,12 +45,53 @@ public class WebSockets extends WebSocketServer {
     public static void startServer(final int myPort) {
 
         try {
-            WebSockets ws = new WebSockets(myPort + 100);
+            PORT = myPort + 100;
+            ws = new WebSockets(PORT);
             ws.start();
+
+
+            new Thread() {
+                @Override
+                public void run() {
+
+                    try {
+                        sleep(5000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+
+                    if (hostAvailabilityCheck()) {
+                        System.out.println("webserver available");
+                    } else {
+                        try {
+                            ws.stop(1000);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+
+                        System.out.println("webserver stopped, because it was unresponsive!");
+                        try {
+                            sleep(1000);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        System.out.println("webserver restart");
+                        startServer(myPort);
+                    }
+                }
+            }.start();
         } catch (UnknownHostException e) {
             e.printStackTrace();
         }
 
+    }
+
+    public static void stopServer() {
+        try {
+            ws.stop(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
 //    public static void startServer(final int myPort) {
@@ -144,6 +189,13 @@ public class WebSockets extends WebSocketServer {
     @Override
     public void onOpen(WebSocket conn, ClientHandshake clientHandshake) {
         System.out.println("new websocket connection: " + conn.getRemoteSocketAddress().getAddress().getHostAddress());
+
+        //lets send the peer our node id!
+        ByteBuffer b = ByteBuffer.allocate(1 + KademliaId.ID_LENGTH / 8);
+        b.put(Command.authenticate);
+        b.put(Test.NONCE.getBytes());
+        WSParser.write(conn, b);
+
     }
 
     @Override
@@ -158,6 +210,7 @@ public class WebSockets extends WebSocketServer {
 
     @Override
     public void onMessage(WebSocket conn, ByteBuffer message) {
+        System.out.println("got message as bytebuffer!");
         WSParser.parseAsync(conn, message);
     }
 
@@ -168,8 +221,19 @@ public class WebSockets extends WebSocketServer {
 
     @Override
     public void onStart() {
-        System.out.println("Server started!");
+        System.out.println("WebSocket Server started!");
         setConnectionLostTimeout(0);
         setConnectionLostTimeout(100);
     }
+
+
+    public static boolean hostAvailabilityCheck() {
+        try (Socket s = new Socket("localhost", PORT)) {
+            return true;
+        } catch (IOException ex) {
+            /* ignore */
+        }
+        return false;
+    }
+
 }

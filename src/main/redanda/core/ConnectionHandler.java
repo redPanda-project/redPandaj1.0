@@ -60,7 +60,7 @@ public class ConnectionHandler extends Thread {
     private boolean exit = false;
     public static long lastRun = 0;
     public static HashMap<ECKey, HashMap<PeerTrustData, Long>> ratingData = new HashMap<ECKey, HashMap<PeerTrustData, Long>>();
-    private static ReentrantLock updateUploadLock = new ReentrantLock();
+    private static Semaphore updateUploadLock = new Semaphore(2); //simultaneous upload slots
 
     public ConnectionHandler() {
         try {
@@ -425,7 +425,7 @@ public class ConnectionHandler extends Thread {
                             }
                         } else if (read == -1) {
                             Log.put("closing connection " + peer.ip + ":" + peer.port + ": not readable! " + peer.readBuffer, 200);
-                            peer.disconnect(" read == -1 ");
+                            peer.disconnect(" read == -1 from: " + peer.ip + ":" + peer.port);
                             Test.triggerOutboundthread();
                             key.cancel();
                         } else {
@@ -1799,9 +1799,12 @@ public class ConnectionHandler extends Thread {
                         }
 
                         peer.peerTrustData.ips.add(peer.ip);
-                        peer.peerTrustData.port = peer.port;
+//                        peer.peerTrustData.port = peer.port;
                         Log.put("IP added and port set!", 300);
                     }
+
+                    //we have to update the port in every case!
+                    peer.peerTrustData.port = peer.port;
 
                     peer.removeRequestedMsgs();
 
@@ -2074,7 +2077,7 @@ public class ConnectionHandler extends Thread {
                 Runnable runnable = new Runnable() {
                     @Override
                     public void run() {
-                        updateUploadLock.lock();
+                        updateUploadLock.acquireUninterruptibly();
                         try {
                             System.out.println("our version is outdated, we try to download it from this peer!");
                             peer.writeBufferLock.lock();
@@ -2091,7 +2094,7 @@ public class ConnectionHandler extends Thread {
                             }
                         } finally {
                             System.out.println("we can now download it from another peer...");
-                            updateUploadLock.unlock();
+                            updateUploadLock.release();
                         }
 
                     }
@@ -2118,7 +2121,7 @@ public class ConnectionHandler extends Thread {
                 @Override
                 public void run() {
 
-                    updateUploadLock.lock();
+                    updateUploadLock.acquireUninterruptibly();
 
                     try {
 
@@ -2228,7 +2231,7 @@ public class ConnectionHandler extends Thread {
                             e.printStackTrace();
                         }
                     } finally {
-                        updateUploadLock.unlock();
+                        updateUploadLock.release();
                     }
 
 
@@ -2390,7 +2393,7 @@ public class ConnectionHandler extends Thread {
                 Runnable runnable = new Runnable() {
                     @Override
                     public void run() {
-                        updateUploadLock.lock();
+                        updateUploadLock.acquireUninterruptibly();
                         try {
 
                             if (othersTimestamp <= Settings.getMyCurrentAndroidVersionTimestamp()) {
@@ -2414,7 +2417,7 @@ public class ConnectionHandler extends Thread {
                             }
                         } finally {
                             System.out.println("we can now download it from another peer...");
-                            updateUploadLock.unlock();
+                            updateUploadLock.release();
                         }
 
                     }
@@ -2438,7 +2441,7 @@ public class ConnectionHandler extends Thread {
                 @Override
                 public void run() {
 
-                    updateUploadLock.lock();
+                    updateUploadLock.acquireUninterruptibly();
 
                     try {
                         Thread.sleep(200);
@@ -2534,7 +2537,7 @@ public class ConnectionHandler extends Thread {
                         }
 
 
-                        updateUploadLock.unlock();
+                        updateUploadLock.release();
 
 
                     } catch (IOException e) {
