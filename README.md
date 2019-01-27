@@ -14,6 +14,8 @@ In addition to the clarifications on the limitations by Google and Apple, the la
 
 The android application is deprecated and was removed from the play store.
 
+An android/iOS application was started from scratch: https://github.com/redPanda-project/ionic
+
 
 The System
 =========
