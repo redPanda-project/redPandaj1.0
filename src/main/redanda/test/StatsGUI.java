@@ -223,7 +223,7 @@ public class StatsGUI {
         //org.redPandaLib.Main.useMysqlDatabase();
         main.redanda.Main.useHsqlDatabase();
 
-        Log.LEVEL = 0000;
+        Log.LEVEL = 1000;
         Settings.lightClient = false;
         Settings.SUPERNODE = true;
         Settings.REDUCE_TRAFFIC = false;

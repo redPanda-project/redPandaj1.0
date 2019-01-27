@@ -26,6 +26,13 @@ public class Command {
     public static final byte PING = (byte) 100;// standalone command
     public static final byte PONG = (byte) 101;// standalone command
     public static final byte STICKS = (byte) 150;
+
+    //200 - 250 reserved for app commands (via socketio)!
+    public static final byte getAndroidTimeStamp = (byte) 200;
+    public static final byte getAndroidApk = (byte) 201;
+    public static final byte authenticate = (byte) 202;
+
+
     public static final byte DISCONNECT = (byte) 254;
     public static final byte ERROR = (byte) 255;
 

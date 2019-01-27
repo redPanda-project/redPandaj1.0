@@ -1,6 +1,5 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * For license please see LICENSE.TXT
  */
 package main.redanda.core;
 
@@ -72,11 +71,15 @@ import main.redanda.services.MessageDownloader;
 import main.redanda.services.MessageVerifierHsqlDb;
 import main.redanda.services.SearchLan;
 import main.redanda.services.WatchDog;
-import main.redanda.socketio.HTTPServer;
 import main.redanda.socketio.SocketIO;
-//import org.redPandaLib.upnp.Portforward;
+import main.redanda.websockets.WebSockets;
+
 
 /**
+ * This class provides main functions for redPanda such as peerList and database management.
+ * This class includes: Console Listener, Outbound connection initializer
+ * and other functionality for starting the client.
+ *
  * @author rflohr
  */
 public class Test {
@@ -322,7 +325,7 @@ public class Test {
                             if (p.cnt > Settings.peerListRequestDelay * 1000 / (Settings.pingDelay)) {
                                 //p.connectionThread.writeString(ConnectionThread.GETPEERS);
 
-                                System.out.println("c");
+//                                System.out.println("c");
 
                                 if (p.isFullConnected()) {
 
@@ -953,7 +956,23 @@ public class Test {
 
                 if (readLine.equals("f")) {
                     Test.messageStore.cleanupPeerConnectionInformation();
+                    System.out.println("peerlist locked: " + Test.peerListLock.isLocked());
+                    continue;
+                }
+
+                if (readLine.equals("f2")) {
+
+                    System.out.println("peerlist locked: " + Test.peerListLock.isLocked());
                     Test.peerListLock.lock();
+                    for (Peer p : Test.getClonedPeerList()) {
+                        if (p.peerTrustData != null) {
+                            p.peerTrustData.keyToIdHis.clear();
+                            p.peerTrustData.keyToIdMine.clear();
+                        }
+                        p.disconnect("cleaned key lists");
+                    }
+                    Test.peerListLock.unlock();
+
                     continue;
                 }
 
@@ -1489,6 +1508,15 @@ public class Test {
 
                     }
 
+                    continue;
+                }
+
+                if (readLine.equals("bu")) {
+
+                    if (hsqlConnection != null) {
+                        hsqlConnection.createBackup();
+
+                    }
                     continue;
                 }
 
@@ -2183,7 +2211,8 @@ public class Test {
                 if (Settings.connectToNewClientsTill < System.currentTimeMillis()) {
                     try {
                         allowInterrupt = true;
-                        sleep(1000 * 60 * 15);
+//                        sleep(1000 * 60 * 15);
+                        sleep(1000 * 15);
                     } catch (InterruptedException ex) {
                         Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
                     } finally {
@@ -2276,6 +2305,7 @@ public class Test {
                             peerListLock.lock();
                             peerList.add(peer1);
                             peerListLock.unlock();
+                            clonedPeerList.add(peer1);
                         }
 
                         Test.messageStore.deletePeerConnectionInformation(p.ip, p.port);
@@ -2351,6 +2381,12 @@ public class Test {
                         continue;
                     }
 
+
+                    if ((peer.ip + ":" + peer.getPort()).equals("195.201.25.223:59558")) {
+                        System.out.println("asdf");
+                    }
+
+
                     boolean alreadyConnectedToSameTrustedNode = false;
                     String equalIp = null;
                     //already connected to same trusted node?
@@ -2398,13 +2434,23 @@ public class Test {
 
 //                    if (peerList.size() > 20) {
                     //(System.currentTimeMillis() - peer.lastActionOnConnection > 1000 * 60 * 60 * 4)
-                    if ((peer.retries > 10 || (peer.nodeId == null && peer.retries >= 1)) && peer.ping != -1) {
+                    if ((peer.retries > 10 || (peer.nodeId == null && peer.retries >= 5)) && peer.ping != -1) {
                         //peerList.remove(peer);
                         removePeer(peer);
-                        Test.messageStore.insertPeerConnectionInformation(peer.ip, peer.port, 0, 0);
-                        Test.messageStore.setStatusForPeerConnectionInformation(peer.ip, peer.port, peer.retries, System.currentTimeMillis() + 1000L * 60L * peer.retries);
-                        if (DEBUG) {
-                            Log.put("removed peer from peerList, too many retries: " + peer.ip + ":" + peer.port, 20);
+
+                        if (peer.retries < 200) {
+
+                            Test.messageStore.insertPeerConnectionInformation(peer.ip, peer.port, 0, 0);
+//                        Test.messageStore.setStatusForPeerConnectionInformation(peer.ip, peer.port, peer.retries, System.currentTimeMillis() + 1000L * 60L * peer.retries);
+                            Test.messageStore.setStatusForPeerConnectionInformation(peer.ip, peer.port, peer.retries, System.currentTimeMillis() + 1000L * 60L * 5L);
+                            if (DEBUG) {
+                                Log.put("removed peer from peerList, too many retries: " + peer.ip + ":" + peer.port, 20);
+                            }
+                        } else {
+                            //we do not have to remove peers here because every peer in peerlist should not be in the db!
+                            if (DEBUG) {
+                                Log.put("removed peer permanently, too many retries: " + peer.ip + ":" + peer.port, 20);
+                            }
                         }
 
                         continue;
@@ -2812,7 +2858,8 @@ public class Test {
         WatchDog.start();
 
 
-        SocketIO.startServer(MY_PORT);
+//        SocketIO.startServer(MY_PORT);
+        WebSockets.startServer(MY_PORT);
         //currently not needed
 //        new HTTPServer(MY_PORT + 200).start();
 

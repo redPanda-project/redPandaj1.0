@@ -254,7 +254,7 @@ public class MessageDownloader {
 //                        }
                             int myMessageId = MessageHolder.contains(m);
 
-                            //check if SQLTransactionRollbackException occured due to much message inserts
+                            //check if SQLTransactionRollbackException occured due too much message inserts
                             if (myMessageId == -2) {
                                 sleep(500);
                                 continue;

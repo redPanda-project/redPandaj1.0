@@ -29,6 +29,7 @@ import main.redanda.database.DirectMessageStore;
 import main.redanda.database.HsqlConnection;
 import main.redanda.database.MysqlConnection;
 import main.redanda.kademlia.KadOld;
+import main.redanda.websockets.WebSockets;
 
 /**
  * @author robin
@@ -367,9 +368,14 @@ public class Main {
         System.out.println("done");
 
 
-        System.out.println("save kademlia state...");
-        KadOld.shutdown();
+//        System.out.println("save kademlia state...");
+//        KadOld.shutdown();
+//        System.out.println("done");
+
+        System.out.println("stopping websocket server...");
+        WebSockets.stopServer();
         System.out.println("done");
+
 
         System.out.println("finished shutdown sequenze...");
 
