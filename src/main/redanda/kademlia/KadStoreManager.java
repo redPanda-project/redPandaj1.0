@@ -1,11 +1,21 @@
 package main.redanda.kademlia;
 
 import kademlia.node.KademliaId;
+import main.redanda.core.Channel;
+import main.redanda.core.JobScheduler;
 import main.redanda.core.Log;
+import main.redanda.crypt.Base58;
+import main.redanda.crypt.ECKey;
+import main.redanda.crypt.Sha256Hash;
+import main.redanda.crypt.Utils;
 
 import javax.annotation.concurrent.ThreadSafe;
-import java.util.HashMap;
-import java.util.Map;
+import java.nio.ByteBuffer;
+import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.locks.ReentrantLock;
 
 @ThreadSafe
@@ -75,6 +85,124 @@ public class KadStoreManager {
             return entries.get(id);
         } finally {
             lock.unlock();
+        }
+    }
+
+
+    public static void main(String[] args) {
+
+        //lets create a keypair for a DHT destination key, should be included in channel later
+        ECKey key = new ECKey();
+
+        //lets calculate the destination
+        byte[] pubKey = key.getPubKey();
+
+
+        Date date = new Date();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        System.out.println("UTC Date is: " + dateFormat.format(date));
+
+        byte[] dateStringBytes = dateFormat.format(date).getBytes();
+
+        ByteBuffer buffer = ByteBuffer.allocate(pubKey.length + dateStringBytes.length);
+        buffer.put(pubKey);
+        buffer.put(dateStringBytes);
+
+        Sha256Hash dhtKey = Sha256Hash.create(buffer.array());
+
+        System.out.println("" + Base58.encode((dhtKey.getBytes())) + " byteLen: " + dhtKey.getBytes().length);
+
+        KademliaId kademliaId = KademliaId.fromFirstBytes(dhtKey.getBytes());
+
+//        System.out.println("kadid: " + kademliaId.hexRepresentation());
+//        System.out.println("kadid: " + Utils.bytesToHexString(dhtKey.getBytes()));
+
+        System.out.println("kadid: " + kademliaId.toString());
+
+        //random content
+        byte[] payload = new byte[1024];
+        new Random().nextBytes(payload);
+
+
+        KadContent kadContent = new KadContent(kademliaId, key.getPubKey(), payload);
+
+        kadContent.signWith(key);
+
+        System.out.println("signature: " + Utils.bytesToHexString(kadContent.getSignature()) + " len: " + kadContent.getSignature().length);
+
+
+        //lets check the signature
+
+        System.out.println("verified: " + kadContent.verify());
+
+
+        //assoziate an command pointer to the job
+        HashMap<Integer, ScheduledFuture> runningJobs = new HashMap<>();
+
+
+        final int pointer = new Random().nextInt();
+
+        Job job = new Job(runningJobs, pointer);
+
+
+        ScheduledFuture future = JobScheduler.insert(job, 500);
+        runningJobs.put(pointer, future);
+
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        ScheduledFuture scheduledFuture = runningJobs.get(pointer);
+
+        Job r = (Job) job;
+
+        boolean couldCancel = scheduledFuture.cancel(false);
+        System.out.println("cancel: " + couldCancel);
+
+
+        //if we are able to cancel the runnable, we have to transmit the new data to the runnable
+        if (couldCancel) {
+            r.setData("new data");
+            r.run();
+        }
+
+        System.out.println("asd");
+
+    }
+
+    static class Job implements Runnable {
+
+        HashMap<Integer, ScheduledFuture> runningJobs;
+        private Integer pointer;
+        private String data = null;
+
+        public Job(HashMap<Integer, ScheduledFuture> runningJobs, Integer pointer) {
+            this.runningJobs = runningJobs;
+            this.pointer = pointer;
+        }
+
+        boolean done = false;
+        int timesRun = 0;
+
+        @Override
+        public void run() {
+
+
+            System.out.println("asdf " + data + " done: " + done);
+
+            if (done) {
+                ScheduledFuture sf = runningJobs.remove(pointer);
+                sf.cancel(false);
+            }
+            timesRun++;
+        }
+
+        public void setData(String str) {
+            data = str;
+            done = true;
         }
     }
 

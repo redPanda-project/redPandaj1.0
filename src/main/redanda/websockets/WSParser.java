@@ -153,7 +153,6 @@ public class WSParser {
         write(conn, bb);
         System.out.println("send nodes to peer: " + cnt);
 
-        throw new RuntimeException("teeest");
     }
 
     private static void parseAndroidTimestamp(WebSocket conn) {
