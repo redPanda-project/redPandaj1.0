@@ -25,6 +25,10 @@ public class Command {
     public static final byte ANDROID_UPDATE_ANSWER_CONTENT = (byte) 87;//
     public static final byte PING = (byte) 100;// standalone command
     public static final byte PONG = (byte) 101;// standalone command
+
+    //kademlia cmds
+    public static final byte KADEMLIA_STORE = (byte) 120;// standalone command
+
     public static final byte STICKS = (byte) 150;
 
     //200 - 250 reserved for app commands (via socketio)!

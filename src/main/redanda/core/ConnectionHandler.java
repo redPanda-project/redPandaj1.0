@@ -17,6 +17,8 @@ import kademlia.node.KademliaId;
 import main.redanda.SpecialChannels;
 import main.redanda.crypt.*;
 import main.redanda.flaschenpost.Flaschenpost;
+import main.redanda.jobs.KademliaInsertJob;
+import main.redanda.kademlia.KadContent;
 import main.redanda.services.MessageVerifierHsqlDb;
 import main.redanda.services.MessageDownloader;
 
@@ -1490,7 +1492,7 @@ public class ConnectionHandler extends Thread {
                 int myHashkeyToIdMine = Sha256Hash.create(toHashkeyToIdMine.getBytes("UTF-8")).hashCode();
                 int myHashkeyToIdHis = Sha256Hash.create(toHashkeyToIdHis.getBytes("UTF-8")).hashCode();
 
-                Log.put("Hash keyToIdMine: " + myHashkeyToIdHis + " - " + hashkeyToIdMine, 30);
+                Log.put("Hash keyToIdMine: " + myHashkeyToIdHis + " - " + hashkeyToIdMine, 130);
 
                 if (peerTrustData.keyToIdHis.size() != keyToIdMine || myHashkeyToIdHis != hashkeyToIdMine) {
                     System.out.println("keyToIdHis wrong, clearing....");
@@ -1498,7 +1500,7 @@ public class ConnectionHandler extends Thread {
                     peerTrustData.keyToIdHis.clear();
                 }
 
-                Log.put("Hash keyToIdMine: " + myHashkeyToIdMine + " - " + hashkeyToIdHis, 30);
+                Log.put("Hash keyToIdMine: " + myHashkeyToIdMine + " - " + hashkeyToIdHis, 130);
 
                 if (peerTrustData.keyToIdMine.size() != keyToIdHis || myHashkeyToIdMine != hashkeyToIdHis) {
                     System.out.println("keyToIdMine wrong, clearing....");
@@ -2382,7 +2384,7 @@ public class ConnectionHandler extends Thread {
 
             long othersTimestamp = readBuffer.getLong();
 
-            System.out.println("Update found from: " + new Date(othersTimestamp) + " our version is from: " + new Date(Settings.getMyCurrentVersionTimestamp()));
+            Log.put("Update found from: " + new Date(othersTimestamp) + " our version is from: " + new Date(Settings.getMyCurrentVersionTimestamp()),70);
 
             if (othersTimestamp + 10000 < Settings.getMyCurrentAndroidVersionTimestamp()) {
                 System.out.println("WARNING: peer has outdated android.apk version! " + peer.getNodeId());
@@ -3377,29 +3379,53 @@ public class ConnectionHandler extends Thread {
         new Thread() {
             @Override
             public void run() {
-
-                int cnt = 0;
-                while (cnt < 2) {
-                    cnt++;
-
-                    try {
-                        Thread.sleep(5000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    if (Test.STARTED_UP_SUCCESSFUL) {
-//                        Flaschenpost.put(new KademliaId(), "Test".getBytes());
-                        try {
-                            Flaschenpost.put(KademliaId.fromBase58("2sdf3THKQ2x474z3v91sfod8xPAT"), "Test".getBytes());
-                        } catch (AddressFormatException e) {
-                            e.printStackTrace();
-                        }
-
-                    }
+                try {
+                    Thread.sleep(10000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
                 }
+
+
+                byte[] payload = new byte[1024];
+                new Random().nextBytes(payload);
+
+                ECKey key = new ECKey();
+                KadContent kadContent = new KadContent(new KademliaId(), key.getPubKey(), payload);
+
+                new KademliaInsertJob(kadContent).start();
+
+
 
             }
         }.start();
+
+
+//        new Thread() {
+//            @Override
+//            public void run() {
+//
+//                int cnt = 0;
+//                while (cnt < 2) {
+//                    cnt++;
+//
+//                    try {
+//                        Thread.sleep(5000);
+//                    } catch (InterruptedException e) {
+//                        e.printStackTrace();
+//                    }
+//                    if (Test.STARTED_UP_SUCCESSFUL) {
+////                        Flaschenpost.put(new KademliaId(), "Test".getBytes());
+//                        try {
+//                            Flaschenpost.put(KademliaId.fromBase58("2sdf3THKQ2x474z3v91sfod8xPAT"), "Test".getBytes());
+//                        } catch (AddressFormatException e) {
+//                            e.printStackTrace();
+//                        }
+//
+//                    }
+//                }
+//
+//            }
+//        }.start();
 
         Saver saver = new Saver();
 
@@ -3408,9 +3434,13 @@ public class ConnectionHandler extends Thread {
 
 //        Thread.sleep(1000);
         insertNewUpdate();
-
         insertNewAndroidUpdate();
 //        Thread.sleep(1000);
+
+
+
         Start.main(null);
+
+
     }
 }

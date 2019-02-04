@@ -15,6 +15,11 @@ public class TestJob extends Job {
     }
 
     @Override
+    public void init() {
+
+    }
+
+    @Override
     public void work() {
         System.out.println("run: " + someData);
 

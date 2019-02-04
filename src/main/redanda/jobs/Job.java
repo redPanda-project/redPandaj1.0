@@ -9,27 +9,40 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public abstract class Job implements Runnable {
 
-    public static final long RERUNTIME = 2000L;
+    public static final long RERUNTIME = 500L;
     private static HashMap<Integer, Job> runningJobs = new HashMap<>(10);
     private static ReentrantLock runningJobsLock = new ReentrantLock();
     public static final Random rand = new Random();
 
 
-    private Integer jobId;
+    private int jobId = -1;
     private int runCounter = 0;
     private ScheduledFuture future;
     private boolean done = false;
+    private boolean initilized = false;
 
-    public Job() {
-        this.jobId = rand.nextInt();
-    }
 
+    public abstract void init();
 
     @Override
     public void run() {
-        //count before doing the work, since the first start of the job is delayed by RERUNTIME
-        runCounter++;
+
+        if (getEstimatedRuntime() > 20000L) {
+            //if this job takes too long, lets finish without
+            System.out.println("job max time reached: " + jobId + " " + this.getClass().getName());
+            done();
+        }
+
+        //lets run the init inside the run loop such that the init is runs in the threadpool
+        // and not in the creating thread
+        if (!initilized) {
+            initilized = true;
+            init();
+        }
+
         work();
+        //count after doing the work, since the first start of the job is immediately
+        runCounter++;
     }
 
     //call this method if some data has been updated and you dont have to wait till the next rerun by delay
@@ -44,6 +57,15 @@ public abstract class Job implements Runnable {
     public abstract void work();
 
     public void start() {
+
+        //lets set an jobId
+        this.jobId = rand.nextInt();
+
+
+        //run immediately
+        JobScheduler.runNow(this);
+
+        //run delayed recurrent
         future = JobScheduler.insert(this, RERUNTIME);
         runningJobs.put(jobId, this);
     }

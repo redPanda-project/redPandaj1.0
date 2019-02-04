@@ -119,6 +119,11 @@ public class Peer implements Comparable<Peer> {
 
     }
 
+    @Override
+    public boolean equals(Object obj) {
+        return equalsNonce(obj);
+    }
+
     public long getLastAnswered() {
         return System.currentTimeMillis() - lastActionOnConnection;
     }
@@ -758,5 +763,11 @@ public class Peer implements Comparable<Peer> {
         }
     }
 
+    public ReentrantLock getWriteBufferLock() {
+        return writeBufferLock;
+    }
 
+    public ByteBuffer getWriteBuffer() {
+        return writeBuffer;
+    }
 }
