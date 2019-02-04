@@ -1,8 +1,7 @@
 package main.redanda.kademlia;
 
 import kademlia.node.KademliaId;
-import main.redanda.core.Channel;
-import main.redanda.core.JobScheduler;
+import main.redanda.jobs.JobScheduler;
 import main.redanda.core.Log;
 import main.redanda.crypt.Base58;
 import main.redanda.crypt.ECKey;
@@ -12,9 +11,7 @@ import main.redanda.crypt.Utils;
 import javax.annotation.concurrent.ThreadSafe;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
-import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.locks.ReentrantLock;
 

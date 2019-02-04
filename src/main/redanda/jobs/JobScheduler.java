@@ -1,4 +1,4 @@
-package main.redanda.core;
+package main.redanda.jobs;
 
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -12,7 +12,7 @@ public class JobScheduler extends ScheduledThreadPoolExecutor {
     private static JobScheduler jobScheduler;
 
     static {
-        jobScheduler = new JobScheduler(4);
+        jobScheduler = new JobScheduler(10);
         jobScheduler.setKeepAliveTime(60, TimeUnit.SECONDS);
         jobScheduler.allowCoreThreadTimeOut(true);
     }
@@ -34,5 +34,9 @@ public class JobScheduler extends ScheduledThreadPoolExecutor {
     @Override
     protected void terminated() {
 
+    }
+
+    public static void runNow(Runnable command) {
+        jobScheduler.execute(command);
     }
 }
