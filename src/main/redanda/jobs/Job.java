@@ -22,8 +22,6 @@ public abstract class Job implements Runnable {
     private boolean initilized = false;
 
 
-    public abstract void init();
-
     @Override
     public void run() {
 
@@ -45,11 +43,21 @@ public abstract class Job implements Runnable {
         runCounter++;
     }
 
-    //call this method if some data has been updated and you dont have to wait till the next rerun by delay
+    /**
+     * call this method if some data has been updated for this job
+     * and you do not want to wait till the next rerun occurs by delay
+     */
     public void updated() {
         //do not rise the runCounter, because this is an additional run beside the returning rerun by delay
         JobScheduler.runNow(this);
     }
+
+
+    /**
+     * stuff to be done before the work method is called, this code only runs once at the beginning
+     * put stuff here so it will run in the threadpool and not in the calling thread
+     */
+    public abstract void init();
 
     /**
      * work to do for this job, call done() if finished!
@@ -74,6 +82,10 @@ public abstract class Job implements Runnable {
         return RERUNTIME * runCounter;
     }
 
+    /**
+     * call this method if the job is finished, does the necessary cleanup,
+     * ie remove from running jobs and cancel the future (obtained from scheduleWithFixedDelay)
+     */
     public void done() {
 
         if (done) {
@@ -82,7 +94,7 @@ public abstract class Job implements Runnable {
 
         done = true;
 
-
+        //remove this job from the runningJobs
         runningJobsLock.lock();
         try {
             Job remove = runningJobs.remove(jobId);
@@ -99,6 +111,12 @@ public abstract class Job implements Runnable {
     }
 
 
+    /**
+     * retrieves a running job with a given jobId, useful if we get an answer by a peer and
+     * we want to obtain the associated job to update the data
+     * @param jobId
+     * @return
+     */
     public static Job getRunningJob(int jobId) {
         runningJobsLock.lock();
         try {
