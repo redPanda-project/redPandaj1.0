@@ -20,8 +20,9 @@ import java.util.concurrent.locks.ReentrantLock;
 @ThreadSafe
 public class KadStoreManager {
 
-    private static final int MIN_SIZE = 1024 * 1024 * 50; //size of content without key
-    private static final long KEEP_TIME = 1000L * 60L * 60L * 24L * 7L;
+    private static final int MIN_SIZE = 1024 * 1024 * 10; //size of content without key
+    private static final int MAX_SIZE = 1024 * 1024 * 50; //size of content without key
+    private static final long KEEP_TIME = 1000L * 60L * 60L * 24L * 7L; //7 days
 
     private static final Map<KademliaId, KadContent> entries = new HashMap<>();
     private static final ReentrantLock lock = new ReentrantLock();
@@ -55,6 +56,9 @@ public class KadStoreManager {
             if (foundContent == null || content.getTimestamp() > foundContent.getTimestamp()) {
                 entries.put(id, content);
                 size += content.getContent().length;
+                if (foundContent != null) {
+                    size -= foundContent.getContent().length;
+                }
                 System.out.println("stored");
             }
 

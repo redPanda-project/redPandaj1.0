@@ -51,8 +51,9 @@ public class KademliaInsertJob extends Job {
 
             for (Peer p : peerList) {
 
-                if (p.getNodeId() == null)
+                if (p.getNodeId() == null) {
                     continue;
+                }
 
                 peers.put(p, NONE);
             }
@@ -84,7 +85,8 @@ public class KademliaInsertJob extends Job {
                 break;
             }
 
-            if (p.isConnected()) {
+
+            if (p.isConnected() && p.isIntegrated()) {
 
                 try {
                     //lets not wait too long for a lock, since this job may timeout otherwise
@@ -92,14 +94,31 @@ public class KademliaInsertJob extends Job {
                     if (lockedByMe) {
                         try {
 
+                            ByteBuffer writeBuffer = p.getWriteBuffer();
+
+                            if (writeBuffer == null) {
+                                continue;
+                            }
+
                             peers.put(p, ASKED);
                             askedPeers++;
 
-                            ByteBuffer writeBuffer = p.getWriteBuffer();
 
                             System.out.println("putKadCmd to peer: " + p.getNodeId().toString() + " size: " + peers.size());
 
+                            int toWriteBytes = writeBuffer.position() + kadContent.getContent().length + 1024;
+
+//                            if (p.writeBuffer.remaining() < toWriteBytes) {
+//                                ByteBuffer allocate = ByteBuffer.allocate(toWriteBytes);
+//                                p.writeBuffer.flip();
+//                                allocate.put(p.writeBuffer);
+//                                p.writeBuffer = allocate;
+//                                writeBuffer = allocate;
+//                            }
+
+
                             writeBuffer.put(Command.KADEMLIA_STORE);
+                            writeBuffer.putInt(getJobId());
                             writeBuffer.put(kadContent.getId().getBytes());
                             writeBuffer.putLong(kadContent.getTimestamp());
                             writeBuffer.put(kadContent.getPubkey());

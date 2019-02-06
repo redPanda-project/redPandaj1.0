@@ -63,6 +63,7 @@ import main.redanda.crypt.Utils;
 import main.redanda.database.DirectMessageStore;
 import main.redanda.database.HsqlConnection;
 import main.redanda.database.MessageStore;
+import main.redanda.jobs.KadRefreshJob;
 import main.redanda.kademlia.KadOld;
 import main.redanda.kademlia.KadContentTest;
 import main.redanda.kademlia.KadContentUpdate;
@@ -2872,6 +2873,7 @@ public class Test {
         //currently not needed
 //        new HTTPServer(MY_PORT + 200).start();
 
+        new KadRefreshJob().start();
 
     }
 

@@ -9,11 +9,14 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public abstract class Job implements Runnable {
 
-    public static final long RERUNTIME = 500L;
+    //    public static final long RERUNTIME = 500L;
     private static HashMap<Integer, Job> runningJobs = new HashMap<>(10);
     private static ReentrantLock runningJobsLock = new ReentrantLock();
     public static final Random rand = new Random();
 
+
+    protected long reRunDelay = 500L; //default value
+    protected boolean permanent = false;
 
     private int jobId = -1;
     private int runCounter = 0;
@@ -25,7 +28,7 @@ public abstract class Job implements Runnable {
     @Override
     public void run() {
 
-        if (getEstimatedRuntime() > 20000L) {
+        if (!permanent && getEstimatedRuntime() > 20000L) {
             //if this job takes too long, lets finish
             System.out.println("job max time reached: " + jobId + " " + this.getClass().getName());
             done();
@@ -39,6 +42,8 @@ public abstract class Job implements Runnable {
                 init();
             } catch (Throwable e) {
                 e.printStackTrace();
+                done();
+                return;
             }
         }
 
@@ -52,6 +57,8 @@ public abstract class Job implements Runnable {
             work();
         } catch (Throwable e) {
             e.printStackTrace();
+            done();
+            return;
         }
         //count after doing the work, since the first start of the job is immediately
         runCounter++;
@@ -88,12 +95,12 @@ public abstract class Job implements Runnable {
         JobScheduler.runNow(this);
 
         //run delayed recurrent
-        future = JobScheduler.insert(this, RERUNTIME);
+        future = JobScheduler.insert(this, reRunDelay);
         runningJobs.put(jobId, this);
     }
 
     public long getEstimatedRuntime() {
-        return RERUNTIME * runCounter;
+        return reRunDelay * runCounter;
     }
 
     /**

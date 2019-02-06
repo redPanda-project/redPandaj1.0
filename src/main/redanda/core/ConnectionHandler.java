@@ -2707,10 +2707,11 @@ public class ConnectionHandler extends Thread {
         } else if (command == Command.KADEMLIA_STORE) {
 
 
-            if (KademliaId.ID_LENGTH / 8 + 8 + KadContent.PUBKEY_LEN + 4 + RawMsg.SIGNATURE_LENGRTH_PRIMITIVE > readBuffer.remaining()) {
+            if (4 + KademliaId.ID_LENGTH / 8 + 8 + KadContent.PUBKEY_LEN + 4 + RawMsg.SIGNATURE_LENGRTH_PRIMITIVE > readBuffer.remaining()) {
                 return 0;
             }
 
+            int ackId = readBuffer.getInt();
 
             byte[] kadIdBytes = new byte[KademliaId.ID_LENGTH / 8];
             readBuffer.get(kadIdBytes);
@@ -2726,6 +2727,11 @@ public class ConnectionHandler extends Thread {
                 return 0;
             }
 
+            if (contentLen < 0 && contentLen > 1024 * 1024 * 10) {
+                peer.disconnect("wrong contentLen for kadcontent");
+                return 0;
+            }
+
             byte[] contentBytes = new byte[contentLen];
             readBuffer.get(contentBytes);
 
@@ -2737,14 +2743,14 @@ public class ConnectionHandler extends Thread {
             KadContent kadContent = new KadContent(new KademliaId(kadIdBytes), timestamp, publicKeyBytes, contentBytes, signatureBytes);
 
             if (kadContent.verify()) {
-                System.out.println("kadContent signature was verified, lets store the data!");
                 KadStoreManager.put(kadContent);
             } else {
                 //todo
+                System.out.println("kadContent verification failed!!!");
             }
 
 
-            return 1 + (KademliaId.ID_LENGTH / 8) + 8 + KadContent.PUBKEY_LEN + 4 + contentLen + KadContent.SIGNATURE_LEN;
+            return 1 + 4 + (KademliaId.ID_LENGTH / 8) + 8 + KadContent.PUBKEY_LEN + 4 + contentLen + KadContent.SIGNATURE_LEN;
 
         }
 
@@ -3434,27 +3440,40 @@ public class ConnectionHandler extends Thread {
             @Override
             public void run() {
 
+                int cnt = 0;
 
-//                while (true) {
-//                    try {
-//                        Thread.sleep(5000);
-//                    } catch (InterruptedException e) {
-//                        e.printStackTrace();
-//                    }
-//
-//
-//                    byte[] payload = new byte[1024];
-//                    new Random().nextBytes(payload);
-//
-//                    ECKey key = new ECKey();
-//                    KadContent kadContent = new KadContent(new KademliaId(), key.getPubKey(), payload);
-//                    kadContent.signWith(key);
-//
-//                    new KademliaInsertJob(kadContent).start();
-//                }
+                while (cnt < 0) {
+                    cnt++;
+
+                    try {
+                        Thread.sleep(5000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+
+
+                    byte[] payload = new byte[1024];
+                    new Random().nextBytes(payload);
+
+                    ECKey key = new ECKey();
+                    KadContent kadContent = new KadContent(new KademliaId(), key.getPubKey(), payload);
+                    kadContent.signWith(key);
+
+                    new KademliaInsertJob(kadContent).start();
+                }
 
             }
         }.start();
+
+
+        byte[] payload = new byte[1024];
+        new Random().nextBytes(payload);
+
+        ECKey key = new ECKey();
+        KadContent kadContent = new KadContent(new KademliaId(), key.getPubKey(), payload);
+        kadContent.signWith(key);
+
+        new KademliaInsertJob(kadContent).start();
 
 
 //        new Thread() {
