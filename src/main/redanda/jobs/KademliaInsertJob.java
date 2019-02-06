@@ -5,15 +5,17 @@ import main.redanda.core.Command;
 import main.redanda.core.Peer;
 import main.redanda.core.Test;
 import main.redanda.kademlia.KadContent;
+import main.redanda.kademlia.KadStoreManager;
 import main.redanda.kademlia.PeerComparator;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.TreeMap;
+import java.util.concurrent.TimeUnit;
 
 public class KademliaInsertJob extends Job {
 
-    public static final int SEND_TO_NODES = 3;
+    public static final int SEND_TO_NODES = 2;
     private static final int NONE = 0;
     private static final int ASKED = 2;
     private static final int SUCCESS = 1;
@@ -29,6 +31,11 @@ public class KademliaInsertJob extends Job {
     @Override
     public void init() {
 
+
+        //We first save the KadContent in our StoreManager, we use "dht-caching"
+        // such that too far away entries will be removed faster
+        KadStoreManager.put(kadContent);
+
         //lets sort the peers by the destination key
         peers = new TreeMap<>(new PeerComparator(kadContent.getId()));
 
@@ -37,7 +44,16 @@ public class KademliaInsertJob extends Job {
         try {
             ArrayList<Peer> peerList = Test.getPeerList();
 
+            if (peerList == null) {
+                initilized = false;
+                return;
+            }
+
             for (Peer p : peerList) {
+
+                if (p.getNodeId() == null)
+                    continue;
+
                 peers.put(p, NONE);
             }
         } finally {
@@ -70,27 +86,37 @@ public class KademliaInsertJob extends Job {
 
             if (p.isConnected()) {
 
-                p.getWriteBufferLock().lock();
                 try {
+                    //lets not wait too long for a lock, since this job may timeout otherwise
+                    boolean lockedByMe = p.getWriteBufferLock().tryLock(50, TimeUnit.MILLISECONDS);
+                    if (lockedByMe) {
+                        try {
 
-                    peers.put(p, ASKED);
-                    askedPeers++;
+                            peers.put(p, ASKED);
+                            askedPeers++;
 
-                    ByteBuffer writeBuffer = p.getWriteBuffer();
+                            ByteBuffer writeBuffer = p.getWriteBuffer();
 
-                    System.out.println("putKadCmd to peer: " + p.getNodeId().toString() + " size: " + peers.size());
+                            System.out.println("putKadCmd to peer: " + p.getNodeId().toString() + " size: " + peers.size());
 
-//                    writeBuffer.put(Command.KADEMLIA_STORE);
-//                    writeBuffer.put(kadContent.getId().getBytes());
-//                    writeBuffer.putLong(kadContent.getTimestamp());
-//                    writeBuffer.put(kadContent.getPubkey());
-//                    writeBuffer.putInt(kadContent.getContent().length);
-//                    writeBuffer.put(kadContent.getContent());
-//                    writeBuffer.put(kadContent.getSignature());
+                            writeBuffer.put(Command.KADEMLIA_STORE);
+                            writeBuffer.put(kadContent.getId().getBytes());
+                            writeBuffer.putLong(kadContent.getTimestamp());
+                            writeBuffer.put(kadContent.getPubkey());
+                            writeBuffer.putInt(kadContent.getContent().length);
+                            writeBuffer.put(kadContent.getContent());
+                            writeBuffer.put(kadContent.getSignature());
 
+                            p.setWriteBufferFilled();
 
-                } finally {
-                    p.getWriteBufferLock().unlock();
+                        } finally {
+                            p.getWriteBufferLock().unlock();
+                        }
+                    } else {
+
+                    }
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
                 }
 
 

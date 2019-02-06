@@ -7,10 +7,12 @@ import main.redanda.crypt.Base58;
 import main.redanda.crypt.ECKey;
 import main.redanda.crypt.Sha256Hash;
 import main.redanda.crypt.Utils;
+import main.redanda.jobs.KademliaInsertJob;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.locks.ReentrantLock;
@@ -53,13 +55,16 @@ public class KadStoreManager {
             if (foundContent == null || content.getTimestamp() > foundContent.getTimestamp()) {
                 entries.put(id, content);
                 size += content.getContent().length;
+                System.out.println("stored");
             }
 
 
+            //todo max size!
             if (size > MIN_SIZE && currTime > lastCleanup + 1000L * 60L * 10L) {
                 lastCleanup = currTime;
 
                 for (KadContent c : entries.values()) {
+                    //todo: shorter times for key far away from our id
                     if (c.getTimestamp() < currTime - KEEP_TIME) {
                         entries.remove(c.getId());
                         size -= c.getContent().length;
@@ -93,6 +98,8 @@ public class KadStoreManager {
 
         //lets calculate the destination
         byte[] pubKey = key.getPubKey();
+
+        System.out.println("pubkey len: " + pubKey.length);
 
 
         Date date = new Date();
@@ -170,6 +177,32 @@ public class KadStoreManager {
 
     }
 
+    public static void printStatus() {
+        lock.lock();
+        try {
+            for (KademliaId id : entries.keySet()) {
+
+                Duration duration = Duration.ofMillis(System.currentTimeMillis() - entries.get(id).getTimestamp());
+                System.out.println("id: " + id.toString() + " " + formatDuration(duration) + " " + Base58.encode(entries.get(id).createHash().getBytes()));
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+
+    public static void maintain() {
+        lock.lock();
+        try {
+            for (KadContent kc : entries.values()) {
+                new KademliaInsertJob(kc).start();
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+
     static class Job implements Runnable {
 
         HashMap<Integer, ScheduledFuture> runningJobs;
@@ -203,4 +236,15 @@ public class KadStoreManager {
         }
     }
 
+
+    public static String formatDuration(Duration duration) {
+        long seconds = duration.getSeconds();
+        long absSeconds = Math.abs(seconds);
+        String positive = String.format(
+                "%d:%02d:%02d",
+                absSeconds / 3600,
+                (absSeconds % 3600) / 60,
+                absSeconds % 60);
+        return seconds < 0 ? "-" + positive : positive;
+    }
 }

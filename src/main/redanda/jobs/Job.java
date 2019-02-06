@@ -19,14 +19,14 @@ public abstract class Job implements Runnable {
     private int runCounter = 0;
     private ScheduledFuture future;
     private boolean done = false;
-    private boolean initilized = false;
+    protected boolean initilized = false;
 
 
     @Override
     public void run() {
 
         if (getEstimatedRuntime() > 20000L) {
-            //if this job takes too long, lets finish without
+            //if this job takes too long, lets finish
             System.out.println("job max time reached: " + jobId + " " + this.getClass().getName());
             done();
         }
@@ -35,10 +35,24 @@ public abstract class Job implements Runnable {
         // and not in the creating thread
         if (!initilized) {
             initilized = true;
-            init();
+            try {
+                init();
+            } catch (Throwable e) {
+                e.printStackTrace();
+            }
         }
 
-        work();
+        if (!initilized) {
+            //if the init method failed, (protected var set to false),
+            // we retry the init in the next run
+            return;
+        }
+
+        try {
+            work();
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
         //count after doing the work, since the first start of the job is immediately
         runCounter++;
     }
@@ -114,6 +128,7 @@ public abstract class Job implements Runnable {
     /**
      * retrieves a running job with a given jobId, useful if we get an answer by a peer and
      * we want to obtain the associated job to update the data
+     *
      * @param jobId
      * @return
      */

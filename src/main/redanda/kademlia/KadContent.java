@@ -9,6 +9,8 @@ import java.nio.ByteBuffer;
 
 public class KadContent {
 
+    public static final int PUBKEY_LEN = 33;
+    public static final int SIGNATURE_LEN = 64;
 
     private KademliaId id; //we store the ID duplicated because of performance reasons (new lookup in the hashmap costs more than a bit of memory)
     private long timestamp; //created at (or updated)
@@ -22,6 +24,14 @@ public class KadContent {
         this.timestamp = timestamp;
         this.pubkey = pubkey;
         this.content = content;
+    }
+
+    public KadContent(KademliaId id, long timestamp, byte[] pubkey, byte[] content, byte[] signature) {
+        this.id = id;
+        this.timestamp = timestamp;
+        this.pubkey = pubkey;
+        this.content = content;
+        this.signature = signature;
     }
 
     public KadContent(KademliaId id, byte[] pubkey, byte[] content) {
@@ -61,6 +71,9 @@ public class KadContent {
     }
 
     public byte[] getSignature() {
+        if (signature == null) {
+            throw new RuntimeException("this content was not signed, signature is null!");
+        }
         return signature;
     }
 
@@ -82,6 +95,9 @@ public class KadContent {
         ECKey.ECDSASignature sign = privateKey.sign(hash);
 
         signature = sign.toBytes();
+        if (SIGNATURE_LEN != signature.length) {
+            throw new RuntimeException("wrong signature len, expected " + SIGNATURE_LEN + " and got " + signature.length);
+        }
     }
 
     public boolean verify() {
@@ -91,7 +107,7 @@ public class KadContent {
 //        ECKey ecKey = new ECKey(null, pubkey);
         ECKey ecKey = new ECKey(BigInteger.ZERO, pubkey, true);
 
-        ECKey.ECDSASignature ecdsaSignature = ECKey.ECDSASignature.fromBytes(signature);
+        ECKey.ECDSASignature ecdsaSignature = ECKey.ECDSASignature.fromBytes(getSignature());
 
         return ecKey.verify(hash, ecdsaSignature);
     }

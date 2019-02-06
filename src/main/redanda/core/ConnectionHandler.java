@@ -19,6 +19,7 @@ import main.redanda.crypt.*;
 import main.redanda.flaschenpost.Flaschenpost;
 import main.redanda.jobs.KademliaInsertJob;
 import main.redanda.kademlia.KadContent;
+import main.redanda.kademlia.KadStoreManager;
 import main.redanda.services.MessageVerifierHsqlDb;
 import main.redanda.services.MessageDownloader;
 
@@ -511,7 +512,7 @@ public class ConnectionHandler extends Thread {
 
                                         for (Peer pfromList : Test.getClonedPeerList()) {
 
-                                            if (pfromList.equals(peer)) {
+                                            if (pfromList.equalsInstance(peer)) {
                                                 continue;
                                             }
 
@@ -2321,12 +2322,21 @@ public class ConnectionHandler extends Thread {
                         Test.localSettings.setUpdateSignature(signature);
                         Test.localSettings.save();
 
-                        try {
-                            Thread.sleep(3000);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                        System.exit(0);
+                        KadStoreManager.maintain();
+
+
+                        //lets shutdown with another thread
+                        new Thread() {
+                            @Override
+                            public void run() {
+                                try {
+                                    Thread.sleep(3000);
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                                System.exit(0);
+                            }
+                        }.start();
                     } catch (FileNotFoundException e) {
                         e.printStackTrace();
                     } catch (IOException e) {
@@ -2378,13 +2388,14 @@ public class ConnectionHandler extends Thread {
             return 1;
         } else if (command == Command.ANDROID_UPDATE_ANSWER_TIMESTAMP) {
 
+
             if (8 > readBuffer.remaining()) {
                 return 0;
             }
 
             long othersTimestamp = readBuffer.getLong();
 
-            Log.put("Update found from: " + new Date(othersTimestamp) + " our version is from: " + new Date(Settings.getMyCurrentVersionTimestamp()),70);
+            Log.put("Update found from: " + new Date(othersTimestamp) + " our version is from: " + new Date(Settings.getMyCurrentVersionTimestamp()), 70);
 
             if (othersTimestamp + 10000 < Settings.getMyCurrentAndroidVersionTimestamp()) {
                 System.out.println("WARNING: peer has outdated android.apk version! " + peer.getNodeId());
@@ -2693,6 +2704,48 @@ public class ConnectionHandler extends Thread {
 
             return 1 + 8 + 4 + RawMsg.SIGNATURE_LENGRTH_PRIMITIVE + data.length;
 
+        } else if (command == Command.KADEMLIA_STORE) {
+
+
+            if (KademliaId.ID_LENGTH / 8 + 8 + KadContent.PUBKEY_LEN + 4 + RawMsg.SIGNATURE_LENGRTH_PRIMITIVE > readBuffer.remaining()) {
+                return 0;
+            }
+
+
+            byte[] kadIdBytes = new byte[KademliaId.ID_LENGTH / 8];
+            readBuffer.get(kadIdBytes);
+
+            long timestamp = readBuffer.getLong();
+
+            byte[] publicKeyBytes = new byte[KadContent.PUBKEY_LEN];
+            readBuffer.get(publicKeyBytes);
+
+            int contentLen = readBuffer.getInt();
+
+            if (contentLen > readBuffer.remaining()) {
+                return 0;
+            }
+
+            byte[] contentBytes = new byte[contentLen];
+            readBuffer.get(contentBytes);
+
+            byte[] signatureBytes = new byte[KadContent.SIGNATURE_LEN];
+            readBuffer.get(signatureBytes);
+
+            System.out.println("got KadContent successfully");
+
+            KadContent kadContent = new KadContent(new KademliaId(kadIdBytes), timestamp, publicKeyBytes, contentBytes, signatureBytes);
+
+            if (kadContent.verify()) {
+                System.out.println("kadContent signature was verified, lets store the data!");
+                KadStoreManager.put(kadContent);
+            } else {
+                //todo
+            }
+
+
+            return 1 + (KademliaId.ID_LENGTH / 8) + 8 + KadContent.PUBKEY_LEN + 4 + contentLen + KadContent.SIGNATURE_LEN;
+
         }
 
         byte nextByte = 0;
@@ -2720,6 +2773,7 @@ public class ConnectionHandler extends Thread {
                 "WRONG BYTE!");
         //TODO add again
         Test.removePeer(peer);
+        peerTrusts.remove(peer.peerTrustData);
 
         return 0;
 
@@ -3379,22 +3433,25 @@ public class ConnectionHandler extends Thread {
         new Thread() {
             @Override
             public void run() {
-                try {
-                    Thread.sleep(10000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
 
 
-                byte[] payload = new byte[1024];
-                new Random().nextBytes(payload);
-
-                ECKey key = new ECKey();
-                KadContent kadContent = new KadContent(new KademliaId(), key.getPubKey(), payload);
-
-                new KademliaInsertJob(kadContent).start();
-
-
+//                while (true) {
+//                    try {
+//                        Thread.sleep(5000);
+//                    } catch (InterruptedException e) {
+//                        e.printStackTrace();
+//                    }
+//
+//
+//                    byte[] payload = new byte[1024];
+//                    new Random().nextBytes(payload);
+//
+//                    ECKey key = new ECKey();
+//                    KadContent kadContent = new KadContent(new KademliaId(), key.getPubKey(), payload);
+//                    kadContent.signWith(key);
+//
+//                    new KademliaInsertJob(kadContent).start();
+//                }
 
             }
         }.start();
@@ -3436,7 +3493,6 @@ public class ConnectionHandler extends Thread {
         insertNewUpdate();
         insertNewAndroidUpdate();
 //        Thread.sleep(1000);
-
 
 
         Start.main(null);

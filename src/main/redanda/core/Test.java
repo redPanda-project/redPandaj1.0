@@ -66,6 +66,7 @@ import main.redanda.database.MessageStore;
 import main.redanda.kademlia.KadOld;
 import main.redanda.kademlia.KadContentTest;
 import main.redanda.kademlia.KadContentUpdate;
+import main.redanda.kademlia.KadStoreManager;
 import main.redanda.services.LoadHistory;
 import main.redanda.services.MessageDownloader;
 import main.redanda.services.MessageVerifierHsqlDb;
@@ -616,8 +617,9 @@ public class Test {
 //                    System.out.println("reconnect!!");
 //                    hsqlConnection.reconnect();
 
-                    System.out.println("DHT state: ");
-                    System.out.println(KadOld.node);
+                    System.out.println("KadStore entries: ");
+                    KadStoreManager.printStatus();
+//                    System.out.println(KadOld.node);
 //                    Kad.node.refresh();
 
                     continue;
@@ -1215,6 +1217,13 @@ public class Test {
                     //threadPool = Executors.newFixedThreadPool(Settings. * 2 + 5);
                     continue;
                 }
+
+                if (readLine.equals("kad")) {
+                    KadStoreManager.printStatus();
+                    KadStoreManager.maintain();
+                    continue;
+                }
+
 
                 if (readLine.equals("c")) {
                     System.out.println("closing all connections....");

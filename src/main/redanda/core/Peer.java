@@ -119,10 +119,16 @@ public class Peer implements Comparable<Peer> {
 
     }
 
-    @Override
-    public boolean equals(Object obj) {
-        return equalsNonce(obj);
+
+    public boolean equalsInstance(Object obj) {
+        return super.equals(obj);
     }
+
+//    @Override
+//    public boolean equals(Object obj) {
+//        throw new RuntimeException("hjgadzagdzwad");
+////        return equalsNonce(obj);
+//    }
 
     public long getLastAnswered() {
         return System.currentTimeMillis() - lastActionOnConnection;
