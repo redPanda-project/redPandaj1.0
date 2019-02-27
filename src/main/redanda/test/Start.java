@@ -8,6 +8,7 @@ package main.redanda.test;
 import java.io.IOException;
 import java.security.SignatureException;
 
+import io.sentry.Sentry;
 import main.redanda.NewMessageListener;
 import main.redanda.core.Log;
 import main.redanda.core.Saver;
@@ -20,7 +21,9 @@ import main.redanda.core.messages.TextMessageContent;
 public class Start {
 
     public static void main(String[] args) throws IOException, SignatureException {
-        // TODO code application logic here
+
+
+        Sentry.init("https://eefa8afdcdb7418995f6306c136546c7@sentry.io/1400313");
 
 //        Settings.lightClient = true;
 //        new Thread() {

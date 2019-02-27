@@ -3,6 +3,7 @@ package main.redanda.kademlia;
 import kademlia.node.KademliaId;
 import main.redanda.core.Log;
 import main.redanda.crypt.ECKey;
+import main.redanda.jobs.KademliaInsertJob;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

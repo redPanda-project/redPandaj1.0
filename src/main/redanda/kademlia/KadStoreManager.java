@@ -183,15 +183,18 @@ public class KadStoreManager {
 
     public static void printStatus() {
         lock.lock();
+        int size = 0;
         try {
             for (KademliaId id : entries.keySet()) {
 
                 Duration duration = Duration.ofMillis(System.currentTimeMillis() - entries.get(id).getTimestamp());
                 System.out.println("id: " + id.toString() + " " + formatDuration(duration) + " " + Base58.encode(entries.get(id).createHash().getBytes()));
+                size += entries.get(id).getContent().length;
             }
         } finally {
             lock.unlock();
         }
+        System.out.println("size in kb: " + size/1024.);
     }
 
 

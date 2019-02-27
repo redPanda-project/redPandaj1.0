@@ -39,6 +39,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import io.sentry.Sentry;
 import kademlia.dht.GetParameter;
 import kademlia.dht.JKademliaStorageEntry;
 import kademlia.exceptions.ContentNotFoundException;
@@ -598,22 +599,25 @@ public class Test {
 //                        unverifiedMsgs++;
 //                    }
 //
-                    //System.out.println("Saved Sockets: " + ConnectionHandler.allSockets.size());
-                    new Thread() {
 
-                        @Override
-                        public void run() {
-//                            try {
-//                                Test.messageStore.getConnection().close();
-//                            } catch (SQLException ex) {
-//                                Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
-//                            }
-//                            Main.useHsqlDatabase();
-                            System.out.println("Processed messages: " + MessageHolder.getMessageCount() + " - Queue to verify: " + MessageHolder.getMessageCountToVerify());
-                            System.out.println("LRU Cache size: " + MessageDownloader.channelIdToLatestBlockTime.size());
-                            //MessageVerifierHsqlDb.sem.release();
-                        }
-                    }.start();
+
+
+//                    //System.out.println("Saved Sockets: " + ConnectionHandler.allSockets.size());
+//                    new Thread() {
+//
+//                        @Override
+//                        public void run() {
+////                            try {
+////                                Test.messageStore.getConnection().close();
+////                            } catch (SQLException ex) {
+////                                Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+////                            }
+////                            Main.useHsqlDatabase();
+//                            System.out.println("Processed messages: " + MessageHolder.getMessageCount() + " - Queue to verify: " + MessageHolder.getMessageCountToVerify());
+//                            System.out.println("LRU Cache size: " + MessageDownloader.channelIdToLatestBlockTime.size());
+//                            //MessageVerifierHsqlDb.sem.release();
+//                        }
+//                    }.start();
 
 //                    System.out.println("reconnect!!");
 //                    hsqlConnection.reconnect();
@@ -2926,25 +2930,26 @@ public class Test {
 
     public static void sendStacktrace(Throwable thrwbl) {
 
-//        if (System.currentTimeMillis() - lastSentStackTrace < 1000*60*10) {
-//            
+////        if (System.currentTimeMillis() - lastSentStackTrace < 1000*60*10) {
+////
+////        }
+//        String out = "Stacktrace: \n";
+//        out += stacktrace2String(thrwbl);
+//
+//        System.out.println("StackTrace: " + out);
+//
+////        stackTraceString += out + "\n#######################\n\n\n";
+//        try {
+//            PrintWriter outputWriter = new PrintWriter(new FileOutputStream("error.log", true));
+//            //PrintWriter outputWriter = new PrintWriter(new BufferedWriter(new FileWriter("error.log", true)));
+//            outputWriter.println("\n\n\n############## " + new Date() + " ###############\n\n\n" + out);
+//            outputWriter.close();
+//        } catch (IOException e) {
+//            //exception handling left as an exercise for the reader
 //        }
-        String out = "Stacktrace: \n";
-        out += stacktrace2String(thrwbl);
-
-        System.out.println("StackTrace: " + out);
-
-//        stackTraceString += out + "\n#######################\n\n\n";
-        try {
-            PrintWriter outputWriter = new PrintWriter(new FileOutputStream("error.log", true));
-            //PrintWriter outputWriter = new PrintWriter(new BufferedWriter(new FileWriter("error.log", true)));
-            outputWriter.println("\n\n\n############## " + new Date() + " ###############\n\n\n" + out);
-            outputWriter.close();
-        } catch (IOException e) {
-            //exception handling left as an exercise for the reader
-        }
-
-        Main.sendBroadCastMsg(out);
+//
+//        Main.sendBroadCastMsg(out);
+        Sentry.capture(thrwbl);
     }
 
     public static void sendStacktrace(String msg, Throwable thrwbl) {
