@@ -646,6 +646,7 @@ public class ConnectionHandler extends Thread {
                                     } catch (Throwable thb) {
                                         System.out.println("/////////////////// catched");
                                         thb.printStackTrace();
+                                        sendStacktrace(thb);
                                     }
 
                                     //System.out.println(peer.ip + "parsed bytes: " + localParsedBytes);
@@ -769,14 +770,16 @@ public class ConnectionHandler extends Thread {
                     System.out.println("error! " + peer.ip + ":" + peer.port);
                     e.printStackTrace();
                     peer.disconnect("IOException");
+                    sendStacktrace(e);
                 } catch (Throwable e) {
                     key.cancel();
                     Peer peer = ((Peer) key.attachment());
                     System.out.println("Catched fatal exception! " + peer.ip + ":" + peer.port);
                     e.printStackTrace();
                     //peer.disconnect(" IOException 4827f3fj");
-                    Test.sendStacktrace("Fatal exception!", e);
+//                    Test.sendStacktrace("Fatal exception!", e);
                     peer.disconnect("Fatal exception");
+                    sendStacktrace(e);
                 }
 
             }

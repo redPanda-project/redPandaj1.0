@@ -35,6 +35,7 @@ public class Command {
     public static final byte getAndroidTimeStamp = (byte) 200;
     public static final byte getAndroidApk = (byte) 201;
     public static final byte authenticate = (byte) 202;
+    public static final byte dhtStore = (byte) 203;
 
 
     public static final byte DISCONNECT = (byte) 254;

@@ -2952,12 +2952,12 @@ public class Test {
         Sentry.capture(thrwbl);
     }
 
-    public static void sendStacktrace(String msg, Throwable thrwbl) {
-        thrwbl.printStackTrace();
-        String out = msg;
-        out += stacktrace2String(thrwbl);
-        Main.sendBroadCastMsg(out);
-    }
+//    public static void sendStacktrace(String msg, Throwable thrwbl) {
+//        thrwbl.printStackTrace();
+//        String out = msg;
+//        out += stacktrace2String(thrwbl);
+//        Main.sendBroadCastMsg(out);
+//    }
 
     private static String formatInterval(final long l) {
         final long hr = TimeUnit.MILLISECONDS.toHours(l);

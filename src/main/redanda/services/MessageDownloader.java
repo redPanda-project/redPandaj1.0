@@ -563,7 +563,9 @@ public class MessageDownloader {
 //                }
                 } catch (Throwable e) {
 
-                    Test.sendStacktrace("SLEEP ! catched msg downloader exc.: \n", e);
+//                    Test.sendStacktrace("SLEEP ! catched msg downloader exc.: \n", e);
+
+                    Test.sendStacktrace(e);
 
                     System.out.println("MessageDownloader exception!!!!: ");
                     e.printStackTrace();

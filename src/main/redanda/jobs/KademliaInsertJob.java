@@ -71,6 +71,7 @@ public class KademliaInsertJob extends Job {
         for (Peer p : peers.keySet()) {
 
 
+
             Integer status = peers.get(p);
             if (status == SUCCESS) {
                 successfullPeers++;
