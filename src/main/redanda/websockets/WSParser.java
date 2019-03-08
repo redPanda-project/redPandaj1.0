@@ -1,9 +1,13 @@
 package main.redanda.websockets;
 
+import kademlia.node.KademliaId;
 import main.redanda.core.Command;
 import main.redanda.core.Log;
 import main.redanda.core.Peer;
 import main.redanda.core.Test;
+import main.redanda.jobs.KademliaInsertJob;
+import main.redanda.kademlia.KadContent;
+import main.redanda.kademlia.KadStoreManager;
 import main.redanda.socketio.DPeer;
 import main.redanda.socketio.DUpdateObject;
 import org.java_websocket.WebSocket;
@@ -77,6 +81,47 @@ public class WSParser {
                     write(conn, bb);
                 } catch (IOException e) {
                     e.printStackTrace();
+                }
+
+
+                break;
+
+
+            case Command.dhtStore:
+                System.out.println("got dht store command:");
+
+                int commandId = message.getInt();
+
+                byte[] kadIdBytes = new byte[KademliaId.ID_LENGTH / 8];
+                message.get(kadIdBytes);
+                KademliaId kademliaId = new KademliaId(kadIdBytes);
+                long timestamp = message.getLong();
+
+                System.out.println("long: " + timestamp);
+
+                byte[] pubkey = new byte[KadContent.PUBKEY_LEN];
+                message.get(pubkey);
+
+                int contentLen = message.getInt();
+                byte[] content = new byte[contentLen];
+                message.get(content);
+
+                System.out.println("len: " + contentLen);
+
+                byte[] signature = new byte[KadContent.SIGNATURE_LEN];
+                message.get(signature);
+
+
+                KadContent kadContent = new KadContent(kademliaId, timestamp, pubkey, content, signature);
+
+
+                System.out.println("remaining: " + message.remaining() + " " + kadContent.verify());
+
+
+                if (kadContent.verify()) {
+                    new KademliaInsertJob(kadContent).start();
+//                    KadStoreManager.put(kadContent);
+//                    System.out.println("stored!");
                 }
 
 
