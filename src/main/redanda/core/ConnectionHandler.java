@@ -18,6 +18,7 @@ import main.redanda.SpecialChannels;
 import main.redanda.crypt.*;
 import main.redanda.flaschenpost.Flaschenpost;
 import main.redanda.jobs.Job;
+import main.redanda.jobs.KademliaGetJob;
 import main.redanda.jobs.KademliaInsertJob;
 import main.redanda.kademlia.KadContent;
 import main.redanda.kademlia.KadStoreManager;
@@ -511,26 +512,43 @@ public class ConnectionHandler extends Thread {
 
                                         Test.peerListLock.lock();
 
-                                        ArrayList<Peer> clonedPeerList = peerList;
+                                        try {
 
-                                        for (Peer pfromList : clonedPeerList) {
+                                            ArrayList<Peer> clonedPeerList = peerList;
 
-                                            if (pfromList.equalsInstance(peer)) {
-                                                continue;
-                                            }
+                                            for (Peer pfromList : clonedPeerList) {
 
-                                            if (peer.equalsNonce(pfromList)) {
-                                                found = true;
+                                                if (pfromList.equalsInstance(peer)) {
+                                                    continue;
+                                                }
 
+
+                                                if (peer.equalsNonce(pfromList)) {
+                                                    found = true;
 //                                                        System.out.println("nonce1: " + peer.nonce + " nonce2: " + pfromList.nonce);
-                                                if (pfromList.isConnected() || pfromList.isConnecting) {
-                                                    Log.put("Peer already in peerlist... closing old connection...", 22);
-                                                    pfromList.disconnect(" closing old con");
+
+//                                                    boolean contains = false;
+//                                                    for (Peer p2 : clonedPeerList) {
+//                                                        if (p2.equalsInstance(peer)) {
+//                                                            contains = true;
+//                                                            break;
+//                                                        }
+//                                                    }
+//
+//                                                    if (!contains) {
+//                                                        peer.disconnect("not on list anymore?");
+//                                                        key.cancel();
+//                                                        return;
+//                                                    }
+
+                                                    if (pfromList.isConnected() || pfromList.isConnecting) {
+                                                        Log.put("Peer already in peerlist... closing old connection...", 22);
+                                                        pfromList.disconnect(" closing old con");
 //                                                            System.out.println("Peer is already connected, closing new connection");
 //                                                            peer.disconnect();
 //                                                            closeNew = true;
 //                                                            break;
-                                                }
+                                                    }
 //
 //                                                        pfromList.setSocketChannel(peer.getSocketChannel());
 //                                                        pfromList.ip = peer.ip;
@@ -542,37 +560,41 @@ public class ConnectionHandler extends Thread {
 //                                                        //Test.peerList.remove(peer);//remove new generated peer
 //                                                        peer = pfromList;
 
-                                                peer.migratePeer(pfromList);
+                                                    peer.migratePeer(pfromList);
 
-                                                //ToDo: block
-                                                Test.removePeer(pfromList);
-                                                Test.findPeerNonce(peer);
+                                                    //ToDo: block
+                                                    Test.removePeer(pfromList);
+//                                                Test.findPeerNonce(peer);
 
 //                                                        System.out.println("dbwdwgzdw " + peer.isConnected());
 //
 //                                                        System.out.println("Migrated this connection to existend peer object...");
 //                                                        System.out.println("since: " + pfromList.lastAllMsgsQuerried);
-                                                break;
+                                                    break;
+                                                }
+
                                             }
 
-                                        }
-
-                                        if (!found) {
+                                            if (!found) {
 //                                                    System.out.println("Peer not found in list, adding new peer...");
-                                            //Test.peerList.add(peer);
-                                            Test.findPeerNonce(peer);
+                                                //Test.peerList.add(peer);
+                                                Test.findPeerNonce(peer);
 //                                                    System.out.println("IP: " + peer.ip + " nonce: " + peer.nonce);
-                                        }
+                                            }
 
 //                                                if (!closeNew) {
-                                        peer.port = port;
-                                        peer.connectedSince = System.currentTimeMillis();
-                                        peer.connectAble = 1;
-                                        peer.lastActionOnConnection = System.currentTimeMillis();
-                                        peer.firstCommandsProceeded = true;
+                                            peer.port = port;
+                                            peer.connectedSince = System.currentTimeMillis();
+                                            peer.connectAble = 1;
+                                            peer.lastActionOnConnection = System.currentTimeMillis();
+                                            peer.firstCommandsProceeded = true;
 
 //                                                }
-                                        Test.peerListLock.unlock();
+
+                                        } finally {
+                                            Test.peerListLock.unlock();
+                                        }
+
 //                                        if (Settings.lightClient) {
 ////                                if (!found) { //new peer
 //                                            String out = ADDFILTERADDRESS + ":";
@@ -2725,6 +2747,93 @@ public class ConnectionHandler extends Thread {
 
 
             return 1 + 4;
+
+        } else if (command == Command.KADEMLIA_GET) {
+
+
+            int jobId = readBuffer.getInt();
+
+            byte[] kadIdBytes = new byte[KademliaId.ID_LENGTH / 8];
+            readBuffer.get(kadIdBytes);
+
+
+            KadContent kadContent = KadStoreManager.get(new KademliaId(kadIdBytes));
+
+            if (kadContent != null) {
+
+                System.out.println("found content, send back to node: " + kadContent.getId() + " jobid: " + jobId);
+
+                writeBuffer.put(Command.KADEMLIA_GET_ANSWER);
+                writeBuffer.putInt(jobId);
+                writeBuffer.put(kadContent.getId().getBytes());
+                writeBuffer.putLong(kadContent.getTimestamp());
+                writeBuffer.put(kadContent.getPubkey());
+                writeBuffer.putInt(kadContent.getContent().length);
+                writeBuffer.put(kadContent.getContent());
+                writeBuffer.put(kadContent.getSignature());
+
+            } else {
+                System.out.println("content not found!!");
+            }
+            return 1 + 4 + kadIdBytes.length;
+
+        } else if (command == Command.KADEMLIA_GET_ANSWER) {
+
+
+            if (4 + KademliaId.ID_LENGTH / 8 + 8 + KadContent.PUBKEY_LEN + 4 + RawMsg.SIGNATURE_LENGRTH_PRIMITIVE > readBuffer.remaining()) {
+                return 0;
+            }
+
+            int ackId = readBuffer.getInt();
+
+            byte[] kadIdBytes = new byte[KademliaId.ID_LENGTH / 8];
+            readBuffer.get(kadIdBytes);
+
+            long timestamp = readBuffer.getLong();
+
+            byte[] publicKeyBytes = new byte[KadContent.PUBKEY_LEN];
+            readBuffer.get(publicKeyBytes);
+
+            int contentLen = readBuffer.getInt();
+
+            if (contentLen > readBuffer.remaining()) {
+                return 0;
+            }
+
+            if (contentLen < 0 && contentLen > 1024 * 1024 * 10) {
+                peer.disconnect("wrong contentLen for kadcontent");
+                return 0;
+            }
+
+            byte[] contentBytes = new byte[contentLen];
+            readBuffer.get(contentBytes);
+
+            if (KadContent.SIGNATURE_LEN > readBuffer.remaining()) {
+                return 0;
+            }
+            byte[] signatureBytes = new byte[KadContent.SIGNATURE_LEN];
+            readBuffer.get(signatureBytes);
+
+
+            KadContent kadContent = new KadContent(new KademliaId(kadIdBytes), timestamp, publicKeyBytes, contentBytes, signatureBytes);
+
+            if (kadContent.verify()) {
+                boolean saved = KadStoreManager.put(kadContent);
+
+                System.out.println("got KadContent successfully from search!");
+
+                KademliaGetJob runningJob = (KademliaGetJob) Job.getRunningJob(ackId);
+                runningJob.ack(kadContent, peer);
+
+                //ack to JOB!
+
+            } else {
+                //todo
+                System.out.println("kadContent verification failed!!!");
+            }
+
+
+            return 1 + 4 + (KademliaId.ID_LENGTH / 8) + 8 + KadContent.PUBKEY_LEN + 4 + contentLen + KadContent.SIGNATURE_LEN;
 
         } else if (command == Command.KADEMLIA_STORE) {
 
