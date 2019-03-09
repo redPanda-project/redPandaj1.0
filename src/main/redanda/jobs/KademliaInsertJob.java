@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 
 public class KademliaInsertJob extends Job {
 
-    public static final int SEND_TO_NODES = 2;
+    public static final int SEND_TO_NODES = 1;
     private static final int NONE = 0;
     private static final int ASKED = 2;
     private static final int SUCCESS = 1;
@@ -71,7 +71,6 @@ public class KademliaInsertJob extends Job {
         for (Peer p : peers.keySet()) {
 
 
-
             Integer status = peers.get(p);
             if (status == SUCCESS) {
                 successfullPeers++;
@@ -79,6 +78,12 @@ public class KademliaInsertJob extends Job {
                 continue;
             } else if (status == ASKED) {
                 continue;
+            }
+
+
+            if (successfullPeers >= SEND_TO_NODES) {
+                done();
+                break;
             }
 
 
@@ -105,7 +110,7 @@ public class KademliaInsertJob extends Job {
                             askedPeers++;
 
 
-                            System.out.println("putKadCmd to peer: " + p.getNodeId().toString() + " size: " + peers.size());
+                            System.out.println("putKadCmd to peer: " + p.getNodeId().toString() + " size: " + peers.size() + " distance: " + kadContent.getId().getDistance(p.getNodeId()) + " target: " + kadContent.getId());
 
                             int toWriteBytes = writeBuffer.position() + kadContent.getContent().length + 1024;
 
@@ -151,6 +156,12 @@ public class KademliaInsertJob extends Job {
         }
 
 
+    }
+
+
+    public void ack(Peer p) {
+        //todo: concurrency?
+        peers.put(p, SUCCESS);
     }
 
 

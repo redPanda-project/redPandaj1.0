@@ -28,6 +28,7 @@ public class Command {
 
     //kademlia cmds
     public static final byte KADEMLIA_STORE = (byte) 120;// standalone command
+    public static final byte JOB_ACK = (byte) 130;// standalone command
 
     public static final byte STICKS = (byte) 150;
 

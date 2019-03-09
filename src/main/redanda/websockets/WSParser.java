@@ -151,28 +151,28 @@ public class WSParser {
 
         toSendPeersNum = Math.min(100, toSendPeersNum); //we send max 100 peers per request!
 
-        Log.put("Send peerlist to peer: ", 200);
+//        Log.put("Send peerlist to peer: ", 200);
 
         //get peers
         ArrayList<Peer> cp = Test.getClonedPeerList();
 
-        System.out.println("shuffle");
+//        System.out.println("shuffle");
 
         //randomize the peers
         Collections.shuffle(cp);
 
-        System.out.println("shuffled");
+//        System.out.println("shuffled");
 
         ByteBuffer bb = ByteBuffer.allocate(400 + 100 * toSendPeersNum); //rough estimate
         bb.put(Command.PEERLIST);
 
         int byteCount = 0;
 
-        System.out.println("before loop");
+//        System.out.println("before loop");
 
         int cnt = 0;
         for (Peer p : cp) {
-            System.out.println("loop");
+//            System.out.println("loop");
             if (!p.isConnected()) {
                 continue;
             }
@@ -193,15 +193,15 @@ public class WSParser {
             bb.put(url.getBytes());
 
         }
-        System.out.println("end loop");
+//        System.out.println("end loop");
         //send now
         write(conn, bb);
-        System.out.println("send nodes to peer: " + cnt);
+//        System.out.println("send nodes to peer: " + cnt);
 
     }
 
     private static void parseAndroidTimestamp(WebSocket conn) {
-        System.out.println("getAndroidTimeStamp");
+//        System.out.println("getAndroidTimeStamp");
 
         File file = new File("android.apk");
         long myCurrentVersionTimestamp = (long) Math.ceil(file.lastModified() / 1000.) * 1000;

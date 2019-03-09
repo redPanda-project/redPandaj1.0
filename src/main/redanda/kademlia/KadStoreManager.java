@@ -1,6 +1,7 @@
 package main.redanda.kademlia;
 
 import kademlia.node.KademliaId;
+import main.redanda.core.Test;
 import main.redanda.jobs.JobScheduler;
 import main.redanda.core.Log;
 import main.redanda.crypt.Base58;
@@ -20,9 +21,9 @@ import java.util.concurrent.locks.ReentrantLock;
 @ThreadSafe
 public class KadStoreManager {
 
-    private static final int MIN_SIZE = 1024 * 1024 * 10; //size of content without key
+    private static final int MIN_SIZE = 1024 * 1024 * 10 * 0; //size of content without key
     private static final int MAX_SIZE = 1024 * 1024 * 50; //size of content without key
-    private static final long KEEP_TIME = 1000L * 60L * 60L * 24L * 7L; //7 days
+    private static final long MAX_KEEP_TIME = 1000L * 60L * 60L * 24L * 14L; //7 days
 
     private static final Map<KademliaId, KadContent> entries = new HashMap<>();
     private static final ReentrantLock lock = new ReentrantLock();
@@ -37,7 +38,7 @@ public class KadStoreManager {
      *
      * @param content
      */
-    public static void put(KadContent content) {
+    public static boolean put(KadContent content) {
 
         KademliaId id = content.getId();
 
@@ -45,13 +46,18 @@ public class KadStoreManager {
 
         if (content.getTimestamp() - currTime > 1000L * 60L * 15L) {
             Log.put("Content for DHT entry is too new!", 50);
-            return;
+            return false;
+        } else if (content.getTimestamp() < currTime - MAX_KEEP_TIME) {
+            Log.put("Content for DHT entry is too old!", 50);
+            return false;
         }
 
+        boolean saved = false;
 
         lock.lock();
         try {
             KadContent foundContent = entries.get(id);
+
 
             if (foundContent == null || content.getTimestamp() > foundContent.getTimestamp()) {
                 entries.put(id, content);
@@ -60,19 +66,39 @@ public class KadStoreManager {
                     size -= foundContent.getContent().length;
                 }
                 System.out.println("stored");
+                saved = true;
             }
 
 
             //todo max size!
-            if (size > MIN_SIZE && currTime > lastCleanup + 1000L * 60L * 10L) {
+            if (size > MIN_SIZE && currTime > lastCleanup + 1000L * 10L * 1L) {
                 lastCleanup = currTime;
 
+                ArrayList<KademliaId> kademliaIds = new ArrayList<>();
+
                 for (KadContent c : entries.values()) {
+
+
+                    int distance = Test.NONCE.getDistance(c.getId());
+
+
+                    long keepTime = (long) Math.ceil(MAX_KEEP_TIME * (160 - distance) / 160);
+                    keepTime = Math.max(keepTime,1000L*60L*61L); //at least 61 mins such that the maintenance ruitine can spread the entry
+
+                    System.out.println("keep time: " + formatDuration(Duration.ofMillis(keepTime)) + " distance: " + distance);
+                    System.out.println("id: " + Test.NONCE);
+                    System.out.println("id: " + c.getId());
+
                     //todo: shorter times for key far away from our id
-                    if (c.getTimestamp() < currTime - KEEP_TIME) {
-                        entries.remove(c.getId());
+                    if (c.getTimestamp() < currTime - keepTime) {
+                        kademliaIds.add(c.getId());
+//                        entries.remove(c.getId());
                         size -= c.getContent().length;
                     }
+                }
+
+                for (KademliaId kadId : kademliaIds) {
+                    entries.remove(kadId);
                 }
 
             }
@@ -81,6 +107,8 @@ public class KadStoreManager {
         } finally {
             lock.unlock();
         }
+
+        return saved;
 
 
     }
@@ -194,7 +222,7 @@ public class KadStoreManager {
         } finally {
             lock.unlock();
         }
-        System.out.println("size in kb: " + size/1024.);
+        System.out.println("size in kb: " + size / 1024.);
     }
 
 

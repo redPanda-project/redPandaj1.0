@@ -188,7 +188,7 @@ public class WebSockets extends WebSocketServer {
 
     @Override
     public void onOpen(WebSocket conn, ClientHandshake clientHandshake) {
-        System.out.println("new websocket connection: " + conn.getRemoteSocketAddress().getAddress().getHostAddress());
+//        System.out.println("new websocket connection: " + conn.getRemoteSocketAddress().getAddress().getHostAddress());
 
         //lets send the peer our node id!
         ByteBuffer b = ByteBuffer.allocate(1 + KademliaId.ID_LENGTH / 8);
@@ -210,7 +210,7 @@ public class WebSockets extends WebSocketServer {
 
     @Override
     public void onMessage(WebSocket conn, ByteBuffer message) {
-        System.out.println("got message as bytebuffer!");
+//        System.out.println("got message as bytebuffer!");
         WSParser.parseAsync(conn, message);
     }
 

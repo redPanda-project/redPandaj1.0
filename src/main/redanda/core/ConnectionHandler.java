@@ -17,6 +17,7 @@ import kademlia.node.KademliaId;
 import main.redanda.SpecialChannels;
 import main.redanda.crypt.*;
 import main.redanda.flaschenpost.Flaschenpost;
+import main.redanda.jobs.Job;
 import main.redanda.jobs.KademliaInsertJob;
 import main.redanda.kademlia.KadContent;
 import main.redanda.kademlia.KadStoreManager;
@@ -510,7 +511,9 @@ public class ConnectionHandler extends Thread {
 
                                         Test.peerListLock.lock();
 
-                                        for (Peer pfromList : Test.getClonedPeerList()) {
+                                        ArrayList<Peer> clonedPeerList = peerList;
+
+                                        for (Peer pfromList : clonedPeerList) {
 
                                             if (pfromList.equalsInstance(peer)) {
                                                 continue;
@@ -767,10 +770,10 @@ public class ConnectionHandler extends Thread {
                 } catch (IOException e) {
                     key.cancel();
                     Peer peer = ((Peer) key.attachment());
-                    System.out.println("error! " + peer.ip + ":" + peer.port);
-                    e.printStackTrace();
+//                    System.out.println("error! " + peer.ip + ":" + peer.port);
+//                    e.printStackTrace();
                     peer.disconnect("IOException");
-                    sendStacktrace(e);
+//                    sendStacktrace(e);
                 } catch (Throwable e) {
                     key.cancel();
                     Peer peer = ((Peer) key.attachment());
@@ -2094,7 +2097,7 @@ public class ConnectionHandler extends Thread {
 
                             //lets not download another version in the next x seconds, otherwise our RAM may explode!
                             try {
-                                Thread.sleep(10000);
+                                Thread.sleep(60000);
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
                             }
@@ -2216,7 +2219,7 @@ public class ConnectionHandler extends Thread {
                             while (cnt < 6) {
                                 cnt++;
                                 try {
-                                    Thread.sleep(1000);
+                                    Thread.sleep(10000);
                                 } catch (InterruptedException e) {
                                     e.printStackTrace();
                                 }
@@ -2707,6 +2710,22 @@ public class ConnectionHandler extends Thread {
 
             return 1 + 8 + 4 + RawMsg.SIGNATURE_LENGRTH_PRIMITIVE + data.length;
 
+        } else if (command == Command.JOB_ACK) {
+
+
+            int jobId = readBuffer.getInt();
+
+            Job runningJob = Job.getRunningJob(jobId);
+
+            if (runningJob instanceof KademliaInsertJob) {
+                KademliaInsertJob job = (KademliaInsertJob) runningJob;
+                job.ack(peer);
+                System.out.println("ACK from peer: " + peer.getNodeId().toString());
+            }
+
+
+            return 1 + 4;
+
         } else if (command == Command.KADEMLIA_STORE) {
 
 
@@ -2738,6 +2757,9 @@ public class ConnectionHandler extends Thread {
             byte[] contentBytes = new byte[contentLen];
             readBuffer.get(contentBytes);
 
+            if (KadContent.SIGNATURE_LEN > readBuffer.remaining()) {
+                return 0;
+            }
             byte[] signatureBytes = new byte[KadContent.SIGNATURE_LEN];
             readBuffer.get(signatureBytes);
 
@@ -2746,7 +2768,19 @@ public class ConnectionHandler extends Thread {
             KadContent kadContent = new KadContent(new KademliaId(kadIdBytes), timestamp, publicKeyBytes, contentBytes, signatureBytes);
 
             if (kadContent.verify()) {
-                KadStoreManager.put(kadContent);
+                boolean saved = KadStoreManager.put(kadContent);
+
+                if (saved) {
+                    peer.getWriteBufferLock().lock();
+                    try {
+                        writeBuffer.put(Command.JOB_ACK);
+                        writeBuffer.putInt(ackId);
+                    } finally {
+                        peer.getWriteBufferLock().unlock();
+                    }
+
+                }
+
             } else {
                 //todo
                 System.out.println("kadContent verification failed!!!");
@@ -3476,7 +3510,7 @@ public class ConnectionHandler extends Thread {
         KadContent kadContent = new KadContent(new KademliaId(), key.getPubKey(), payload);
         kadContent.signWith(key);
 
-        new KademliaInsertJob(kadContent).start();
+//        new KademliaInsertJob(kadContent).start();
 
 
 //        new Thread() {
