@@ -101,6 +101,46 @@ public class SocketIO {
         PORT = myPort + 100;
         config.setPort(PORT);
 
+//        try {
+//
+//            //ToDo: create and save password in localSettings?
+//            char[] password = "123456".toCharArray();
+//
+//            /**
+//             * if we have to create a new keystore, lets save it in the correct file
+//             */
+//            if (!new File(keyStoreFile).exists()) {
+//                KeyStore ks = null;
+//
+//                ks = KeyStore.getInstance(KeyStore.getDefaultType());
+//
+//
+//                ks.load(null, password);
+//
+//                // Store away the keystore.
+//                FileOutputStream fos = new FileOutputStream(keyStoreFile);
+//                ks.store(fos, password);
+//                fos.close();
+//
+//            }
+//            config.setKeyStorePassword(new String(password));
+////        InputStream stream = SocketIO.class.getResourceAsStream("asdgf");
+//            File initialFile = new File(keyStoreFile);
+//            InputStream targetStream = new FileInputStream(initialFile);
+//            config.setKeyStore(targetStream);
+//
+//        } catch (KeyStoreException e) {
+//            e.printStackTrace();
+//        } catch (CertificateException e) {
+//            e.printStackTrace();
+//        } catch (NoSuchAlgorithmException e) {
+//            e.printStackTrace();
+//        } catch (FileNotFoundException e) {
+//            e.printStackTrace();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+
 
         final SocketIOServer server = new SocketIOServer(config);
 
@@ -132,6 +172,14 @@ public class SocketIO {
 //                }.start();
 
 
+            }
+        });
+
+
+        server.addDisconnectListener(new DisconnectListener() {
+            @Override
+            public void onDisconnect(SocketIOClient client) {
+                System.out.println("disconnected: " + client.getHandshakeData());
             }
         });
 
