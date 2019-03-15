@@ -185,6 +185,7 @@ public class ConnectionHandler extends Thread {
             } catch (Exception e) {
                 e.printStackTrace();
                 //Main.sendBroadCastMsg("key was canceled...");
+                System.out.println("key was canceled...");
                 try {
                     sleep(100);
                 } catch (InterruptedException ex) {
@@ -215,7 +216,7 @@ public class ConnectionHandler extends Thread {
             Set<SelectionKey> selectedKeys = selector.selectedKeys();
 
             if (readyChannels == 0 && selectedKeys.isEmpty()) {
-//                System.out.print(".");
+                System.out.print(".");
 
 //                    for (SelectionKey k : selector.keys()) {
 //
