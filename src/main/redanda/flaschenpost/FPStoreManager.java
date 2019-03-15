@@ -18,7 +18,9 @@ public class FPStoreManager {
     /**
      * we put a Flaschenpost into this set to remember that
      * we alreay broadcasted that Flaschenpost to other peers
-     * to mitigate content changing attacks, we have to add the content hash to the key
+     * we do not have to add the content hash to the key
+     * to mitigate content changing attacks, since the signed ACK message also signed the content.
+     * If a peer changes the content he will get a different/wrong ACK answer.
      * @param key
      */
     public void put(FPKey key) {

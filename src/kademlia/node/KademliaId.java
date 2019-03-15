@@ -10,6 +10,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -55,6 +56,17 @@ public class KademliaId implements Streamable, Serializable {
             throw new IllegalArgumentException("Specified Data need to be " + (ID_LENGTH / 8) + " characters long. Data Given: '" + new String(bytes) + "'");
         }
         this.keyBytes = bytes;
+    }
+
+    public static KademliaId fromFirstBytes(byte[] bytes) {
+
+        ByteBuffer wrap = ByteBuffer.wrap(bytes);
+
+        byte[] bytesToUse = new byte[ID_LENGTH / 8];
+
+        wrap.get(bytesToUse);
+
+        return new KademliaId(bytesToUse);
     }
 
     /**

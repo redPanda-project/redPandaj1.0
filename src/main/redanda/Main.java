@@ -29,6 +29,8 @@ import main.redanda.database.DirectMessageStore;
 import main.redanda.database.HsqlConnection;
 import main.redanda.database.MysqlConnection;
 import main.redanda.kademlia.KadOld;
+import main.redanda.kademlia.KadStoreManager;
+import main.redanda.websockets.WebSockets;
 
 /**
  * @author robin
@@ -338,6 +340,18 @@ public class Main {
             return;
         }
 
+
+        System.out.println("write all KadContent to other nodes");
+        KadStoreManager.maintain();
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        System.out.println("done");
+
+
+
         shutdown = true;
         Settings.connectToNewClientsTill = 0;
         System.out.println("disconnecting from peers...");
@@ -367,9 +381,16 @@ public class Main {
         System.out.println("done");
 
 
-        System.out.println("save kademlia state...");
-        KadOld.shutdown();
+//        System.out.println("save kademlia state...");
+//        KadOld.shutdown();
+//        System.out.println("done");
+
+        System.out.println("stopping websocket server...");
+        WebSockets.stopServer();
         System.out.println("done");
+
+
+
 
         System.out.println("finished shutdown sequenze...");
 

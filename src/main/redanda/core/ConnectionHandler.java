@@ -17,6 +17,11 @@ import kademlia.node.KademliaId;
 import main.redanda.SpecialChannels;
 import main.redanda.crypt.*;
 import main.redanda.flaschenpost.Flaschenpost;
+import main.redanda.jobs.Job;
+import main.redanda.jobs.KademliaGetJob;
+import main.redanda.jobs.KademliaInsertJob;
+import main.redanda.kademlia.KadContent;
+import main.redanda.kademlia.KadStoreManager;
 import main.redanda.services.MessageVerifierHsqlDb;
 import main.redanda.services.MessageDownloader;
 
@@ -60,7 +65,7 @@ public class ConnectionHandler extends Thread {
     private boolean exit = false;
     public static long lastRun = 0;
     public static HashMap<ECKey, HashMap<PeerTrustData, Long>> ratingData = new HashMap<ECKey, HashMap<PeerTrustData, Long>>();
-    private static ReentrantLock updateUploadLock = new ReentrantLock();
+    private static Semaphore updateUploadLock = new Semaphore(2); //simultaneous upload slots
 
     public ConnectionHandler() {
         try {
@@ -398,17 +403,34 @@ public class ConnectionHandler extends Thread {
                                 continue;
                             }
                             System.out.println("we have to double the readbuffer... " + peer.readBuffer.capacity() * 2);
-                            ByteBuffer allocate = ByteBuffer.allocate(peer.readBuffer.capacity() * 2);
-                            allocate.put(peer.readBuffer.array());
-                            allocate.position(peer.readBuffer.position());
+
+
+                            long allocatedMemory = (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory());
+                            long presumableFreeMemory = Runtime.getRuntime().maxMemory() - allocatedMemory;
+
+                            if (presumableFreeMemory < peer.readBuffer.capacity() * 2) {
+
+                                System.out.println("not enough memory: only " + presumableFreeMemory / 1024 + " kbs free");
+
+                                //we can not raise the buffer, lets wait some ms
+                                //todo: prevent main io thread from sleeping?
+                                //kill connection if more than 20 times here?
+                                Thread.sleep(100);
+
+                            } else {
+
+                                ByteBuffer allocate = ByteBuffer.allocate(peer.readBuffer.capacity() * 2);
+                                allocate.put(peer.readBuffer.array());
+                                allocate.position(peer.readBuffer.position());
 //                            allocate.limit(peer.readBuffer.limit());
-                            //System.out.println("buffer voll?? " + peer.readBuffer.toString());
-                            peer.readBuffer = allocate;
-                            peer.lastBufferModified = System.currentTimeMillis();
+                                //System.out.println("buffer voll?? " + peer.readBuffer.toString());
+                                peer.readBuffer = allocate;
+                                peer.lastBufferModified = System.currentTimeMillis();
 //                                System.out.println("readBuffer full, generated new one with 2x larger size....");
+                            }
                         } else if (read == -1) {
                             Log.put("closing connection " + peer.ip + ":" + peer.port + ": not readable! " + peer.readBuffer, 200);
-                            peer.disconnect(" read == -1 ");
+                            peer.disconnect(" read == -1 from: " + peer.ip + ":" + peer.port);
                             Test.triggerOutboundthread();
                             key.cancel();
                         } else {
@@ -490,24 +512,43 @@ public class ConnectionHandler extends Thread {
 
                                         Test.peerListLock.lock();
 
-                                        for (Peer pfromList : Test.getClonedPeerList()) {
+                                        try {
 
-                                            if (pfromList.equals(peer)) {
-                                                continue;
-                                            }
+                                            ArrayList<Peer> clonedPeerList = peerList;
 
-                                            if (peer.equalsNonce(pfromList)) {
-                                                found = true;
+                                            for (Peer pfromList : clonedPeerList) {
 
+                                                if (pfromList.equalsInstance(peer)) {
+                                                    continue;
+                                                }
+
+
+                                                if (peer.equalsNonce(pfromList)) {
+                                                    found = true;
 //                                                        System.out.println("nonce1: " + peer.nonce + " nonce2: " + pfromList.nonce);
-                                                if (pfromList.isConnected() || pfromList.isConnecting) {
-                                                    Log.put("Peer already in peerlist... closing old connection...", 22);
-                                                    pfromList.disconnect(" closing old con");
+
+//                                                    boolean contains = false;
+//                                                    for (Peer p2 : clonedPeerList) {
+//                                                        if (p2.equalsInstance(peer)) {
+//                                                            contains = true;
+//                                                            break;
+//                                                        }
+//                                                    }
+//
+//                                                    if (!contains) {
+//                                                        peer.disconnect("not on list anymore?");
+//                                                        key.cancel();
+//                                                        return;
+//                                                    }
+
+                                                    if (pfromList.isConnected() || pfromList.isConnecting) {
+                                                        Log.put("Peer already in peerlist... closing old connection...", 22);
+                                                        pfromList.disconnect(" closing old con");
 //                                                            System.out.println("Peer is already connected, closing new connection");
 //                                                            peer.disconnect();
 //                                                            closeNew = true;
 //                                                            break;
-                                                }
+                                                    }
 //
 //                                                        pfromList.setSocketChannel(peer.getSocketChannel());
 //                                                        pfromList.ip = peer.ip;
@@ -519,37 +560,41 @@ public class ConnectionHandler extends Thread {
 //                                                        //Test.peerList.remove(peer);//remove new generated peer
 //                                                        peer = pfromList;
 
-                                                peer.migratePeer(pfromList);
+                                                    peer.migratePeer(pfromList);
 
-                                                //ToDo: block
-                                                Test.removePeer(pfromList);
-                                                Test.findPeerNonce(peer);
+                                                    //ToDo: block
+                                                    Test.removePeer(pfromList);
+//                                                Test.findPeerNonce(peer);
 
 //                                                        System.out.println("dbwdwgzdw " + peer.isConnected());
 //
 //                                                        System.out.println("Migrated this connection to existend peer object...");
 //                                                        System.out.println("since: " + pfromList.lastAllMsgsQuerried);
-                                                break;
+                                                    break;
+                                                }
+
                                             }
 
-                                        }
-
-                                        if (!found) {
+                                            if (!found) {
 //                                                    System.out.println("Peer not found in list, adding new peer...");
-                                            //Test.peerList.add(peer);
-                                            Test.findPeerNonce(peer);
+                                                //Test.peerList.add(peer);
+                                                Test.findPeerNonce(peer);
 //                                                    System.out.println("IP: " + peer.ip + " nonce: " + peer.nonce);
-                                        }
+                                            }
 
 //                                                if (!closeNew) {
-                                        peer.port = port;
-                                        peer.connectedSince = System.currentTimeMillis();
-                                        peer.connectAble = 1;
-                                        peer.lastActionOnConnection = System.currentTimeMillis();
-                                        peer.firstCommandsProceeded = true;
+                                            peer.port = port;
+                                            peer.connectedSince = System.currentTimeMillis();
+                                            peer.connectAble = 1;
+                                            peer.lastActionOnConnection = System.currentTimeMillis();
+                                            peer.firstCommandsProceeded = true;
 
 //                                                }
-                                        Test.peerListLock.unlock();
+
+                                        } finally {
+                                            Test.peerListLock.unlock();
+                                        }
+
 //                                        if (Settings.lightClient) {
 ////                                if (!found) { //new peer
 //                                            String out = ADDFILTERADDRESS + ":";
@@ -626,6 +671,7 @@ public class ConnectionHandler extends Thread {
                                     } catch (Throwable thb) {
                                         System.out.println("/////////////////// catched");
                                         thb.printStackTrace();
+                                        sendStacktrace(thb);
                                     }
 
                                     //System.out.println(peer.ip + "parsed bytes: " + localParsedBytes);
@@ -746,17 +792,19 @@ public class ConnectionHandler extends Thread {
                 } catch (IOException e) {
                     key.cancel();
                     Peer peer = ((Peer) key.attachment());
-                    System.out.println("error! " + peer.ip + ":" + peer.port);
-                    e.printStackTrace();
+//                    System.out.println("error! " + peer.ip + ":" + peer.port);
+//                    e.printStackTrace();
                     peer.disconnect("IOException");
+//                    sendStacktrace(e);
                 } catch (Throwable e) {
                     key.cancel();
                     Peer peer = ((Peer) key.attachment());
                     System.out.println("Catched fatal exception! " + peer.ip + ":" + peer.port);
                     e.printStackTrace();
                     //peer.disconnect(" IOException 4827f3fj");
-                    Test.sendStacktrace("Fatal exception!", e);
+//                    Test.sendStacktrace("Fatal exception!", e);
                     peer.disconnect("Fatal exception");
+                    sendStacktrace(e);
                 }
 
             }
@@ -1473,7 +1521,7 @@ public class ConnectionHandler extends Thread {
                 int myHashkeyToIdMine = Sha256Hash.create(toHashkeyToIdMine.getBytes("UTF-8")).hashCode();
                 int myHashkeyToIdHis = Sha256Hash.create(toHashkeyToIdHis.getBytes("UTF-8")).hashCode();
 
-                Log.put("Hash keyToIdMine: " + myHashkeyToIdHis + " - " + hashkeyToIdMine, 30);
+                Log.put("Hash keyToIdMine: " + myHashkeyToIdHis + " - " + hashkeyToIdMine, 130);
 
                 if (peerTrustData.keyToIdHis.size() != keyToIdMine || myHashkeyToIdHis != hashkeyToIdMine) {
                     System.out.println("keyToIdHis wrong, clearing....");
@@ -1481,7 +1529,7 @@ public class ConnectionHandler extends Thread {
                     peerTrustData.keyToIdHis.clear();
                 }
 
-                Log.put("Hash keyToIdMine: " + myHashkeyToIdMine + " - " + hashkeyToIdHis, 30);
+                Log.put("Hash keyToIdMine: " + myHashkeyToIdMine + " - " + hashkeyToIdHis, 130);
 
                 if (peerTrustData.keyToIdMine.size() != keyToIdHis || myHashkeyToIdMine != hashkeyToIdHis) {
                     System.out.println("keyToIdMine wrong, clearing....");
@@ -1782,9 +1830,12 @@ public class ConnectionHandler extends Thread {
                         }
 
                         peer.peerTrustData.ips.add(peer.ip);
-                        peer.peerTrustData.port = peer.port;
+//                        peer.peerTrustData.port = peer.port;
                         Log.put("IP added and port set!", 300);
                     }
+
+                    //we have to update the port in every case!
+                    peer.peerTrustData.port = peer.port;
 
                     peer.removeRequestedMsgs();
 
@@ -2057,7 +2108,7 @@ public class ConnectionHandler extends Thread {
                 Runnable runnable = new Runnable() {
                     @Override
                     public void run() {
-                        updateUploadLock.lock();
+                        updateUploadLock.acquireUninterruptibly();
                         try {
                             System.out.println("our version is outdated, we try to download it from this peer!");
                             peer.writeBufferLock.lock();
@@ -2068,13 +2119,13 @@ public class ConnectionHandler extends Thread {
 
                             //lets not download another version in the next x seconds, otherwise our RAM may explode!
                             try {
-                                Thread.sleep(10000);
+                                Thread.sleep(60000);
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
                             }
                         } finally {
                             System.out.println("we can now download it from another peer...");
-                            updateUploadLock.unlock();
+                            updateUploadLock.release();
                         }
 
                     }
@@ -2101,7 +2152,7 @@ public class ConnectionHandler extends Thread {
                 @Override
                 public void run() {
 
-                    updateUploadLock.lock();
+                    updateUploadLock.acquireUninterruptibly();
 
                     try {
 
@@ -2190,7 +2241,7 @@ public class ConnectionHandler extends Thread {
                             while (cnt < 6) {
                                 cnt++;
                                 try {
-                                    Thread.sleep(1000);
+                                    Thread.sleep(10000);
                                 } catch (InterruptedException e) {
                                     e.printStackTrace();
                                 }
@@ -2211,7 +2262,7 @@ public class ConnectionHandler extends Thread {
                             e.printStackTrace();
                         }
                     } finally {
-                        updateUploadLock.unlock();
+                        updateUploadLock.release();
                     }
 
 
@@ -2299,12 +2350,21 @@ public class ConnectionHandler extends Thread {
                         Test.localSettings.setUpdateSignature(signature);
                         Test.localSettings.save();
 
-                        try {
-                            Thread.sleep(3000);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                        System.exit(0);
+                        KadStoreManager.maintain();
+
+
+                        //lets shutdown with another thread
+                        new Thread() {
+                            @Override
+                            public void run() {
+                                try {
+                                    Thread.sleep(3000);
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                                System.exit(0);
+                            }
+                        }.start();
                     } catch (FileNotFoundException e) {
                         e.printStackTrace();
                     } catch (IOException e) {
@@ -2356,13 +2416,14 @@ public class ConnectionHandler extends Thread {
             return 1;
         } else if (command == Command.ANDROID_UPDATE_ANSWER_TIMESTAMP) {
 
+
             if (8 > readBuffer.remaining()) {
                 return 0;
             }
 
             long othersTimestamp = readBuffer.getLong();
 
-//            System.out.println("Update found from: " + new Date(othersTimestamp) + " our version is from: " + new Date(Settings.getMyCurrentVersionTimestamp()));
+            Log.put("Update found from: " + new Date(othersTimestamp) + " our version is from: " + new Date(Settings.getMyCurrentVersionTimestamp()), 70);
 
             if (othersTimestamp + 10000 < Settings.getMyCurrentAndroidVersionTimestamp()) {
                 System.out.println("WARNING: peer has outdated android.apk version! " + peer.getNodeId());
@@ -2373,7 +2434,7 @@ public class ConnectionHandler extends Thread {
                 Runnable runnable = new Runnable() {
                     @Override
                     public void run() {
-                        updateUploadLock.lock();
+                        updateUploadLock.acquireUninterruptibly();
                         try {
 
                             if (othersTimestamp <= Settings.getMyCurrentAndroidVersionTimestamp()) {
@@ -2397,7 +2458,7 @@ public class ConnectionHandler extends Thread {
                             }
                         } finally {
                             System.out.println("we can now download it from another peer...");
-                            updateUploadLock.unlock();
+                            updateUploadLock.release();
                         }
 
                     }
@@ -2421,7 +2482,7 @@ public class ConnectionHandler extends Thread {
                 @Override
                 public void run() {
 
-                    updateUploadLock.lock();
+                    updateUploadLock.acquireUninterruptibly();
 
                     try {
                         Thread.sleep(200);
@@ -2435,6 +2496,35 @@ public class ConnectionHandler extends Thread {
                     try {
                         System.out.println("we send the android.apk update to a peer!");
                         byte[] data = Files.readAllBytes(path);
+
+
+                        boolean verify = false;
+                        int vcnt = 0;
+
+                        //lets first check our signature!
+                        Channel updateChannel = SpecialChannels.getUpdateChannel();
+
+//                        while (!verify) {
+                        ByteBuffer bytesToHash = ByteBuffer.allocate(8 + data.length);
+
+                        bytesToHash.putLong(Settings.getMyCurrentAndroidVersionTimestamp() + vcnt);
+                        bytesToHash.put(data);
+
+                        Sha256Hash hash = Sha256Hash.create(bytesToHash.array());
+                        System.out.println("hash: " + Utils.bytesToHexString(hash.getBytes()));
+
+                        verify = updateChannel.getKey().verifyPrimitive(hash.getBytes(), localSettings.getUpdateAndroidSignature());
+                        System.out.println("update verified: " + verify);
+                        vcnt++;
+                        System.out.println("cnt: " + vcnt);
+//                        }
+
+
+                        if (!verify) {
+                            System.out.println("################################ asdf " + Settings.getMyCurrentAndroidVersionTimestamp());
+                            return;
+                        }
+
 
                         ByteBuffer a = ByteBuffer.allocate(1 + 8 + 4 + RawMsg.SIGNATURE_LENGRTH_PRIMITIVE + data.length);
                         a.put(Command.ANDROID_UPDATE_ANSWER_CONTENT);
@@ -2488,7 +2578,7 @@ public class ConnectionHandler extends Thread {
                         }
 
 
-                        updateUploadLock.unlock();
+                        updateUploadLock.release();
 
 
                     } catch (IOException e) {
@@ -2642,6 +2732,172 @@ public class ConnectionHandler extends Thread {
 
             return 1 + 8 + 4 + RawMsg.SIGNATURE_LENGRTH_PRIMITIVE + data.length;
 
+        } else if (command == Command.JOB_ACK) {
+
+
+            int jobId = readBuffer.getInt();
+
+            Job runningJob = Job.getRunningJob(jobId);
+
+            if (runningJob instanceof KademliaInsertJob) {
+                KademliaInsertJob job = (KademliaInsertJob) runningJob;
+                job.ack(peer);
+                System.out.println("ACK from peer: " + peer.getNodeId().toString());
+            }
+
+
+            return 1 + 4;
+
+        } else if (command == Command.KADEMLIA_GET) {
+
+
+            int jobId = readBuffer.getInt();
+
+            byte[] kadIdBytes = new byte[KademliaId.ID_LENGTH / 8];
+            readBuffer.get(kadIdBytes);
+
+
+            KadContent kadContent = KadStoreManager.get(new KademliaId(kadIdBytes));
+
+            if (kadContent != null) {
+
+                System.out.println("found content, send back to node: " + kadContent.getId() + " jobid: " + jobId);
+
+                writeBuffer.put(Command.KADEMLIA_GET_ANSWER);
+                writeBuffer.putInt(jobId);
+                writeBuffer.put(kadContent.getId().getBytes());
+                writeBuffer.putLong(kadContent.getTimestamp());
+                writeBuffer.put(kadContent.getPubkey());
+                writeBuffer.putInt(kadContent.getContent().length);
+                writeBuffer.put(kadContent.getContent());
+                writeBuffer.put(kadContent.getSignature());
+
+            } else {
+                System.out.println("content not found!!");
+            }
+            return 1 + 4 + kadIdBytes.length;
+
+        } else if (command == Command.KADEMLIA_GET_ANSWER) {
+
+
+            if (4 + KademliaId.ID_LENGTH / 8 + 8 + KadContent.PUBKEY_LEN + 4 + RawMsg.SIGNATURE_LENGRTH_PRIMITIVE > readBuffer.remaining()) {
+                return 0;
+            }
+
+            int ackId = readBuffer.getInt();
+
+            byte[] kadIdBytes = new byte[KademliaId.ID_LENGTH / 8];
+            readBuffer.get(kadIdBytes);
+
+            long timestamp = readBuffer.getLong();
+
+            byte[] publicKeyBytes = new byte[KadContent.PUBKEY_LEN];
+            readBuffer.get(publicKeyBytes);
+
+            int contentLen = readBuffer.getInt();
+
+            if (contentLen > readBuffer.remaining()) {
+                return 0;
+            }
+
+            if (contentLen < 0 && contentLen > 1024 * 1024 * 10) {
+                peer.disconnect("wrong contentLen for kadcontent");
+                return 0;
+            }
+
+            byte[] contentBytes = new byte[contentLen];
+            readBuffer.get(contentBytes);
+
+            if (KadContent.SIGNATURE_LEN > readBuffer.remaining()) {
+                return 0;
+            }
+            byte[] signatureBytes = new byte[KadContent.SIGNATURE_LEN];
+            readBuffer.get(signatureBytes);
+
+
+            KadContent kadContent = new KadContent(new KademliaId(kadIdBytes), timestamp, publicKeyBytes, contentBytes, signatureBytes);
+
+            if (kadContent.verify()) {
+                boolean saved = KadStoreManager.put(kadContent);
+
+                System.out.println("got KadContent successfully from search!");
+
+                KademliaGetJob runningJob = (KademliaGetJob) Job.getRunningJob(ackId);
+                runningJob.ack(kadContent, peer);
+
+                //ack to JOB!
+
+            } else {
+                //todo
+                System.out.println("kadContent verification failed!!!");
+            }
+
+
+            return 1 + 4 + (KademliaId.ID_LENGTH / 8) + 8 + KadContent.PUBKEY_LEN + 4 + contentLen + KadContent.SIGNATURE_LEN;
+
+        } else if (command == Command.KADEMLIA_STORE) {
+
+
+            if (4 + KademliaId.ID_LENGTH / 8 + 8 + KadContent.PUBKEY_LEN + 4 + RawMsg.SIGNATURE_LENGRTH_PRIMITIVE > readBuffer.remaining()) {
+                return 0;
+            }
+
+            int ackId = readBuffer.getInt();
+
+            byte[] kadIdBytes = new byte[KademliaId.ID_LENGTH / 8];
+            readBuffer.get(kadIdBytes);
+
+            long timestamp = readBuffer.getLong();
+
+            byte[] publicKeyBytes = new byte[KadContent.PUBKEY_LEN];
+            readBuffer.get(publicKeyBytes);
+
+            int contentLen = readBuffer.getInt();
+
+            if (contentLen > readBuffer.remaining()) {
+                return 0;
+            }
+
+            if (contentLen < 0 && contentLen > 1024 * 1024 * 10) {
+                peer.disconnect("wrong contentLen for kadcontent");
+                return 0;
+            }
+
+            byte[] contentBytes = new byte[contentLen];
+            readBuffer.get(contentBytes);
+
+            if (KadContent.SIGNATURE_LEN > readBuffer.remaining()) {
+                return 0;
+            }
+            byte[] signatureBytes = new byte[KadContent.SIGNATURE_LEN];
+            readBuffer.get(signatureBytes);
+
+            System.out.println("got KadContent successfully");
+
+            KadContent kadContent = new KadContent(new KademliaId(kadIdBytes), timestamp, publicKeyBytes, contentBytes, signatureBytes);
+
+            if (kadContent.verify()) {
+                boolean saved = KadStoreManager.put(kadContent);
+
+                if (saved) {
+                    peer.getWriteBufferLock().lock();
+                    try {
+                        writeBuffer.put(Command.JOB_ACK);
+                        writeBuffer.putInt(ackId);
+                    } finally {
+                        peer.getWriteBufferLock().unlock();
+                    }
+
+                }
+
+            } else {
+                //todo
+                System.out.println("kadContent verification failed!!!");
+            }
+
+
+            return 1 + 4 + (KademliaId.ID_LENGTH / 8) + 8 + KadContent.PUBKEY_LEN + 4 + contentLen + KadContent.SIGNATURE_LEN;
+
         }
 
         byte nextByte = 0;
@@ -2669,6 +2925,7 @@ public class ConnectionHandler extends Thread {
                 "WRONG BYTE!");
         //TODO add again
         Test.removePeer(peer);
+        peerTrusts.remove(peer.peerTrustData);
 
         return 0;
 
@@ -3195,9 +3452,9 @@ public class ConnectionHandler extends Thread {
 
         File file = new File(fileName);
 
-        long timestamp = file.lastModified();
+        long timestamp = (long) Math.ceil(file.lastModified() / 1000.) * 1000;
 
-        System.out.println("timestamp : " + timestamp);
+        System.out.println("android timestamp : " + timestamp);
 
         Path path = Paths.get(fileName);
         byte[] data = Files.readAllBytes(path);
@@ -3330,7 +3587,8 @@ public class ConnectionHandler extends Thread {
             public void run() {
 
                 int cnt = 0;
-                while (cnt < 2) {
+
+                while (cnt < 0) {
                     cnt++;
 
                     try {
@@ -3338,19 +3596,58 @@ public class ConnectionHandler extends Thread {
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
-                    if (Test.STARTED_UP_SUCCESSFUL) {
-//                        Flaschenpost.put(new KademliaId(), "Test".getBytes());
-                        try {
-                            Flaschenpost.put(KademliaId.fromBase58("2sdf3THKQ2x474z3v91sfod8xPAT"), "Test".getBytes());
-                        } catch (AddressFormatException e) {
-                            e.printStackTrace();
-                        }
 
-                    }
+
+                    byte[] payload = new byte[1024];
+                    new Random().nextBytes(payload);
+
+                    ECKey key = new ECKey();
+                    KadContent kadContent = new KadContent(new KademliaId(), key.getPubKey(), payload);
+                    kadContent.signWith(key);
+
+                    new KademliaInsertJob(kadContent).start();
                 }
 
             }
         }.start();
+
+
+        byte[] payload = new byte[1024];
+        new Random().nextBytes(payload);
+
+        ECKey key = new ECKey();
+        KadContent kadContent = new KadContent(new KademliaId(), key.getPubKey(), payload);
+        kadContent.signWith(key);
+
+//        new KademliaInsertJob(kadContent).start();
+
+
+//        new Thread() {
+//            @Override
+//            public void run() {
+//
+//                int cnt = 0;
+//                while (cnt < 2) {
+//                    cnt++;
+//
+//                    try {
+//                        Thread.sleep(5000);
+//                    } catch (InterruptedException e) {
+//                        e.printStackTrace();
+//                    }
+//                    if (Test.STARTED_UP_SUCCESSFUL) {
+////                        Flaschenpost.put(new KademliaId(), "Test".getBytes());
+//                        try {
+//                            Flaschenpost.put(KademliaId.fromBase58("2sdf3THKQ2x474z3v91sfod8xPAT"), "Test".getBytes());
+//                        } catch (AddressFormatException e) {
+//                            e.printStackTrace();
+//                        }
+//
+//                    }
+//                }
+//
+//            }
+//        }.start();
 
         Saver saver = new Saver();
 
@@ -3359,9 +3656,12 @@ public class ConnectionHandler extends Thread {
 
 //        Thread.sleep(1000);
         insertNewUpdate();
-
         insertNewAndroidUpdate();
 //        Thread.sleep(1000);
+
+
         Start.main(null);
+
+
     }
 }

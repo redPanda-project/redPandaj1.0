@@ -254,7 +254,7 @@ public class MessageDownloader {
 //                        }
                             int myMessageId = MessageHolder.contains(m);
 
-                            //check if SQLTransactionRollbackException occured due to much message inserts
+                            //check if SQLTransactionRollbackException occured due too much message inserts
                             if (myMessageId == -2) {
                                 sleep(500);
                                 continue;
@@ -563,7 +563,9 @@ public class MessageDownloader {
 //                }
                 } catch (Throwable e) {
 
-                    Test.sendStacktrace("SLEEP ! catched msg downloader exc.: \n", e);
+//                    Test.sendStacktrace("SLEEP ! catched msg downloader exc.: \n", e);
+
+                    Test.sendStacktrace(e);
 
                     System.out.println("MessageDownloader exception!!!!: ");
                     e.printStackTrace();

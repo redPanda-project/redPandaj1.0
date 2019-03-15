@@ -1,18 +1,29 @@
 package main.redanda.kademlia;
 
 import kademlia.node.KademliaId;
+import main.redanda.core.Test;
+import main.redanda.jobs.JobScheduler;
 import main.redanda.core.Log;
+import main.redanda.crypt.Base58;
+import main.redanda.crypt.ECKey;
+import main.redanda.crypt.Sha256Hash;
+import main.redanda.crypt.Utils;
+import main.redanda.jobs.KademliaInsertJob;
 
 import javax.annotation.concurrent.ThreadSafe;
-import java.util.HashMap;
-import java.util.Map;
+import java.nio.ByteBuffer;
+import java.text.SimpleDateFormat;
+import java.time.Duration;
+import java.util.*;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.locks.ReentrantLock;
 
 @ThreadSafe
 public class KadStoreManager {
 
-    private static final int MIN_SIZE = 1024 * 1024 * 50; //size of content without key
-    private static final long KEEP_TIME = 1000L * 60L * 60L * 24L * 7L;
+    private static final int MIN_SIZE = 1024 * 1024 * 10 * 0; //size of content without key
+    private static final int MAX_SIZE = 1024 * 1024 * 50; //size of content without key
+    private static final long MAX_KEEP_TIME = 1000L * 60L * 60L * 24L * 14L; //7 days
 
     private static final Map<KademliaId, KadContent> entries = new HashMap<>();
     private static final ReentrantLock lock = new ReentrantLock();
@@ -27,7 +38,7 @@ public class KadStoreManager {
      *
      * @param content
      */
-    public static void put(KadContent content) {
+    public static boolean put(KadContent content) {
 
         KademliaId id = content.getId();
 
@@ -35,28 +46,59 @@ public class KadStoreManager {
 
         if (content.getTimestamp() - currTime > 1000L * 60L * 15L) {
             Log.put("Content for DHT entry is too new!", 50);
-            return;
+            return false;
+        } else if (content.getTimestamp() < currTime - MAX_KEEP_TIME) {
+            Log.put("Content for DHT entry is too old!", 50);
+            return false;
         }
 
+        boolean saved = false;
 
         lock.lock();
         try {
             KadContent foundContent = entries.get(id);
 
+
             if (foundContent == null || content.getTimestamp() > foundContent.getTimestamp()) {
                 entries.put(id, content);
                 size += content.getContent().length;
+                if (foundContent != null) {
+                    size -= foundContent.getContent().length;
+                }
+                System.out.println("stored");
+                saved = true;
             }
 
 
-            if (size > MIN_SIZE && currTime > lastCleanup + 1000L * 60L * 10L) {
+            //todo max size!
+            if (size > MIN_SIZE && currTime > lastCleanup + 1000L * 10L * 1L) {
                 lastCleanup = currTime;
 
+                ArrayList<KademliaId> kademliaIds = new ArrayList<>();
+
                 for (KadContent c : entries.values()) {
-                    if (c.getTimestamp() < currTime - KEEP_TIME) {
-                        entries.remove(c.getId());
+
+
+                    int distance = Test.NONCE.getDistance(c.getId());
+
+
+                    long keepTime = (long) Math.ceil(MAX_KEEP_TIME * (160 - distance) / 160);
+                    keepTime = Math.max(keepTime,1000L*60L*61L); //at least 61 mins such that the maintenance ruitine can spread the entry
+
+                    System.out.println("keep time: " + formatDuration(Duration.ofMillis(keepTime)) + " distance: " + distance);
+                    System.out.println("id: " + Test.NONCE);
+                    System.out.println("id: " + c.getId());
+
+                    //todo: shorter times for key far away from our id
+                    if (c.getTimestamp() < currTime - keepTime) {
+                        kademliaIds.add(c.getId());
+//                        entries.remove(c.getId());
                         size -= c.getContent().length;
                     }
+                }
+
+                for (KademliaId kadId : kademliaIds) {
+                    entries.remove(kadId);
                 }
 
             }
@@ -65,6 +107,8 @@ public class KadStoreManager {
         } finally {
             lock.unlock();
         }
+
+        return saved;
 
 
     }
@@ -78,4 +122,164 @@ public class KadStoreManager {
         }
     }
 
+
+    public static void main(String[] args) {
+
+        //lets create a keypair for a DHT destination key, should be included in channel later
+        ECKey key = new ECKey();
+
+        //lets calculate the destination
+        byte[] pubKey = key.getPubKey();
+
+        System.out.println("pubkey len: " + pubKey.length);
+
+
+        Date date = new Date();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        System.out.println("UTC Date is: " + dateFormat.format(date));
+
+        byte[] dateStringBytes = dateFormat.format(date).getBytes();
+
+        ByteBuffer buffer = ByteBuffer.allocate(pubKey.length + dateStringBytes.length);
+        buffer.put(pubKey);
+        buffer.put(dateStringBytes);
+
+        Sha256Hash dhtKey = Sha256Hash.create(buffer.array());
+
+        System.out.println("" + Base58.encode((dhtKey.getBytes())) + " byteLen: " + dhtKey.getBytes().length);
+
+        KademliaId kademliaId = KademliaId.fromFirstBytes(dhtKey.getBytes());
+
+//        System.out.println("kadid: " + kademliaId.hexRepresentation());
+//        System.out.println("kadid: " + Utils.bytesToHexString(dhtKey.getBytes()));
+
+        System.out.println("kadid: " + kademliaId.toString());
+
+        //random content
+        byte[] payload = new byte[1024];
+        new Random().nextBytes(payload);
+
+
+        KadContent kadContent = new KadContent(kademliaId, key.getPubKey(), payload);
+
+        kadContent.signWith(key);
+
+        System.out.println("signature: " + Utils.bytesToHexString(kadContent.getSignature()) + " len: " + kadContent.getSignature().length);
+
+
+        //lets check the signature
+
+        System.out.println("verified: " + kadContent.verify());
+
+
+        //assoziate an command pointer to the job
+        HashMap<Integer, ScheduledFuture> runningJobs = new HashMap<>();
+
+
+        final int pointer = new Random().nextInt();
+
+        Job job = new Job(runningJobs, pointer);
+
+
+        ScheduledFuture future = JobScheduler.insert(job, 500);
+        runningJobs.put(pointer, future);
+
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        ScheduledFuture scheduledFuture = runningJobs.get(pointer);
+
+        Job r = (Job) job;
+
+        boolean couldCancel = scheduledFuture.cancel(false);
+        System.out.println("cancel: " + couldCancel);
+
+
+        //if we are able to cancel the runnable, we have to transmit the new data to the runnable
+        if (couldCancel) {
+            r.setData("new data");
+            r.run();
+        }
+
+        System.out.println("asd");
+
+    }
+
+    public static void printStatus() {
+        lock.lock();
+        int size = 0;
+        try {
+            for (KademliaId id : entries.keySet()) {
+
+                Duration duration = Duration.ofMillis(System.currentTimeMillis() - entries.get(id).getTimestamp());
+                System.out.println("id: " + id.toString() + " " + formatDuration(duration) + " " + Base58.encode(entries.get(id).createHash().getBytes()));
+                size += entries.get(id).getContent().length;
+            }
+        } finally {
+            lock.unlock();
+        }
+        System.out.println("size in kb: " + size / 1024.);
+    }
+
+
+    public static void maintain() {
+        lock.lock();
+        try {
+            for (KadContent kc : entries.values()) {
+                new KademliaInsertJob(kc).start();
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+
+    static class Job implements Runnable {
+
+        HashMap<Integer, ScheduledFuture> runningJobs;
+        private Integer pointer;
+        private String data = null;
+
+        public Job(HashMap<Integer, ScheduledFuture> runningJobs, Integer pointer) {
+            this.runningJobs = runningJobs;
+            this.pointer = pointer;
+        }
+
+        boolean done = false;
+        int timesRun = 0;
+
+        @Override
+        public void run() {
+
+
+            System.out.println("asdf " + data + " done: " + done);
+
+            if (done) {
+                ScheduledFuture sf = runningJobs.remove(pointer);
+                sf.cancel(false);
+            }
+            timesRun++;
+        }
+
+        public void setData(String str) {
+            data = str;
+            done = true;
+        }
+    }
+
+
+    public static String formatDuration(Duration duration) {
+        long seconds = duration.getSeconds();
+        long absSeconds = Math.abs(seconds);
+        String positive = String.format(
+                "%d:%02d:%02d",
+                absSeconds / 3600,
+                (absSeconds % 3600) / 60,
+                absSeconds % 60);
+        return seconds < 0 ? "-" + positive : positive;
+    }
 }

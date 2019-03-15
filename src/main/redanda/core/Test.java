@@ -1,6 +1,5 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * For license please see LICENSE.TXT
  */
 package main.redanda.core;
 
@@ -40,6 +39,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import io.sentry.Sentry;
 import kademlia.dht.GetParameter;
 import kademlia.dht.JKademliaStorageEntry;
 import kademlia.exceptions.ContentNotFoundException;
@@ -64,19 +64,25 @@ import main.redanda.crypt.Utils;
 import main.redanda.database.DirectMessageStore;
 import main.redanda.database.HsqlConnection;
 import main.redanda.database.MessageStore;
+import main.redanda.jobs.KadRefreshJob;
 import main.redanda.kademlia.KadOld;
 import main.redanda.kademlia.KadContentTest;
 import main.redanda.kademlia.KadContentUpdate;
+import main.redanda.kademlia.KadStoreManager;
 import main.redanda.services.LoadHistory;
 import main.redanda.services.MessageDownloader;
 import main.redanda.services.MessageVerifierHsqlDb;
 import main.redanda.services.SearchLan;
 import main.redanda.services.WatchDog;
-import main.redanda.socketio.HTTPServer;
 import main.redanda.socketio.SocketIO;
-//import org.redPandaLib.upnp.Portforward;
+import main.redanda.websockets.WebSockets;
+
 
 /**
+ * This class provides main functions for redPanda such as peerList and database management.
+ * This class includes: Console Listener, Outbound connection initializer
+ * and other functionality for starting the client.
+ *
  * @author rflohr
  */
 public class Test {
@@ -322,7 +328,7 @@ public class Test {
                             if (p.cnt > Settings.peerListRequestDelay * 1000 / (Settings.pingDelay)) {
                                 //p.connectionThread.writeString(ConnectionThread.GETPEERS);
 
-                                System.out.println("c");
+//                                System.out.println("c");
 
                                 if (p.isFullConnected()) {
 
@@ -581,6 +587,8 @@ public class Test {
 
                     System.out.println("Services last run: ConnectionHandler: " + (System.currentTimeMillis() - ConnectionHandler.lastRun) + " MessageDownloader: " + (System.currentTimeMillis() - MessageDownloader.lastRun) + " MessageVerifierHsqlDb: " + (System.currentTimeMillis() - MessageVerifierHsqlDb.lastRun));
 
+                    System.out.println("Livetime socketio connections: " + Stats.getSocketioConnectionsLiveTime());
+
                     //System.out.println("Processed messages: " + msgs.size());
 //                    int unverifiedMsgs = 0;
 //
@@ -591,28 +599,32 @@ public class Test {
 //                        unverifiedMsgs++;
 //                    }
 //
-                    //System.out.println("Saved Sockets: " + ConnectionHandler.allSockets.size());
-                    new Thread() {
 
-                        @Override
-                        public void run() {
-//                            try {
-//                                Test.messageStore.getConnection().close();
-//                            } catch (SQLException ex) {
-//                                Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
-//                            }
-//                            Main.useHsqlDatabase();
-                            System.out.println("Processed messages: " + MessageHolder.getMessageCount() + " - Queue to verify: " + MessageHolder.getMessageCountToVerify());
-                            System.out.println("LRU Cache size: " + MessageDownloader.channelIdToLatestBlockTime.size());
-                            //MessageVerifierHsqlDb.sem.release();
-                        }
-                    }.start();
+
+
+//                    //System.out.println("Saved Sockets: " + ConnectionHandler.allSockets.size());
+//                    new Thread() {
+//
+//                        @Override
+//                        public void run() {
+////                            try {
+////                                Test.messageStore.getConnection().close();
+////                            } catch (SQLException ex) {
+////                                Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
+////                            }
+////                            Main.useHsqlDatabase();
+//                            System.out.println("Processed messages: " + MessageHolder.getMessageCount() + " - Queue to verify: " + MessageHolder.getMessageCountToVerify());
+//                            System.out.println("LRU Cache size: " + MessageDownloader.channelIdToLatestBlockTime.size());
+//                            //MessageVerifierHsqlDb.sem.release();
+//                        }
+//                    }.start();
 
 //                    System.out.println("reconnect!!");
 //                    hsqlConnection.reconnect();
 
-                    System.out.println("DHT state: ");
-                    System.out.println(KadOld.node);
+                    System.out.println("KadStore entries: ");
+                    KadStoreManager.printStatus();
+//                    System.out.println(KadOld.node);
 //                    Kad.node.refresh();
 
                     continue;
@@ -951,7 +963,23 @@ public class Test {
 
                 if (readLine.equals("f")) {
                     Test.messageStore.cleanupPeerConnectionInformation();
+                    System.out.println("peerlist locked: " + Test.peerListLock.isLocked());
+                    continue;
+                }
+
+                if (readLine.equals("f2")) {
+
+                    System.out.println("peerlist locked: " + Test.peerListLock.isLocked());
                     Test.peerListLock.lock();
+                    for (Peer p : Test.getClonedPeerList()) {
+                        if (p.peerTrustData != null) {
+                            p.peerTrustData.keyToIdHis.clear();
+                            p.peerTrustData.keyToIdMine.clear();
+                        }
+                        p.disconnect("cleaned key lists");
+                    }
+                    Test.peerListLock.unlock();
+
                     continue;
                 }
 
@@ -1194,6 +1222,13 @@ public class Test {
                     //threadPool = Executors.newFixedThreadPool(Settings. * 2 + 5);
                     continue;
                 }
+
+                if (readLine.equals("kad")) {
+                    KadStoreManager.printStatus();
+                    KadStoreManager.maintain();
+                    continue;
+                }
+
 
                 if (readLine.equals("c")) {
                     System.out.println("closing all connections....");
@@ -1487,6 +1522,15 @@ public class Test {
 
                     }
 
+                    continue;
+                }
+
+                if (readLine.equals("bu")) {
+
+                    if (hsqlConnection != null) {
+                        hsqlConnection.createBackup();
+
+                    }
                     continue;
                 }
 
@@ -2181,7 +2225,8 @@ public class Test {
                 if (Settings.connectToNewClientsTill < System.currentTimeMillis()) {
                     try {
                         allowInterrupt = true;
-                        sleep(1000 * 60 * 15);
+//                        sleep(1000 * 60 * 15);
+                        sleep(1000 * 15);
                     } catch (InterruptedException ex) {
                         Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
                     } finally {
@@ -2274,6 +2319,7 @@ public class Test {
                             peerListLock.lock();
                             peerList.add(peer1);
                             peerListLock.unlock();
+                            clonedPeerList.add(peer1);
                         }
 
                         Test.messageStore.deletePeerConnectionInformation(p.ip, p.port);
@@ -2349,6 +2395,12 @@ public class Test {
                         continue;
                     }
 
+
+                    if ((peer.ip + ":" + peer.getPort()).equals("195.201.25.223:59558")) {
+                        System.out.println("asdf");
+                    }
+
+
                     boolean alreadyConnectedToSameTrustedNode = false;
                     String equalIp = null;
                     //already connected to same trusted node?
@@ -2396,13 +2448,23 @@ public class Test {
 
 //                    if (peerList.size() > 20) {
                     //(System.currentTimeMillis() - peer.lastActionOnConnection > 1000 * 60 * 60 * 4)
-                    if ((peer.retries > 10 || (peer.nodeId == null && peer.retries >= 1)) && peer.ping != -1) {
+                    if ((peer.retries > 10 || (peer.nodeId == null && peer.retries >= 5)) && peer.ping != -1) {
                         //peerList.remove(peer);
                         removePeer(peer);
-                        Test.messageStore.insertPeerConnectionInformation(peer.ip, peer.port, 0, 0);
-                        Test.messageStore.setStatusForPeerConnectionInformation(peer.ip, peer.port, peer.retries, System.currentTimeMillis() + 1000L * 60L * peer.retries);
-                        if (DEBUG) {
-                            Log.put("removed peer from peerList, too many retries: " + peer.ip + ":" + peer.port, 20);
+
+                        if (peer.retries < 200) {
+
+                            Test.messageStore.insertPeerConnectionInformation(peer.ip, peer.port, 0, 0);
+//                        Test.messageStore.setStatusForPeerConnectionInformation(peer.ip, peer.port, peer.retries, System.currentTimeMillis() + 1000L * 60L * peer.retries);
+                            Test.messageStore.setStatusForPeerConnectionInformation(peer.ip, peer.port, peer.retries, System.currentTimeMillis() + 1000L * 60L * 5L);
+                            if (DEBUG) {
+                                Log.put("removed peer from peerList, too many retries: " + peer.ip + ":" + peer.port, 20);
+                            }
+                        } else {
+                            //we do not have to remove peers here because every peer in peerlist should not be in the db!
+                            if (DEBUG) {
+                                Log.put("removed peer permanently, too many retries: " + peer.ip + ":" + peer.port, 20);
+                            }
                         }
 
                         continue;
@@ -2810,11 +2872,12 @@ public class Test {
         WatchDog.start();
 
 
-
-        SocketIO.startServer(MY_PORT);
+//        SocketIO.startServer(MY_PORT);
+        WebSockets.startServer(MY_PORT);
         //currently not needed
 //        new HTTPServer(MY_PORT + 200).start();
 
+        new KadRefreshJob().start();
 
     }
 
@@ -2867,33 +2930,34 @@ public class Test {
 
     public static void sendStacktrace(Throwable thrwbl) {
 
-//        if (System.currentTimeMillis() - lastSentStackTrace < 1000*60*10) {
-//            
+////        if (System.currentTimeMillis() - lastSentStackTrace < 1000*60*10) {
+////
+////        }
+//        String out = "Stacktrace: \n";
+//        out += stacktrace2String(thrwbl);
+//
+//        System.out.println("StackTrace: " + out);
+//
+////        stackTraceString += out + "\n#######################\n\n\n";
+//        try {
+//            PrintWriter outputWriter = new PrintWriter(new FileOutputStream("error.log", true));
+//            //PrintWriter outputWriter = new PrintWriter(new BufferedWriter(new FileWriter("error.log", true)));
+//            outputWriter.println("\n\n\n############## " + new Date() + " ###############\n\n\n" + out);
+//            outputWriter.close();
+//        } catch (IOException e) {
+//            //exception handling left as an exercise for the reader
 //        }
-        String out = "Stacktrace: \n";
-        out += stacktrace2String(thrwbl);
-
-        System.out.println("StackTrace: " + out);
-
-//        stackTraceString += out + "\n#######################\n\n\n";
-        try {
-            PrintWriter outputWriter = new PrintWriter(new FileOutputStream("error.log", true));
-            //PrintWriter outputWriter = new PrintWriter(new BufferedWriter(new FileWriter("error.log", true)));
-            outputWriter.println("\n\n\n############## " + new Date() + " ###############\n\n\n" + out);
-            outputWriter.close();
-        } catch (IOException e) {
-            //exception handling left as an exercise for the reader
-        }
-
-        Main.sendBroadCastMsg(out);
+//
+//        Main.sendBroadCastMsg(out);
+        Sentry.capture(thrwbl);
     }
 
-    public static void sendStacktrace(String msg, Throwable thrwbl) {
-        thrwbl.printStackTrace();
-        String out = msg;
-        out += stacktrace2String(thrwbl);
-        Main.sendBroadCastMsg(out);
-    }
+//    public static void sendStacktrace(String msg, Throwable thrwbl) {
+//        thrwbl.printStackTrace();
+//        String out = msg;
+//        out += stacktrace2String(thrwbl);
+//        Main.sendBroadCastMsg(out);
+//    }
 
     private static String formatInterval(final long l) {
         final long hr = TimeUnit.MILLISECONDS.toHours(l);

@@ -77,6 +77,8 @@ public class Peer implements Comparable<Peer> {
 
     public boolean isConnectionInitializedByMe = false;
 
+    private boolean isIntegrated = false;
+
     public Peer(String ip, int port) {
         this.ip = ip;
         this.port = port;
@@ -118,6 +120,17 @@ public class Peer implements Comparable<Peer> {
         }
 
     }
+
+
+    public boolean equalsInstance(Object obj) {
+        return super.equals(obj);
+    }
+
+//    @Override
+//    public boolean equals(Object obj) {
+//        throw new RuntimeException("hjgadzagdzwad");
+////        return equalsNonce(obj);
+//    }
 
     public long getLastAnswered() {
         return System.currentTimeMillis() - lastActionOnConnection;
@@ -758,5 +771,24 @@ public class Peer implements Comparable<Peer> {
         }
     }
 
+    public ReentrantLock getWriteBufferLock() {
+        return writeBufferLock;
+    }
 
+    public ByteBuffer getWriteBuffer() {
+        return writeBuffer;
+    }
+
+    public boolean isIntegrated() {
+
+        if (isIntegrated) {
+            return true;
+        }
+
+        if (connectedSince != 0 && System.currentTimeMillis() - connectedSince > 1000L * 10L) {
+            isIntegrated = true;
+        }
+
+        return false;
+    }
 }

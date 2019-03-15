@@ -14,6 +14,7 @@ import com.corundumstudio.socketio.SocketIOServer;
 import com.corundumstudio.socketio.listener.ConnectListener;
 import com.corundumstudio.socketio.listener.DataListener;
 import com.corundumstudio.socketio.listener.DisconnectListener;
+import main.redanda.core.Stats;
 
 public class SocketIO {
 
@@ -152,6 +153,8 @@ public class SocketIO {
             @Override
             public void onConnect(SocketIOClient client) {
                 System.out.println("New socketio connection: " + client.getTransport());
+
+                Stats.incSocketioConnectionsLiveTime();
 
 //                new Thread() {
 //                    @Override

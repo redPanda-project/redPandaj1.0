@@ -10,16 +10,22 @@ public class FPKey {
 
     KademliaId id;
     long timestamp;
-    int contentHash;
+//    int contentHash;
 
-    public FPKey(KademliaId id, long timestamp, int contentHash) {
+//    public FPKey(KademliaId id, long timestamp, int contentHash) {
+//        this.id = id;
+//        this.timestamp = timestamp;
+//        this.contentHash = contentHash;
+//    }
+
+//    public FPKey(KademliaId id, long timestamp, byte[] content) {
+//        this(id, timestamp, Sha256Hash.create(content).hashCode());
+//    }
+
+
+    public FPKey(KademliaId id, long timestamp) {
         this.id = id;
         this.timestamp = timestamp;
-        this.contentHash = contentHash;
-    }
-
-    public FPKey(KademliaId id, long timestamp, byte[] content) {
-        this(id, timestamp, Sha256Hash.create(content).hashCode());
     }
 
     public KademliaId getId() {
@@ -48,12 +54,17 @@ public class FPKey {
         }
         FPKey fpKey = (FPKey) o;
         return timestamp == fpKey.timestamp &&
-                contentHash == fpKey.contentHash &&
+//                contentHash == fpKey.contentHash &&
                 Objects.equals(id, fpKey.id);
     }
 
+//    @Override
+//    public int hashCode() {
+//        return Objects.hash(id, timestamp, contentHash);
+//    }
+
     @Override
     public int hashCode() {
-        return Objects.hash(id, timestamp, contentHash);
+        return Objects.hash(id, timestamp);
     }
 }

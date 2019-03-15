@@ -5,6 +5,7 @@
 package main.redanda.database;
 
 import crypt.Utils;
+
 import java.io.UnsupportedEncodingException;
 import java.sql.*;
 import java.util.ArrayList;
@@ -13,6 +14,8 @@ import java.util.HashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import io.sentry.Sentry;
 import main.redanda.Main;
 import main.redanda.core.Channel;
 import main.redanda.core.Log;
@@ -24,7 +27,6 @@ import main.redanda.core.messages.TextMessageContent;
 import main.redanda.crypt.ECKey;
 
 /**
- *
  * @author rflohr
  */
 public class DirectMessageStore implements MessageStore {
@@ -328,7 +330,8 @@ public class DirectMessageStore implements MessageStore {
                 } catch (SQLTransactionRollbackException e) {
                     throw (SQLTransactionRollbackException) e;
                 } catch (Throwable e) {
-                    Test.sendStacktrace("message could not be added to db!\n", e);
+//                    Test.sendStacktrace("message could not be added to db!\n", e);
+                    Sentry.capture("message could not be added to db!");
                 } finally {
                     try {
                         pstmt.close();
