@@ -88,41 +88,23 @@ public class WSParser {
 
 
             case Command.dhtStore:
-                System.out.println("got dht store command:");
+                parseDhtStoreCommand(message);
+
+
+                break;
+
+            case Command.dhtSearch:
+                System.out.println("got dht search command:");
 
                 int commandId = message.getInt();
 
                 byte[] kadIdBytes = new byte[KademliaId.ID_LENGTH / 8];
                 message.get(kadIdBytes);
                 KademliaId kademliaId = new KademliaId(kadIdBytes);
-                long timestamp = message.getLong();
 
-                System.out.println("long: " + timestamp);
-
-                byte[] pubkey = new byte[KadContent.PUBKEY_LEN];
-                message.get(pubkey);
-
-                int contentLen = message.getInt();
-                byte[] content = new byte[contentLen];
-                message.get(content);
-
-                System.out.println("len: " + contentLen);
-
-                byte[] signature = new byte[KadContent.SIGNATURE_LEN];
-                message.get(signature);
+                System.out.println("id search: " + kademliaId.toString());
 
 
-                KadContent kadContent = new KadContent(kademliaId, timestamp, pubkey, content, signature);
-
-
-                System.out.println("remaining: " + message.remaining() + " " + kadContent.verify());
-
-
-                if (kadContent.verify()) {
-                    new KademliaInsertJob(kadContent).start();
-//                    KadStoreManager.put(kadContent);
-//                    System.out.println("stored!");
-                }
 
 
                 break;
@@ -139,6 +121,44 @@ public class WSParser {
 //        }
 //        System.out.println("threadPool: " + threadPool.getPoolSize());
 
+    }
+
+    private static void parseDhtStoreCommand(ByteBuffer message) {
+        System.out.println("got dht store command:");
+
+        int commandId = message.getInt();
+
+        byte[] kadIdBytes = new byte[KademliaId.ID_LENGTH / 8];
+        message.get(kadIdBytes);
+        KademliaId kademliaId = new KademliaId(kadIdBytes);
+        long timestamp = message.getLong();
+
+        System.out.println("long: " + timestamp);
+
+        byte[] pubkey = new byte[KadContent.PUBKEY_LEN];
+        message.get(pubkey);
+
+        int contentLen = message.getInt();
+        byte[] content = new byte[contentLen];
+        message.get(content);
+
+        System.out.println("len: " + contentLen);
+
+        byte[] signature = new byte[KadContent.SIGNATURE_LEN];
+        message.get(signature);
+
+
+        KadContent kadContent = new KadContent(kademliaId, timestamp, pubkey, content, signature);
+
+
+        System.out.println("remaining: " + message.remaining() + " " + kadContent.verify());
+
+
+        if (kadContent.verify()) {
+            new KademliaInsertJob(kadContent).start();
+//                    KadStoreManager.put(kadContent);
+//                    System.out.println("stored!");
+        }
     }
 
     private static void parsePeerlist(WebSocket conn, ByteBuffer message) {

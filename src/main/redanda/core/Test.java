@@ -5,10 +5,8 @@ package main.redanda.core;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
@@ -30,7 +28,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.ConcurrentModificationException;
-import java.util.Date;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
@@ -57,14 +54,12 @@ import main.redanda.core.messages.InfoMsg;
 import main.redanda.core.messages.RawMsg;
 import main.redanda.core.messages.TextMessageContent;
 import main.redanda.core.messages.TextMsg;
-import main.redanda.crypt.AddressFormatException;
-import main.redanda.crypt.ECKey;
-import main.redanda.crypt.Sha256Hash;
-import main.redanda.crypt.Utils;
+import main.redanda.crypt.*;
 import main.redanda.database.DirectMessageStore;
 import main.redanda.database.HsqlConnection;
 import main.redanda.database.MessageStore;
 import main.redanda.jobs.KadRefreshJob;
+import main.redanda.jobs.KademliaSearchJob;
 import main.redanda.kademlia.KadOld;
 import main.redanda.kademlia.KadContentTest;
 import main.redanda.kademlia.KadContentUpdate;
@@ -74,7 +69,6 @@ import main.redanda.services.MessageDownloader;
 import main.redanda.services.MessageVerifierHsqlDb;
 import main.redanda.services.SearchLan;
 import main.redanda.services.WatchDog;
-import main.redanda.socketio.SocketIO;
 import main.redanda.websockets.WebSockets;
 
 
@@ -365,7 +359,7 @@ public class Test {
                                     } else {
                                         p.trustRetries = 0;
                                         System.out.println("Found a bad guy... requesting new key: " + p.nodeId);
-                                        //ConnectionHandler.sendNewAuthKey(p);
+                                        ConnectionHandler.sendNewAuthKey(p);
                                         p.disconnect("not authed...");
                                     }
 
@@ -867,6 +861,26 @@ public class Test {
 //                        Logger.getLogger(Test.class.getName()).log(Level.SEVERE, null, ex);
 //                        System.out.println("Channel not parseable...");
 //                    }
+                    continue;
+                }
+
+                if (readLine.equals("s1")) {
+
+                    try {
+                        byte[] target = Base58.decode("iJ3BiEXBmEnHWhYtYN5fGVKHZyG");
+
+                        KademliaId id = new KademliaId(target);
+
+                        KademliaSearchJob kademliaSearchJob = new KademliaSearchJob(id);
+
+                        kademliaSearchJob.start();
+
+
+                    } catch (AddressFormatException e) {
+                        e.printStackTrace();
+                    }
+
+
                     continue;
                 }
 

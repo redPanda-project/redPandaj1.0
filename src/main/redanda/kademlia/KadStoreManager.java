@@ -82,8 +82,11 @@ public class KadStoreManager {
                     int distance = Test.NONCE.getDistance(c.getId());
 
 
-                    long keepTime = (long) Math.ceil(MAX_KEEP_TIME * (160 - distance) / 160);
-                    keepTime = Math.max(keepTime,1000L*60L*61L); //at least 61 mins such that the maintenance ruitine can spread the entry
+//                    long keepTime = (long) Math.ceil(MAX_KEEP_TIME * (160 - distance) / 160);
+                    long keepTime = (long) Math.ceil(1000L * 60L * 60L * 24L * (long) (160 - distance));
+
+                    keepTime = Math.max(keepTime, 1000L * 60L * 61L); //at least 61 mins such that the maintenance ruitine can spread the entry
+                    keepTime = Math.min(keepTime, MAX_KEEP_TIME); // max time
 
                     System.out.println("keep time: " + formatDuration(Duration.ofMillis(keepTime)) + " distance: " + distance);
                     System.out.println("id: " + Test.NONCE);
@@ -121,7 +124,6 @@ public class KadStoreManager {
             lock.unlock();
         }
     }
-
 
     public static void main(String[] args) {
 

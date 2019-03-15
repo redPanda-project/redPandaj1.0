@@ -16,9 +16,8 @@ import kademlia.exceptions.ContentNotFoundException;
 import kademlia.node.KademliaId;
 import main.redanda.SpecialChannels;
 import main.redanda.crypt.*;
-import main.redanda.flaschenpost.Flaschenpost;
 import main.redanda.jobs.Job;
-import main.redanda.jobs.KademliaGetJob;
+import main.redanda.jobs.KademliaSearchJob;
 import main.redanda.jobs.KademliaInsertJob;
 import main.redanda.kademlia.KadContent;
 import main.redanda.kademlia.KadStoreManager;
@@ -37,7 +36,6 @@ import java.nio.channels.spi.AbstractSelectableChannel;
 import java.security.SecureRandom;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -2822,7 +2820,7 @@ public class ConnectionHandler extends Thread {
 
                 System.out.println("got KadContent successfully from search!");
 
-                KademliaGetJob runningJob = (KademliaGetJob) Job.getRunningJob(ackId);
+                KademliaSearchJob runningJob = (KademliaSearchJob) Job.getRunningJob(ackId);
                 runningJob.ack(kadContent, peer);
 
                 //ack to JOB!
@@ -2879,7 +2877,7 @@ public class ConnectionHandler extends Thread {
             if (kadContent.verify()) {
                 boolean saved = KadStoreManager.put(kadContent);
 
-                if (saved) {
+//                if (saved) {
                     peer.getWriteBufferLock().lock();
                     try {
                         writeBuffer.put(Command.JOB_ACK);
@@ -2888,7 +2886,7 @@ public class ConnectionHandler extends Thread {
                         peer.getWriteBufferLock().unlock();
                     }
 
-                }
+//                }
 
             } else {
                 //todo

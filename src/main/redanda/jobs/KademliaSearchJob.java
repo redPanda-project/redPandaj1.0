@@ -14,7 +14,7 @@ import java.util.Comparator;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
-public class KademliaGetJob extends Job {
+public class KademliaSearchJob extends Job {
 
     public static final int SEND_TO_NODES = 2;
     private static final int NONE = 0;
@@ -25,7 +25,7 @@ public class KademliaGetJob extends Job {
     private TreeMap<Peer, Integer> peers = null;
     private ArrayList<KadContent> contents = new ArrayList<>();
 
-    public KademliaGetJob(KademliaId id) {
+    public KademliaSearchJob(KademliaId id) {
         this.id = id;
     }
 

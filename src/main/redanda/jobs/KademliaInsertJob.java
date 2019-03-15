@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 
 public class KademliaInsertJob extends Job {
 
-    public static final int SEND_TO_NODES = 1;
+    public static final int SEND_TO_NODES = 2;
     private static final int NONE = 0;
     private static final int ASKED = 2;
     private static final int SUCCESS = 1;
