@@ -6,6 +6,8 @@ import main.redanda.core.Log;
 import main.redanda.core.Peer;
 import main.redanda.core.Test;
 import main.redanda.jobs.KademliaInsertJob;
+import main.redanda.jobs.KademliaSearchJob;
+import main.redanda.jobs.KademliaSearchJobAnswerWS;
 import main.redanda.kademlia.KadContent;
 import main.redanda.kademlia.KadStoreManager;
 import main.redanda.socketio.DPeer;
@@ -105,6 +107,7 @@ public class WSParser {
                 System.out.println("id search: " + kademliaId.toString());
 
 
+                new KademliaSearchJobAnswerWS(kademliaId, conn, commandId).start();
 
 
                 break;

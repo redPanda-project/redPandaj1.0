@@ -215,7 +215,7 @@ public class ConnectionHandler extends Thread {
 
 //            if (readyChannels == 0 && selectedKeys.isEmpty()) {
             if (readyChannels == 0) {
-                System.out.print(".");
+//                System.out.print(".");
 
 //                    for (SelectionKey k : selector.keys()) {
 //

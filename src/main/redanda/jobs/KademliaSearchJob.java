@@ -33,7 +33,6 @@ public class KademliaSearchJob extends Job {
     public void init() {
 
 
-
         //lets sort the peers by the destination key
         peers = new TreeMap<>(new PeerComparator(id));
 
@@ -114,8 +113,6 @@ public class KademliaSearchJob extends Job {
                             System.out.println("seach KadId from peer: " + p.getNodeId().toString() + " size: " + peers.size() + " distance: " + id.getDistance(p.getNodeId()) + " target: " + id);
 
 
-
-
                             writeBuffer.put(Command.KADEMLIA_GET);
                             writeBuffer.putInt(getJobId());
                             writeBuffer.put(id.getBytes());
@@ -146,7 +143,7 @@ public class KademliaSearchJob extends Job {
 
     }
 
-    private void success() {
+    protected KadContent success() {
 
         System.out.println("sucess!!!222");
 
@@ -154,14 +151,14 @@ public class KademliaSearchJob extends Job {
         contents.sort(new Comparator<KadContent>() {
             @Override
             public int compare(KadContent o1, KadContent o2) {
-                return o1.getTimestamp()<o1.getTimestamp()?-1:
-                        o1.getTimestamp()>o1.getTimestamp()?1:0;
+                return o1.getTimestamp() < o1.getTimestamp() ? -1 :
+                        o1.getTimestamp() > o1.getTimestamp() ? 1 : 0;
             }
         });
 
         System.out.println("newst content found: " + contents.get(0).getTimestamp());
 
-
+        return contents.get(0);
     }
 
 
