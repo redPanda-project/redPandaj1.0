@@ -44,7 +44,7 @@ public class PeerSaveable implements Serializable {
 
         Peer out = new Peer(ip, port);
         out.lastAllMsgsQuerried = lastAllMsgsQuerried;
-        out.nodeId = nonce;
+        out.setNodeId(nonce);
         out.retries = retries;
 //        out.sendMessages = sendMessages;
 //        out.pendingMessages = pendingMessages;

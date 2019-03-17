@@ -102,7 +102,7 @@ public class LoadHistory {
 
                                 lastRequesteFrom.put(p, backSyncedTill);
 
-                                Log.put("requested new sync back: " + p.nodeId + " time: " + backSyncedTill, 0);
+                                Log.put("requested new sync back: " + p.getNodeId() + " time: " + backSyncedTill, 0);
 
                             } else {
                                 lastRequesteFrom.remove(p);

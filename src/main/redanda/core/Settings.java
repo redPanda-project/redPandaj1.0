@@ -18,7 +18,7 @@ public class Settings {
     public static int STD_PORT = 59558;
     public static int MIN_CONNECTIONS = 20;
     public static int MAX_CONNECTIONS = 50;
-    public static int pingTimeout = 60 * 5; //time in sec
+    public static int pingTimeout = 65; //time in sec
     public static int pingDelay = 30000; //time in msec
     public static int peerListRequestDelay = 60 * 60;//time in sec
     public static long till = 0;//1397836192756L;
@@ -42,9 +42,18 @@ public class Settings {
     private static long myCurrentVersionTimestamp = 0; // -1 == disable autoupdate, 0 == unknown
     private static long myCurrentAndroidVersionTimestamp = 0; // -1 == disable autoupdate, 0 == unknown
     public static boolean seedNode = false;
+    public static final int k = 20; //k value from kademlia (nodes in one bucket)
 
+    public static int signatureIncludesUpdate = -1;
 
     public static long getMyCurrentVersionTimestamp() {
+
+
+        //our update is not signed/signature failed, lets download a signed update!
+        //this is often due to time change of the jar file
+        if (Settings.signatureIncludesUpdate == 0) {
+            return 0;
+        }
 
 
         if (myCurrentVersionTimestamp == 0)

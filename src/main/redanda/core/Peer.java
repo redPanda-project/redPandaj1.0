@@ -39,7 +39,7 @@ public class Peer implements Comparable<Peer> {
     int cnt = 0;
     public long connectedSince = 0;
     long lastAllMsgsQuerried = Settings.till;
-    public KademliaId nodeId;
+    private KademliaId nodeId;
     private ArrayList<String> filterAdresses;
     private SocketChannel socketChannel;
     //    public ArrayList<ByteBuffer> readBuffers = new ArrayList<ByteBuffer>();
@@ -82,6 +82,58 @@ public class Peer implements Comparable<Peer> {
     public Peer(String ip, int port) {
         this.ip = ip;
         this.port = port;
+    }
+
+    public void setNodeId(KademliaId nodeId) {
+
+        if (nodeId == null) {
+            return;
+        }
+
+        Test.peerListLock.lock();
+        try {
+            System.out.println("############################################ new node id: " + nodeId + " old: " + this.nodeId);
+
+            if (this.nodeId == null) {
+                //only add
+                //we have to set the new nodeId in advance!
+                this.nodeId = nodeId;
+                Test.addPeerToBucket(this);
+                return;
+            }
+
+            if (this.nodeId.equals(nodeId)) {
+                //maybe a new instance!
+                this.nodeId = nodeId;
+                return;
+            }
+
+            //if we are here the old id is not null and we have a new id/id changed
+            //first remove the old id from bucket
+            Test.removePeerFromBucket(this);
+            System.out.println("removed peer from buckets: new node id: " + nodeId + " old: " + this.nodeId);
+
+
+            //we have to set the new nodeId in advance!
+            this.nodeId = nodeId;
+            Test.addPeerToBucket(this);
+        } finally {
+            Test.peerListLock.unlock();
+        }
+    }
+
+    public void removeNodeId() {
+
+        if (this.nodeId == null) {
+            return;
+        }
+
+        Test.peerListLock.lock();
+        try {
+            Test.removePeerFromBucket(this);
+        } finally {
+            Test.peerListLock.unlock();
+        }
     }
 
     public KademliaId getNodeId() {

@@ -16,6 +16,7 @@ import java.util.Arrays;
 import java.util.BitSet;
 
 import kademlia.message.Streamable;
+import main.redanda.core.Test;
 import main.redanda.crypt.AddressFormatException;
 import main.redanda.crypt.Base58;
 import main.redanda.crypt.Utils;
@@ -24,6 +25,7 @@ public class KademliaId implements Streamable, Serializable {
 
     public final transient static int ID_LENGTH = 160;
     private byte[] keyBytes;
+    private int nodeDistance = -1;
 //    private BigInteger bigInt;
 
     /**
@@ -104,6 +106,12 @@ public class KademliaId implements Streamable, Serializable {
      */
     @Override
     public boolean equals(Object o) {
+
+        //check if same instance!
+        if (o == this) {
+            return true;
+        }
+
         if (o instanceof KademliaId) {
             KademliaId nid = (KademliaId) o;
             return this.hashCode() == nid.hashCode();
@@ -250,5 +258,19 @@ public class KademliaId implements Streamable, Serializable {
 
     public static KademliaId fromBase58(String base58String) throws AddressFormatException {
         return new KademliaId(Base58.decode(base58String));
+    }
+
+    /**
+     * get the distance to Test.NONCE with caching
+     *
+     * @return distance to Test.NONCE
+     */
+    public int getDistanceToUs() {
+        if (nodeDistance != -1) {
+            return nodeDistance;
+        }
+
+        nodeDistance = getDistance(Test.NONCE);
+        return nodeDistance;
     }
 }

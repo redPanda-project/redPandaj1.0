@@ -156,7 +156,7 @@ public class ConnectionHandler extends Thread {
             key.attach(peer);
             peer.setSelectionKey(key);
             selector.wakeup();
-            //System.out.println("added con");
+            System.out.println("added con");
         } catch (IOException ex) {
             peer.disconnect("could not init connection....");
             return;
@@ -179,7 +179,7 @@ public class ConnectionHandler extends Thread {
             Log.put("NEW KEY RUN - before select", 2000);
             int readyChannels = 0;
             try {
-                readyChannels = selector.select();
+                readyChannels = selector.select(1000L * 30L);
             } catch (Exception e) {
                 e.printStackTrace();
                 //Main.sendBroadCastMsg("key was canceled...");
@@ -213,7 +213,8 @@ public class ConnectionHandler extends Thread {
             //System.out.println("" + selector.isOpen() + " " + selector.keys().size());
             Set<SelectionKey> selectedKeys = selector.selectedKeys();
 
-            if (readyChannels == 0 && selectedKeys.isEmpty()) {
+//            if (readyChannels == 0 && selectedKeys.isEmpty()) {
+            if (readyChannels == 0) {
                 System.out.print(".");
 
 //                    for (SelectionKey k : selector.keys()) {
@@ -227,7 +228,7 @@ public class ConnectionHandler extends Thread {
 //
 //                    }
                 try {
-                    sleep(100);
+                    sleep(5);
                 } catch (InterruptedException ex) {
                     Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -487,13 +488,13 @@ public class ConnectionHandler extends Thread {
 //                                    peer.readBuffer.get(nonce);
                                     int port = readUnsignedShort(peer.readBuffer);
 
-                                    Log.put("Verbindungsaufbau (" + peer.ip + "): " + magic + " " + version + " " + nonce + " " + port, 10);
+                                    Log.put("Verbindungsaufbau (" + peer.ip + "): " + magic + " " + version + " " + nonce + " " + port + " initByMe: " + peer.isConnectionInitializedByMe, 10);
 
                                     if (magic != null && magic.equals(Test.MAGIC) && version == Test.VERSION) {
                                         //System.out.println("ready! " + magic);
 
                                         peer.port = port;
-                                        peer.nodeId = nonce;
+                                        peer.setNodeId(nonce);
 
                                         if (nonce.equals(Test.NONCE)) {
                                             Log.put("found myself!" + peer.ip + ":" + peer.port, 200);
@@ -517,14 +518,23 @@ public class ConnectionHandler extends Thread {
 
                                             for (Peer pfromList : clonedPeerList) {
 
-                                                if (pfromList.equalsInstance(peer)) {
+                                                if (pfromList == peer) {
                                                     continue;
                                                 }
 
 
-                                                if (peer.equalsNonce(pfromList)) {
+                                                if (peer.equalsNonce(pfromList) && peer.getIp().equals(pfromList.getIp())) { // same nonce and same IP!
                                                     found = true;
-//                                                        System.out.println("nonce1: " + peer.nonce + " nonce2: " + pfromList.nonce);
+//
+
+                                                    System.out.println("we migrate the peer: " + "nonce1: " + peer.getNodeId().toString() + " nonce2: " + pfromList.getNodeId().toString());
+
+                                                    System.out.println(peer);
+
+                                                    for (Peer ppp : Test.getClonedPeerList()) {
+                                                        System.out.println("PEER: " + ppp.getNodeId() + " " + ppp.getIp() + " " + ppp.getPort() + " " + ppp);
+                                                    }
+
 
 //                                                    boolean contains = false;
 //                                                    for (Peer p2 : clonedPeerList) {
@@ -574,10 +584,11 @@ public class ConnectionHandler extends Thread {
 
                                             }
 
-                                            if (!found) {
-//                                                    System.out.println("Peer not found in list, adding new peer...");
-                                                //Test.peerList.add(peer);
-                                                Test.findPeerNonce(peer);
+
+                                            if (!peer.isConnectionInitializedByMe) {
+                                                System.out.println("adding incoming connection to list!");
+                                                Test.peerList.add(peer);
+//                                                Test.findPeerNonce(peer);
 //                                                    System.out.println("IP: " + peer.ip + " nonce: " + peer.nonce);
                                             }
 
@@ -618,7 +629,7 @@ public class ConnectionHandler extends Thread {
                                         //init auth
                                         boolean foundAuthKey = false;
                                         for (PeerTrustData pt : Test.peerTrusts) {
-                                            if (pt.nodeId.equals(peer.nodeId)) {
+                                            if (pt.nodeId.equals(peer.getNodeId())) {
                                                 foundAuthKey = true;
 
 //                                                        System.out.println("authkey found for nonce: " + peer.nonce);
@@ -838,7 +849,7 @@ public class ConnectionHandler extends Thread {
         peer.writeBufferLock.unlock();
 
         //peer.authed = true;
-        Log.put("requested new authkey... " + peer.nodeId, 150);
+        Log.put("requested new authkey... " + peer.getNodeId(), 150);
 
     }
 
@@ -969,7 +980,10 @@ public class ConnectionHandler extends Thread {
 
 //                System.out.println("asdasdasd " + alreadyInList + " " + ip + " " +port);
                 if (!alreadyInList) {
-                    Test.messageStore.insertPeerConnectionInformation(ip, port, 0, System.currentTimeMillis());
+//                    Test.messageStore.insertPeerConnectionInformation(ip, port, 0, System.currentTimeMillis());
+
+                    addNewPeer(ip, port);
+
                 }
 
             }
@@ -1093,7 +1107,7 @@ public class ConnectionHandler extends Thread {
                     //int my_pubkeyId = Test.messageStore.getPubkeyId(id2KeyHis);
                     if (Test.channels.contains(new Channel(id2KeyHis, null))) {
                         peer.myInterestedChannelsCodedInHisIDs.add(pubkey_id_local);
-                        Log.put("added !! " + pubkey_id_local + " node: " + peer.nodeId, 100);
+                        Log.put("added !! " + pubkey_id_local + " node: " + peer.getNodeId(), 100);
                     } else {
 
                         int pubkeyId = Test.messageStore.getPubkeyId(id2KeyHis);
@@ -1116,7 +1130,7 @@ public class ConnectionHandler extends Thread {
 
                         dontAddMessage = true;
 
-                        Log.put("channel was removed, sending to node.... " + pubkeyId + " node: " + peer.nodeId, 0);
+                        Log.put("channel was removed, sending to node.... " + pubkeyId + " node: " + peer.getNodeId(), 0);
 
                         //There may be still messages to sync to other nodes, we have to remove them!!
                         //ToDo: replace this hack!
@@ -1126,7 +1140,7 @@ public class ConnectionHandler extends Thread {
 
                 }
 
-                Log.put("contains!!! " + pubkey_id_local + " node: " + peer.nodeId, 100);
+                Log.put("contains!!! " + pubkey_id_local + " node: " + peer.getNodeId(), 100);
             }
 
             if (!dontAddMessage) {
@@ -1659,7 +1673,7 @@ public class ConnectionHandler extends Thread {
 
             if (!peer.requestedNewAuth) {
                 //dafuq, thought I had an authkey for node. Generating new AuthKey
-                System.out.println("dafuq, thought I had an authkey for node. Generating new AuthKey: " + peer.nodeId);
+                System.out.println("dafuq, thought I had an authkey for node. Generating new AuthKey: " + peer.getNodeId());
                 //peer.peerTrustData = new PeerTrustData();
 
                 sendNewAuthKey(peer);
@@ -1671,15 +1685,15 @@ public class ConnectionHandler extends Thread {
                 System.arraycopy(otherAuthKeyBytes, 0, peer.peerTrustData.authKey, 0, 16);
             }
 
-            peer.peerTrustData.nodeId = peer.nodeId;
+            peer.peerTrustData.nodeId = peer.getNodeId();
             Test.peerTrusts.add(peer.peerTrustData);
             peer.peerTrustData.initInternalId();
 
             saveTrustData();
 
-            Log.put("added key from other side... " + peer.nodeId, 100);
+            Log.put("added key from other side... " + peer.getNodeId(), 100);
 
-            Log.put("requesting auth ...: " + peer.nodeId, 100);
+            Log.put("requesting auth ...: " + peer.getNodeId(), 100);
 
             Random r = new SecureRandom();
 
@@ -1707,7 +1721,7 @@ public class ConnectionHandler extends Thread {
             boolean send = false;
             for (PeerTrustData pt : Test.peerTrusts) {
 
-                if (!pt.nodeId.equals(peer.nodeId)) {
+                if (!pt.nodeId.equals(peer.getNodeId())) {
                     continue;
                 }
 
@@ -1750,7 +1764,7 @@ public class ConnectionHandler extends Thread {
             boolean found = false;
             for (PeerTrustData pt : Test.peerTrusts) {
 
-                if (!pt.nodeId.equals(peer.nodeId)) {
+                if (!pt.nodeId.equals(peer.getNodeId())) {
                     continue;
                 }
 
@@ -1821,7 +1835,7 @@ public class ConnectionHandler extends Thread {
                     Log.put("PEER is now trusted...", 300);
 
                     if (peer.peerTrustData.ips.contains(peer.ip)) {
-                        Log.put("IP schon in den trusted Data...", 200);
+                        Log.put("IP already in trusted Data...", 200);
                     } else {
 
                         if (peer.peerTrustData.ips.size() > 10) {
@@ -2079,11 +2093,58 @@ public class ConnectionHandler extends Thread {
             return 1;
 
         } else if (command == Command.UPDATE_REQUEST_TIMESTAMP) {
-            peer.writeBufferLock.lock();
-            writeBuffer.put(Command.UPDATE_ANSWER_TIMESTAMP);
-            writeBuffer.putLong(Settings.getMyCurrentVersionTimestamp());
-            peer.writeBufferLock.unlock();
-            peer.setWriteBufferFilled();
+
+            if (Settings.signatureIncludesUpdate == -1) {
+
+                Settings.getMyCurrentVersionTimestamp();
+
+                byte[] signature = localSettings.getUpdateSignature();
+                System.out.println("signature: " + Utils.bytesToHexString(signature));
+
+                //lets check the signature chunk:
+                Channel updateChannel = SpecialChannels.getUpdateChannel();
+
+                Path path;
+                if (Settings.seedNode) {
+                    path = Paths.get("out/artifacts/redPandaj_jar/redPandaj.jar");
+                } else {
+                    path = Paths.get("redPandaj.jar");
+                }
+
+                try {
+                    System.out.println("we send the update to a peer!");
+                    byte[] data = Files.readAllBytes(path);
+
+                    ByteBuffer bytesToHash = ByteBuffer.allocate(8 + data.length);
+
+                    bytesToHash.putLong(Settings.getMyCurrentVersionTimestamp());
+                    bytesToHash.put(data);
+
+
+                    Sha256Hash hash = Sha256Hash.create(bytesToHash.array());
+                    System.out.println("hash: " + Utils.bytesToHexString(hash.getBytes()));
+
+                    boolean verify = updateChannel.getKey().verify(hash.getBytes(), signature);
+
+                    System.out.println("update to send to other node verified?: " + verify + " ");
+                    Settings.signatureIncludesUpdate = (verify ? 1 : 0);
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+
+
+            }
+
+            if (Settings.signatureIncludesUpdate == 1) {
+                peer.writeBufferLock.lock();
+                writeBuffer.put(Command.UPDATE_ANSWER_TIMESTAMP);
+                writeBuffer.putLong(Settings.getMyCurrentVersionTimestamp());
+                peer.writeBufferLock.unlock();
+                peer.setWriteBufferFilled();
+            }
+
             return 1;
         } else if (command == Command.UPDATE_ANSWER_TIMESTAMP) {
 
@@ -2107,7 +2168,7 @@ public class ConnectionHandler extends Thread {
                 Runnable runnable = new Runnable() {
                     @Override
                     public void run() {
-                        updateUploadLock.acquireUninterruptibly();
+                        updateUploadLock.acquireUninterruptibly(2);
                         try {
                             System.out.println("our version is outdated, we try to download it from this peer!");
                             peer.writeBufferLock.lock();
@@ -2124,7 +2185,7 @@ public class ConnectionHandler extends Thread {
                             }
                         } finally {
                             System.out.println("we can now download it from another peer...");
-                            updateUploadLock.release();
+                            updateUploadLock.release(2);
                         }
 
                     }
@@ -2330,7 +2391,7 @@ public class ConnectionHandler extends Thread {
                     return 1 + 8 + 4 + RawMsg.SIGNATURE_LENGRTH + data.length;
                 }
 
-                if (myCurrentVersionTimestamp >= othersTimestamp) {
+                if (myCurrentVersionTimestamp >= othersTimestamp && Settings.signatureIncludesUpdate != 0) {
                     System.out.println("update not required, aborting...");
                     return 1 + 8 + 4 + RawMsg.SIGNATURE_LENGRTH + data.length;
                 }
@@ -2879,13 +2940,13 @@ public class ConnectionHandler extends Thread {
                 boolean saved = KadStoreManager.put(kadContent);
 
 //                if (saved) {
-                    peer.getWriteBufferLock().lock();
-                    try {
-                        writeBuffer.put(Command.JOB_ACK);
-                        writeBuffer.putInt(ackId);
-                    } finally {
-                        peer.getWriteBufferLock().unlock();
-                    }
+                peer.getWriteBufferLock().lock();
+                try {
+                    writeBuffer.put(Command.JOB_ACK);
+                    writeBuffer.putInt(ackId);
+                } finally {
+                    peer.getWriteBufferLock().unlock();
+                }
 
 //                }
 
@@ -2906,7 +2967,7 @@ public class ConnectionHandler extends Thread {
         }
 
         System.out.println(
-                "Wrong protocol, disconnecting + removing peer, nonce: " + peer.nodeId + " Command was: " + command + " next byte: " + nextByte + " remaining: " + readBuffer.remaining() + " crypt-Stauts: out: " + (peer.writeBufferCrypted != null) + ", in: " + (peer.readBufferCrypted != null));
+                "Wrong protocol, disconnecting + removing peer, nonce: " + peer.getNodeId() + " Command was: " + command + " next byte: " + nextByte + " remaining: " + readBuffer.remaining() + " crypt-Stauts: out: " + (peer.writeBufferCrypted != null) + ", in: " + (peer.readBufferCrypted != null));
         ByteBuffer a = ByteBuffer.allocate(1);
 
         a.put(
@@ -2929,6 +2990,11 @@ public class ConnectionHandler extends Thread {
         return 0;
 
     }
+
+    private void addNewPeer(String ip, int port) {
+        findPeer(new Peer(ip, port));
+    }
+
 
     public static void syncMessagesBack(final long time, final Peer peer, final int cnt) {
         new Thread() {
