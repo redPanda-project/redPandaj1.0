@@ -2094,6 +2094,11 @@ public class ConnectionHandler extends Thread {
 
         } else if (command == Command.UPDATE_REQUEST_TIMESTAMP) {
 
+            if (localSettings.getUpdateSignature() == null) {
+                //we do not have any signature for an update
+                return 1;
+            }
+
             if (Settings.signatureIncludesUpdate == -1) {
 
                 Settings.getMyCurrentVersionTimestamp();
@@ -2132,7 +2137,6 @@ public class ConnectionHandler extends Thread {
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-
 
 
             }
@@ -2883,7 +2887,9 @@ public class ConnectionHandler extends Thread {
                 System.out.println("got KadContent successfully from search!");
 
                 KademliaSearchJob runningJob = (KademliaSearchJob) Job.getRunningJob(ackId);
-                runningJob.ack(kadContent, peer);
+                if (runningJob != null) {
+                    runningJob.ack(kadContent, peer);
+                }
 
                 //ack to JOB!
 
