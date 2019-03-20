@@ -99,6 +99,10 @@ public abstract class Job implements Runnable {
         runningJobs.put(jobId, this);
     }
 
+    /**
+     * estimated time in ms
+     * @return
+     */
     public long getEstimatedRuntime() {
         return reRunDelay * runCounter;
     }

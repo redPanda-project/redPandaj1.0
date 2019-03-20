@@ -48,7 +48,8 @@ public class KademliaSearchJob extends Job {
 
             for (Peer p : peerList) {
 
-                if (p.getNodeId() == null) {
+                //do not add the peer if it the peer is not connected or the nodeId is unknown!
+                if (p.getNodeId() == null || !p.isConnected()) {
                     continue;
                 }
 
@@ -62,6 +63,16 @@ public class KademliaSearchJob extends Job {
     @Override
     public void work() {
 
+
+        /**
+         * check for timeout, maybe we already got an answer but not SEND_TO_NODES
+         */
+        if (getEstimatedRuntime() > 1000 * 5) {
+            System.out.println("5 second timeout reached for KadSearch... ");
+            success();
+            done();
+            return;
+        }
 
         int askedPeers = 0;
         int successfullPeers = 0;
@@ -146,6 +157,10 @@ public class KademliaSearchJob extends Job {
     protected KadContent success() {
 
         System.out.println("sucess!!!222");
+
+        if (contents.isEmpty()) {
+            return null;
+        }
 
         //lets get the newest one!
         contents.sort(new Comparator<KadContent>() {

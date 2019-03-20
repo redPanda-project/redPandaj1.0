@@ -24,6 +24,12 @@ public class KademliaSearchJobAnswerWS extends KademliaSearchJob {
 
         KadContent kadContent = super.success();
 
+        if (kadContent == null) {
+            System.out.println("job failed, did not found an entry in time...");
+            //todo: send fail to light client
+            return null;
+        }
+
         //send info to peer via WS
 
 //        WSParser.write(conn, bb);
