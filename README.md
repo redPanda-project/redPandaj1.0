@@ -34,7 +34,7 @@ RedPanda uses currently elliptic curve, AES256 and the broken and risky ARC4. El
 
 Contribution
 =========
-You can communicate with us via discord (https://discord.gg/4fY27Up).
+You can communicate with us via discord (https://discord.gg/8abJkZW).
 Contribution to this project is very welcome but all pull requests will be thoroughly reviewed and discussed.
 
 
