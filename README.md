@@ -1,3 +1,7 @@
+# DEPRECATED
+
+use the new reprository https://github.com/redPanda-project/redpandaj
+
 redPandaj
 =========
 
